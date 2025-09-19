@@ -1,0 +1,311 @@
+# Algoritmo de Canonicalização de Coletores
+
+Este projeto implementa um algoritmo para canonicalização de nomes de coletores de amostras biológicas botânicas e zoológicas, processando dados armazenados em MongoDB.
+
+## Visão Geral
+
+O algoritmo resolve o problema de múltiplas representações do mesmo coletor (ex: "FORZZA", "Forzza, R." e "R.C. Forzza") através de:
+
+1. **Atomização**: Separação de múltiplos coletores em uma string
+2. **Normalização**: Padronização de cada nome individual
+3. **Canonicalização**: Agrupamento de variações da mesma pessoa
+
+## Estrutura do Projeto
+
+```
+coletores/
+├── src/                          # Código fonte
+│   ├── canonicalizador_coletores.py  # Classes principais do algoritmo
+│   ├── analise_coletores.py          # Script de análise exploratória
+│   ├── processar_coletores.py        # Script de processamento principal
+│   ├── validar_canonicalizacao.py    # Script de validação
+│   └── gerar_relatorios.py           # Script de geração de relatórios
+├── config/                       # Configurações
+│   └── mongodb_config.py            # Configuração do MongoDB e algoritmo
+├── logs/                         # Arquivos de log
+├── reports/                      # Relatórios gerados
+├── requirements.txt              # Dependências Python
+└── README.md                     # Esta documentação
+```
+
+## Instalação
+
+1. **Instalar dependências**:
+```bash
+pip install -r requirements.txt
+```
+
+2. **Configurar MongoDB**:
+   - Verificar string de conexão em `config/mongodb_config.py`
+   - Banco: `dwc2json`
+   - Coleções: `ocorrências` (origem) e `coletores` (destino)
+
+## Uso
+
+### 1. Análise Exploratória
+
+Primeiro, execute uma análise para entender os padrões dos dados:
+
+```bash
+cd src
+python analise_coletores.py
+```
+
+**Saída**: Relatório em `reports/` com:
+- Distribuição de formatos de nomes
+- Separadores mais comuns
+- Caracteres especiais identificados
+- Amostras por padrão detectado
+
+### 2. Processamento Principal
+
+Execute a canonicalização de todos os dados:
+
+```bash
+# Processamento completo (11M registros)
+python processar_coletores.py
+
+# Reiniciar do zero (limpa dados existentes)
+python processar_coletores.py --restart
+
+# Ver casos que precisam revisão manual
+python processar_coletores.py --revisao
+```
+
+**Características**:
+- Processamento em lotes (10k registros por vez)
+- Sistema de checkpoint para recuperação
+- Logging verboso
+- Interrupção controlada (Ctrl+C)
+
+### 3. Validação
+
+Valide a qualidade da canonicalização:
+
+```bash
+# Validação completa
+python validar_canonicalizacao.py
+
+# Exportar amostra para revisão manual
+python validar_canonicalizacao.py --csv validacao_manual.csv
+```
+
+### 4. Relatórios
+
+Gere relatórios detalhados:
+
+```bash
+# Todos os relatórios
+python gerar_relatorios.py
+
+# Relatório específico
+python gerar_relatorios.py --tipo estatisticas
+python gerar_relatorios.py --tipo top --top-n 50
+python gerar_relatorios.py --tipo csv
+```
+
+## Algoritmo
+
+### Classes Principais
+
+#### `AtomizadorNomes`
+- Separa múltiplos coletores usando padrões regex
+- Suporta separadores: `&`, `e`, `and`, `;`, `et al.`, `e col.`, etc.
+- Valida nomes resultantes
+
+#### `NormalizadorNome`
+- Extrai componentes: sobrenome, iniciais, nome completo
+- Gera chaves de busca fonética (Soundex, Metaphone)
+- Normaliza para comparação
+
+#### `CanonizadorColetores`
+- Agrupa variações do mesmo coletor
+- Calcula similaridade usando:
+  - Sobrenome (peso 50%)
+  - Compatibilidade de iniciais (peso 30%)
+  - Similaridade fonética (peso 20%)
+- Score de confiança para agrupamento
+
+#### `GerenciadorMongoDB`
+- Interface com banco de dados
+- Operações em lote otimizadas
+- Sistema de checkpoint
+- Índices para busca eficiente
+
+### Estrutura da Coleção `coletores`
+
+```json
+{
+  "_id": ObjectId("..."),
+  "coletor_canonico": "Forzza, R.C.",
+  "sobrenome_normalizado": "forzza",
+  "nome_completo": "Rafael Carvalho Forzza",
+  "iniciais": ["R", "C"],
+  "variacoes": [
+    {
+      "forma_original": "FORZZA",
+      "frequencia": 1250,
+      "primeira_ocorrencia": ISODate("..."),
+      "ultima_ocorrencia": ISODate("...")
+    }
+  ],
+  "total_registros": 4200,
+  "confianca_canonicalizacao": 0.95,
+  "metadados": {
+    "data_criacao": ISODate("..."),
+    "ultima_atualizacao": ISODate("..."),
+    "algoritmo_versao": "1.0",
+    "revisar_manualmente": false
+  },
+  "indices_busca": {
+    "soundex": "F620",
+    "metaphone": "FRTS"
+  }
+}
+```
+
+## Configuração
+
+### Parâmetros Principais (`config/mongodb_config.py`)
+
+- `similarity_threshold`: 0.85 (limiar de similaridade para agrupamento)
+- `confidence_threshold`: 0.7 (limiar de confiança automática)
+- `batch_size`: 10000 (registros por lote)
+- `sample_size`: 100000 (tamanho da amostra para análise)
+
+### Padrões de Separação
+
+Personalizáveis em `SEPARATOR_PATTERNS`:
+- `&` ou `e`
+- `and`
+- `;`
+- `, + maiúscula`
+- `et al.`
+- `e col.`
+
+## Logs
+
+Todos os scripts geram logs detalhados em `logs/`:
+- `analise_exploratoria.log`
+- `processamento.log`
+- `validacao.log`
+- `relatorios.log`
+
+## Performance
+
+### Estimativas (11M registros)
+
+- **Processamento inicial**: 6-8 horas
+- **Performance**: ~500 registros/segundo
+- **Memória**: ~2GB RAM
+- **Armazenamento**: ~5GB adicional no MongoDB
+
+### Otimizações
+
+- Processamento em lotes
+- Índices MongoDB otimizados
+- Cache interno do canonizador
+- Checkpoints para recuperação
+
+## Monitoramento
+
+### Métricas de Qualidade
+
+- Taxa de canonicalização (variações/coletor)
+- Distribuição de confiança
+- Casos que precisam revisão manual
+- Inconsistências detectadas
+
+### Relatórios Disponíveis
+
+1. **Estatísticas Gerais**: Visão geral do processamento
+2. **Top Coletores**: Coletores mais frequentes
+3. **Qualidade**: Casos problemáticos e recomendações
+4. **Variações**: Análise de padrões de nomes
+5. **CSV Export**: Dados para análise externa
+
+## Manutenção
+
+### Revisão Manual
+
+Casos marcados para revisão manual (`revisar_manualmente: true`):
+- Confiança < 0.5
+- Muitas variações com baixa confiança
+- Sobrenomes inconsistentes
+
+### Ajuste de Parâmetros
+
+Para melhorar qualidade:
+- Reduzir `similarity_threshold` (mais agrupamento)
+- Aumentar `confidence_threshold` (mais revisão manual)
+- Adicionar novos padrões de separação
+
+## Troubleshooting
+
+### Problemas Comuns
+
+1. **Conexão MongoDB**:
+   ```
+   Erro: ServerSelectionTimeoutError
+   ```
+   - Verificar string de conexão
+   - Confirmar acesso à rede
+
+2. **Memória insuficiente**:
+   - Reduzir `batch_size`
+   - Aumentar RAM disponível
+
+3. **Processamento lento**:
+   - Verificar índices MongoDB
+   - Ajustar `batch_size`
+
+### Logs de Debug
+
+Para mais detalhes, alterar nível de log:
+```python
+logging.basicConfig(level=logging.DEBUG)
+```
+
+## Desenvolvimento
+
+### Extensões Futuras
+
+1. **Algoritmos de similaridade avançados**:
+   - Embedding de nomes
+   - Redes neurais
+
+2. **Interface web**:
+   - Revisão manual facilitada
+   - Visualização de resultados
+
+3. **Integração**:
+   - APIs REST
+   - Exportação para outros formatos
+
+### Testes
+
+Para implementar testes:
+```bash
+# Estrutura sugerida
+tests/
+├── test_atomizador.py
+├── test_normalizador.py
+├── test_canonizador.py
+└── test_mongodb.py
+```
+
+## Contribuição
+
+1. Fork do projeto
+2. Criar branch para feature
+3. Implementar com testes
+4. Documentar mudanças
+5. Pull request
+
+## Licença
+
+Este projeto está sob licença [inserir licença apropriada].
+
+## Contato
+
+Para dúvidas ou sugestões, contactar [inserir contato].

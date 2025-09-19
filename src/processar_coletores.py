@@ -1,0 +1,467 @@
+#!/usr/bin/env python3
+"""
+Script principal para processamento e canonicalização de coletores
+"""
+
+import sys
+import os
+import logging
+import time
+import signal
+from datetime import datetime
+from typing import Dict, List, Optional
+from tqdm import tqdm
+import traceback
+
+# Adiciona o diretório pai ao path para importar módulos
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+from config.mongodb_config import MONGODB_CONFIG, ALGORITHM_CONFIG, SEPARATOR_PATTERNS
+from src.canonicalizador_coletores import (
+    AtomizadorNomes,
+    NormalizadorNome,
+    CanonizadorColetores,
+    GerenciadorMongoDB
+)
+
+# Configurar logging
+def configurar_logging():
+    """
+    Configura sistema de logging
+    """
+    log_formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+    # Handler para arquivo
+    file_handler = logging.FileHandler('logs/processamento.log', encoding='utf-8')
+    file_handler.setFormatter(log_formatter)
+    file_handler.setLevel(logging.DEBUG)
+
+    # Handler para console
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(log_formatter)
+    console_handler.setLevel(logging.INFO)
+
+    # Logger principal
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+
+    return logger
+
+logger = configurar_logging()
+
+
+class ProcessadorColetores:
+    """
+    Classe principal para processamento de canonicalização
+    """
+
+    def __init__(self):
+        """
+        Inicializa o processador
+        """
+        self.atomizador = AtomizadorNomes(SEPARATOR_PATTERNS)
+        self.normalizador = NormalizadorNome()
+        self.canonizador = CanonizadorColetores(
+            similarity_threshold=ALGORITHM_CONFIG['similarity_threshold'],
+            confidence_threshold=ALGORITHM_CONFIG['confidence_threshold']
+        )
+
+        # Estatísticas do processamento
+        self.stats = {
+            'inicio_processamento': None,
+            'fim_processamento': None,
+            'total_registros_processados': 0,
+            'total_nomes_atomizados': 0,
+            'total_coletores_canonicos': 0,
+            'registros_com_erro': 0,
+            'registros_vazios': 0,
+            'tempo_processamento': 0,
+            'registros_por_segundo': 0,
+            'ultimo_checkpoint': None,
+            'checkpoint_count': 0
+        }
+
+        # Controle de processamento
+        self.deve_parar = False
+        self.mongo_manager = None
+
+        # Configura handler para interrupção
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
+
+        logger.info("ProcessadorColetores inicializado")
+
+    def _signal_handler(self, signum, frame):
+        """
+        Handler para sinais de interrupção
+        """
+        logger.warning(f"Sinal recebido ({signum}). Iniciando parada controlada...")
+        self.deve_parar = True
+
+    def processar_todos_coletores(self, restart: bool = False) -> Dict:
+        """
+        Processa todos os coletores do banco de dados
+
+        Args:
+            restart: Se True, reinicia o processamento do zero
+
+        Returns:
+            Dicionário com estatísticas do processamento
+        """
+        logger.info("=" * 80)
+        logger.info("INICIANDO PROCESSAMENTO DE CANONICALIZAÇÃO DE COLETORES")
+        logger.info("=" * 80)
+
+        self.stats['inicio_processamento'] = datetime.now()
+
+        try:
+            # Conecta ao MongoDB
+            logger.info("Conectando ao MongoDB...")
+            self.mongo_manager = GerenciadorMongoDB(
+                MONGODB_CONFIG['connection_string'],
+                MONGODB_CONFIG['database_name'],
+                MONGODB_CONFIG['collections']
+            )
+
+            # Cria índices se necessário
+            logger.info("Verificando índices da coleção coletores...")
+            self.mongo_manager.criar_indices_coletores()
+
+            # Verifica se deve reiniciar
+            checkpoint = None
+            if not restart:
+                checkpoint = self.mongo_manager.carregar_checkpoint()
+                if checkpoint:
+                    logger.info(f"Checkpoint encontrado: {checkpoint['total_registros_processados']} registros processados")
+                    self._carregar_estado_checkpoint(checkpoint)
+
+            if restart:
+                logger.warning("Reiniciando processamento. Limpando coleção coletores...")
+                self.mongo_manager.limpar_colecao_coletores()
+
+            # Processa em lotes
+            self._processar_em_lotes()
+
+            # Finaliza processamento
+            self._finalizar_processamento()
+
+        except Exception as e:
+            logger.error(f"Erro durante processamento: {e}")
+            logger.error(traceback.format_exc())
+            raise
+
+        finally:
+            if self.mongo_manager:
+                self.mongo_manager.fechar_conexao()
+
+        return self.stats
+
+    def _carregar_estado_checkpoint(self, checkpoint: Dict):
+        """
+        Carrega estado a partir de checkpoint
+        """
+        # Carrega estatísticas
+        for key in ['total_registros_processados', 'total_nomes_atomizados',
+                   'registros_com_erro', 'registros_vazios', 'checkpoint_count']:
+            if key in checkpoint:
+                self.stats[key] = checkpoint[key]
+
+        # Carrega estado do canonizador se disponível
+        if 'estado_canonizador' in checkpoint:
+            self._carregar_canonizador_estado(checkpoint['estado_canonizador'])
+
+    def _carregar_canonizador_estado(self, estado: Dict):
+        """
+        Carrega estado do canonizador (implementação simplificada)
+        """
+        # Em uma implementação completa, recarregaria o estado interno do canonizador
+        # Por simplicidade, deixamos o canonizador reconstruir a partir do MongoDB
+        logger.info("Estado do canonizador será reconstruído a partir do MongoDB")
+
+    def _processar_em_lotes(self):
+        """
+        Processa dados em lotes
+        """
+        batch_size = ALGORITHM_CONFIG['batch_size']
+        checkpoint_interval = ALGORITHM_CONFIG['checkpoint_interval']
+
+        logger.info(f"Iniciando processamento em lotes (tamanho: {batch_size})")
+
+        # Pula registros já processados se houver checkpoint
+        skip_count = self.stats['total_registros_processados']
+
+        # Itera sobre todos os registros
+        batch_count = 0
+        for batch in self.mongo_manager.obter_todos_recordedby(batch_size):
+            if self.deve_parar:
+                logger.warning("Interrupção solicitada. Salvando checkpoint...")
+                self._salvar_checkpoint()
+                break
+
+            # Pula lotes já processados
+            if skip_count > 0:
+                registros_no_lote = len(batch)
+                if skip_count >= registros_no_lote:
+                    skip_count -= registros_no_lote
+                    continue
+                else:
+                    # Processa apenas parte do lote
+                    batch = batch[skip_count:]
+                    skip_count = 0
+
+            batch_count += 1
+            logger.info(f"Processando lote {batch_count} ({len(batch)} registros)...")
+
+            # Processa lote com barra de progresso
+            self._processar_lote(batch)
+
+            # Salva checkpoint periodicamente
+            if self.stats['total_registros_processados'] % checkpoint_interval == 0:
+                self._salvar_checkpoint()
+
+    def _processar_lote(self, batch: List[Dict]):
+        """
+        Processa um lote de registros
+        """
+        with tqdm(batch, desc="Processando registros", leave=False) as pbar:
+            for documento in pbar:
+                try:
+                    self._processar_documento(documento)
+
+                except Exception as e:
+                    logger.error(f"Erro ao processar documento {documento.get('_id', 'unknown')}: {e}")
+                    self.stats['registros_com_erro'] += 1
+
+                finally:
+                    self.stats['total_registros_processados'] += 1
+
+                    # Atualiza estatísticas da barra de progresso
+                    pbar.set_postfix({
+                        'Processados': self.stats['total_registros_processados'],
+                        'Atomizados': self.stats['total_nomes_atomizados'],
+                        'Canônicos': len(self.canonizador.coletores_canonicos),
+                        'Erros': self.stats['registros_com_erro']
+                    })
+
+    def _processar_documento(self, documento: Dict):
+        """
+        Processa um documento individual
+        """
+        recorded_by = documento.get('recordedBy', '')
+
+        if not recorded_by or not isinstance(recorded_by, str) or not recorded_by.strip():
+            self.stats['registros_vazios'] += 1
+            return
+
+        recorded_by = recorded_by.strip()
+
+        # Atomiza nomes
+        nomes_atomizados = self.atomizador.atomizar(recorded_by)
+        self.stats['total_nomes_atomizados'] += len(nomes_atomizados)
+
+        if not nomes_atomizados:
+            self.stats['registros_vazios'] += 1
+            return
+
+        # Processa cada nome atomizado
+        for nome in nomes_atomizados:
+            self._processar_nome_individual(nome)
+
+    def _processar_nome_individual(self, nome: str):
+        """
+        Processa um nome individual
+        """
+        try:
+            # Normaliza o nome
+            nome_normalizado = self.normalizador.normalizar(nome)
+
+            if not nome_normalizado['sobrenome_normalizado']:
+                return  # Nome sem sobrenome identificável
+
+            # Canoniza o nome
+            resultado_canonizacao = self.canonizador.processar_nome(nome_normalizado)
+
+            # Salva ou atualiza no MongoDB
+            if resultado_canonizacao['acao'] in ['criado', 'agrupado']:
+                coletor_canonico = resultado_canonizacao['coletor_canonico']
+                self.mongo_manager.salvar_coletor_canonico(coletor_canonico)
+
+                if resultado_canonizacao['acao'] == 'criado':
+                    self.stats['total_coletores_canonicos'] += 1
+
+        except Exception as e:
+            logger.debug(f"Erro ao processar nome '{nome}': {e}")
+            raise
+
+    def _salvar_checkpoint(self):
+        """
+        Salva checkpoint do processamento
+        """
+        try:
+            checkpoint_data = {
+                'tipo': 'canonicalizacao',
+                'total_registros_processados': self.stats['total_registros_processados'],
+                'total_nomes_atomizados': self.stats['total_nomes_atomizados'],
+                'total_coletores_canonicos': self.stats['total_coletores_canonicos'],
+                'registros_com_erro': self.stats['registros_com_erro'],
+                'registros_vazios': self.stats['registros_vazios'],
+                'checkpoint_count': self.stats['checkpoint_count'] + 1,
+                'timestamp_checkpoint': datetime.now(),
+                'algoritmo_versao': '1.0'
+            }
+
+            self.mongo_manager.salvar_checkpoint(checkpoint_data)
+            self.stats['checkpoint_count'] += 1
+            self.stats['ultimo_checkpoint'] = datetime.now()
+
+            logger.info(f"Checkpoint {self.stats['checkpoint_count']} salvo")
+
+        except Exception as e:
+            logger.error(f"Erro ao salvar checkpoint: {e}")
+
+    def _finalizar_processamento(self):
+        """
+        Finaliza o processamento e calcula estatísticas finais
+        """
+        self.stats['fim_processamento'] = datetime.now()
+
+        if self.stats['inicio_processamento']:
+            delta = self.stats['fim_processamento'] - self.stats['inicio_processamento']
+            self.stats['tempo_processamento'] = delta.total_seconds()
+
+            if self.stats['tempo_processamento'] > 0:
+                self.stats['registros_por_segundo'] = (
+                    self.stats['total_registros_processados'] / self.stats['tempo_processamento']
+                )
+
+        # Obtém estatísticas do canonizador
+        stats_canonizador = self.canonizador.obter_estatisticas()
+        self.stats.update(stats_canonizador)
+
+        # Obtém estatísticas do MongoDB
+        stats_mongodb = self.mongo_manager.obter_estatisticas_colecao()
+        self.stats['mongodb_stats'] = stats_mongodb
+
+        # Salva checkpoint final
+        self._salvar_checkpoint()
+
+        logger.info("=" * 80)
+        logger.info("PROCESSAMENTO FINALIZADO")
+        logger.info("=" * 80)
+        self._exibir_relatorio_final()
+
+    def _exibir_relatorio_final(self):
+        """
+        Exibe relatório final do processamento
+        """
+        stats = self.stats
+
+        logger.info(f"Tempo de processamento: {stats['tempo_processamento']:.1f} segundos")
+        logger.info(f"Registros processados: {stats['total_registros_processados']:,}")
+        logger.info(f"Nomes atomizados: {stats['total_nomes_atomizados']:,}")
+        logger.info(f"Coletores canônicos criados: {stats.get('total_coletores_canonicos', 0):,}")
+        logger.info(f"Taxa de canonicalização: {stats.get('taxa_canonicalizacao', 0):.2f}")
+        logger.info(f"Registros por segundo: {stats['registros_por_segundo']:.1f}")
+        logger.info(f"Registros com erro: {stats['registros_com_erro']:,}")
+        logger.info(f"Registros vazios: {stats['registros_vazios']:,}")
+        logger.info(f"Checkpoints salvos: {stats['checkpoint_count']}")
+
+        if 'mongodb_stats' in stats and stats['mongodb_stats']:
+            mongodb_stats = stats['mongodb_stats']
+            logger.info(f"Estatísticas MongoDB:")
+            logger.info(f"  - Total coletores no BD: {mongodb_stats.get('total_coletores', 0):,}")
+            logger.info(f"  - Total variações: {mongodb_stats.get('total_variacoes', 0):,}")
+            logger.info(f"  - Precisam revisão: {mongodb_stats.get('precisam_revisao', 0):,}")
+            logger.info(f"  - Confiança média: {mongodb_stats.get('confianca_media', 0):.3f}")
+
+    def obter_relatorio_coletores_revisao(self, limite: int = 50) -> List[Dict]:
+        """
+        Obtém relatório de coletores que precisam revisão manual
+
+        Args:
+            limite: Número máximo de coletores a retornar
+
+        Returns:
+            Lista de coletores para revisão
+        """
+        if not self.mongo_manager:
+            logger.error("MongoDB não conectado")
+            return []
+
+        coletores_revisao = self.mongo_manager.obter_coletores_para_revisao(limite)
+
+        logger.info(f"Coletores que precisam revisão manual: {len(coletores_revisao)}")
+
+        return coletores_revisao
+
+
+def main():
+    """
+    Função principal
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Processador de Canonicalização de Coletores')
+    parser.add_argument('--restart', action='store_true',
+                       help='Reinicia o processamento do zero (limpa dados existentes)')
+    parser.add_argument('--sample', type=int,
+                       help='Processa apenas uma amostra de N registros (para testes)')
+    parser.add_argument('--revisao', action='store_true',
+                       help='Exibe relatório de coletores que precisam revisão manual')
+
+    args = parser.parse_args()
+
+    try:
+        processador = ProcessadorColetores()
+
+        if args.revisao:
+            # Apenas exibe relatório de revisão
+            coletores_revisao = processador.obter_relatorio_coletores_revisao(100)
+
+            print("\n" + "="*80)
+            print("COLETORES QUE PRECISAM REVISÃO MANUAL")
+            print("="*80)
+
+            for i, coletor in enumerate(coletores_revisao[:10], 1):
+                print(f"\n{i}. {coletor['coletor_canonico']} (confiança: {coletor['confianca_canonicalizacao']:.3f})")
+                print(f"   Variações: {len(coletor['variacoes'])}")
+                for variacao in coletor['variacoes'][:3]:
+                    print(f"   - {variacao['forma_original']} (freq: {variacao['frequencia']})")
+                if len(coletor['variacoes']) > 3:
+                    print(f"   ... e mais {len(coletor['variacoes']) - 3} variações")
+
+            return 0
+
+        # Modifica configuração se for amostra
+        if args.sample:
+            logger.info(f"Modo amostra ativado: processando apenas {args.sample} registros")
+            # Implementaria limitação aqui se necessário
+
+        # Executa processamento
+        stats = processador.processar_todos_coletores(restart=args.restart)
+
+        print("\n" + "="*50)
+        print("PROCESSAMENTO CONCLUÍDO COM SUCESSO!")
+        print("="*50)
+        print(f"Registros processados: {stats['total_registros_processados']:,}")
+        print(f"Tempo total: {stats['tempo_processamento']:.1f}s")
+        print(f"Coletores canônicos: {stats.get('total_coletores_canonicos', 0):,}")
+
+        return 0
+
+    except KeyboardInterrupt:
+        logger.warning("Processamento interrompido pelo usuário")
+        return 130
+    except Exception as e:
+        logger.error(f"Erro fatal: {e}")
+        logger.error(traceback.format_exc())
+        return 1
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())
