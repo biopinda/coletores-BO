@@ -209,3 +209,6 @@ checkpoint_*.json
 data/
 *.csv.gz
 *.tsv.gz
+
+# Claude Code configuration
+.claude/
