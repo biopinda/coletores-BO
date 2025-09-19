@@ -177,6 +177,7 @@ reports/*.xlsx
 # Configuration files with sensitive data
 config/local_config.py
 config/production_config.py
+config/mongodb_config.py
 
 # Temporary files
 temp/

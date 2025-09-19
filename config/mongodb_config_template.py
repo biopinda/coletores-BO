@@ -1,10 +1,12 @@
 """
 Configuração para conexão com MongoDB
+Template de configuração - copie para mongodb_config.py e configure suas credenciais
 """
+import os
 
 # Configurações do MongoDB
 MONGODB_CONFIG = {
-    'connection_string': 'mongodb://dwc2json:VLWQ8Bke65L52hfBM635@192.168.1.10:27017/?authSource=admin',
+    'connection_string': os.getenv('MONGODB_CONNECTION_STRING', 'mongodb://usuario:senha@host:porta/?authSource=admin'),
     'database_name': 'dwc2json',
     'collections': {
         'ocorrencias': 'ocorrencias',
