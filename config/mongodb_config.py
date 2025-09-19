@@ -7,7 +7,7 @@ MONGODB_CONFIG = {
     'connection_string': 'mongodb://dwc2json:VLWQ8Bke65L52hfBM635@192.168.1.10:27017/?authSource=admin',
     'database_name': 'dwc2json',
     'collections': {
-        'ocorrencias': 'ocorrências',
+        'ocorrencias': 'ocorrencias',
         'coletores': 'coletores'
     },
     'timeout': 30000,  # 30 segundos
