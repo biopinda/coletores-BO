@@ -153,7 +153,6 @@ class NormalizadorNome:
             'sobrenome': componentes['sobrenome'],
             'sobrenome_normalizado': componentes['sobrenome_normalizado'],
             'iniciais': componentes['iniciais'],
-            'nome_completo': componentes['nome_completo'],
             'tem_inicial': len(componentes['iniciais']) > 0,
             'chaves_busca': chaves_busca
         }
@@ -186,8 +185,7 @@ class NormalizadorNome:
         componentes = {
             'sobrenome': '',
             'sobrenome_normalizado': '',
-            'iniciais': [],
-            'nome_completo': nome,
+            'iniciais': []
         }
 
         # Padrões comuns de nomes científicos
@@ -256,7 +254,7 @@ class NormalizadorNome:
         iniciais = componentes['iniciais']
 
         if not sobrenome:
-            return componentes['nome_completo']
+            return nome
 
         if iniciais:
             iniciais_str = '.'.join(iniciais) + '.'
@@ -296,7 +294,6 @@ class NormalizadorNome:
             'sobrenome': '',
             'sobrenome_normalizado': '',
             'iniciais': [],
-            'nome_completo': '',
             'tem_inicial': False,
             'chaves_busca': {'soundex': '', 'metaphone': ''}
         }
@@ -495,7 +492,6 @@ class CanonizadorColetores:
         coletor_canonico = {
             'coletor_canonico': nome_normalizado['nome_normalizado'],
             'sobrenome_normalizado': nome_normalizado['sobrenome_normalizado'],
-            'nome_completo': nome_normalizado['nome_completo'],
             'iniciais': nome_normalizado['iniciais'],
             'variacoes': [{
                 'forma_original': nome_normalizado['nome_original'],

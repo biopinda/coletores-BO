@@ -435,7 +435,6 @@ class GeradorRelatorios:
                 "$project": {
                     "coletor_canonico": 1,
                     "sobrenome_normalizado": 1,
-                    "nome_completo": 1,
                     "iniciais": 1,
                     "total_registros": 1,
                     "num_variacoes": {"$size": "$variacoes"},
@@ -460,7 +459,6 @@ class GeradorRelatorios:
             dados_csv.append({
                 'coletor_canonico': coletor.get('coletor_canonico', ''),
                 'sobrenome_normalizado': coletor.get('sobrenome_normalizado', ''),
-                'nome_completo': coletor.get('nome_completo', ''),
                 'iniciais': ','.join(coletor.get('iniciais', [])),
                 'total_registros': coletor.get('total_registros', 0),
                 'num_variacoes': coletor.get('num_variacoes', 0),

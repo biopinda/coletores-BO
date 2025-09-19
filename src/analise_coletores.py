@@ -196,9 +196,9 @@ class AnalisadorColetores:
         elif re.match(r'^[A-ZÀ-Ÿ\s]+$', nome) and len(nome) > 3:
             return 'maiusculo'
 
-        # Formato: nome com múltiplas palavras (provavelmente nome completo)
+        # Formato: nome com múltiplas palavras
         elif len(nome.split()) > 2:
-            return 'nome_completo'
+            return 'multiplas_palavras'
 
         # Formato: uma ou duas palavras
         elif len(nome.split()) <= 2:

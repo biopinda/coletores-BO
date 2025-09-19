@@ -139,7 +139,6 @@ python gerar_relatorios.py --tipo csv
   "_id": ObjectId("..."),
   "coletor_canonico": "Forzza, R.C.",
   "sobrenome_normalizado": "forzza",
-  "nome_completo": "Rafael Carvalho Forzza",
   "iniciais": ["R", "C"],
   "variacoes": [
     {
