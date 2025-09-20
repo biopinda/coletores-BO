@@ -152,28 +152,16 @@ class ProcessadorColetores:
             # Conecta o canonizador ao MongoDB para busca de duplicatas
             self.canonizador.mongo_manager = self.mongo_manager
 
-            # Verifica se a coleção coletores está vazia
-            print(">> Verificando estado da colecao coletores...")
+            # FRESH START: Sempre limpa a coleção coletores e checkpoints
+            print(">> FRESH START: Limpando colecao coletores e checkpoints...")
             total_coletores = self.mongo_manager.coletores.count_documents({})
+            if total_coletores > 0:
+                print(f">> Removendo {total_coletores:,} coletores existentes...")
 
-            if total_coletores == 0:
-                print(">> Colecao coletores vazia. Resetando checkpoints e reiniciando do zero...")
-                self.mongo_manager.limpar_checkpoint()
-                restart = True  # Força reinício quando coleção está vazia
-            else:
-                print(f">> Encontrados {total_coletores:,} coletores na colecao")
+            self.mongo_manager.limpar_colecao_coletores()
+            self.mongo_manager.limpar_checkpoint()
 
-            # Verifica se deve reiniciar
-            checkpoint = None
-            if not restart:
-                checkpoint = self.mongo_manager.carregar_checkpoint()
-                if checkpoint:
-                    print(f">> Checkpoint encontrado: {checkpoint.get('total_registros_processados', 0):,} registros ja processados")
-                    self._carregar_estado_checkpoint(checkpoint)
-
-            if restart:
-                print(">> Reiniciando processamento. Limpando colecao coletores...")
-                self.mongo_manager.limpar_colecao_coletores()
+            print(">> Colecao coletores zerada. Iniciando processamento do zero...")
 
             print(">> Iniciando processamento dos dados de coletores...\n")
 
