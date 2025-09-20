@@ -1454,6 +1454,9 @@ class GerenciadorMongoDB:
             True se salvou com sucesso
         """
         try:
+            # Sanitiza dados antes de salvar
+            coletor_canonico = self._sanitizar_dados_mongodb(coletor_canonico)
+
             filtro = {"sobrenome_normalizado": coletor_canonico["sobrenome_normalizado"]}
 
             # Verifica se já existe um coletor com o mesmo sobrenome normalizado
@@ -1463,10 +1466,13 @@ class GerenciadorMongoDB:
                 # Faz merge das variações
                 self._merge_variacoes(existente, coletor_canonico)
 
+                # Sanitiza dados existentes antes de salvar
+                existente_sanitizado = self._sanitizar_dados_mongodb(existente)
+
                 # Atualiza o documento existente
                 resultado = self.coletores.replace_one(
                     {"_id": existente["_id"]},
-                    existente
+                    existente_sanitizado
                 )
                 logger.debug(f"Coletor atualizado (merge): {existente['coletor_canonico']}")
             else:
@@ -1479,6 +1485,35 @@ class GerenciadorMongoDB:
         except Exception as e:
             logger.error(f"Erro ao salvar coletor canônico: {e}")
             return False
+
+    def _sanitizar_dados_mongodb(self, dados: Dict[str, any]) -> Dict[str, any]:
+        """
+        Sanitiza dados para compatibilidade com MongoDB
+        Converte tipos problemáticos que podem causar erro de 8-byte ints
+        """
+        import copy
+        from datetime import datetime
+
+        dados_limpos = copy.deepcopy(dados)
+
+        def sanitizar_recursivo(obj):
+            if isinstance(obj, dict):
+                for key, value in obj.items():
+                    obj[key] = sanitizar_recursivo(value)
+            elif isinstance(obj, list):
+                for i, item in enumerate(obj):
+                    obj[i] = sanitizar_recursivo(item)
+            elif isinstance(obj, datetime):
+                # Converte datetime para timestamp Unix (segundos) como float
+                return obj.timestamp()
+            elif isinstance(obj, int):
+                # Verifica se o inteiro está dentro do limite de 64 bits
+                if obj > 9223372036854775807 or obj < -9223372036854775808:
+                    # Converte para float se exceder o limite
+                    return float(obj)
+            return obj
+
+        return sanitizar_recursivo(dados_limpos)
 
     def _merge_variacoes(self, existente: Dict[str, any], novo: Dict[str, any]):
         """
