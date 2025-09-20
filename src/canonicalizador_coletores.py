@@ -89,6 +89,7 @@ class AtomizadorNomes:
         - 'conjunto_pessoas': múltiplos nomes próprios (para atomização)
         - 'grupo_pessoas': denominações genéricas sem nomes próprios
         - 'empresa_instituicao': organizações, empresas, instituições
+        - 'ausencia_coletor': ausência de informação sobre o coletor
 
         Args:
             text: Texto a ser classificado
@@ -104,6 +105,9 @@ class AtomizadorNomes:
 
         text = text.strip()
 
+        # Verifica primeiro se é ausência de coletor (prioridade máxima)
+        ausencia_confidence = self._calculate_ausencia_coletor_confidence(text)
+
         # Verifica se é conjunto de pessoas (múltiplos nomes próprios)
         conjunto_confidence = self._calculate_conjunto_pessoas_confidence(text)
 
@@ -114,11 +118,11 @@ class AtomizadorNomes:
         group_confidence = self._calculate_group_confidence(text)
 
         # Classifica baseado na maior confiança com prioridades específicas
-        # Prioridade 1: Grupos com alta confiança (casos especiais como "?" e grupos de instituições)
-        if group_confidence >= 0.9:
+        # Prioridade 1: Ausência de coletor (prioridade máxima)
+        if ausencia_confidence > 0.8:
             return {
-                'tipo': 'grupo_pessoas',
-                'confianca_classificacao': group_confidence
+                'tipo': 'ausencia_coletor',
+                'confianca_classificacao': ausencia_confidence
             }
         # Prioridade 2: Conjunto de pessoas com alta confiança
         elif conjunto_confidence > 0.7 and conjunto_confidence >= max(institution_confidence, group_confidence):
@@ -126,13 +130,19 @@ class AtomizadorNomes:
                 'tipo': 'conjunto_pessoas',
                 'confianca_classificacao': conjunto_confidence
             }
-        # Prioridade 3: Instituições
+        # Prioridade 3: Grupos com alta confiança
+        elif group_confidence >= 0.8:
+            return {
+                'tipo': 'grupo_pessoas',
+                'confianca_classificacao': group_confidence
+            }
+        # Prioridade 4: Instituições
         elif institution_confidence > 0.6 and institution_confidence >= max(conjunto_confidence, group_confidence):
             return {
                 'tipo': 'empresa_instituicao',
                 'confianca_classificacao': institution_confidence
             }
-        # Prioridade 4: Grupos com confiança moderada
+        # Prioridade 5: Grupos com confiança moderada
         elif group_confidence > 0.6:
             return {
                 'tipo': 'grupo_pessoas',
@@ -140,7 +150,7 @@ class AtomizadorNomes:
             }
         else:
             # Confiança para "pessoa" baseada na ausência de outros padrões
-            max_other = max(institution_confidence, conjunto_confidence, group_confidence)
+            max_other = max(institution_confidence, conjunto_confidence, group_confidence, ausencia_confidence)
             person_confidence = 1.0 - max_other
             return {
                 'tipo': 'pessoa',
@@ -249,9 +259,13 @@ class AtomizadorNomes:
         # Conta separadores que indicam múltiplos nomes
         separators_count = 0
 
-        # Padrão de múltiplos nomes separados por ponto e vírgula
+        # Padrão de múltiplos nomes separados por separadores
         if ';' in text:
             separators_count += text.count(';')
+            confidence = max(confidence, 0.8)
+
+        if '|' in text:
+            separators_count += text.count('|')
             confidence = max(confidence, 0.8)
 
         # Padrão "et al." indica múltiplas pessoas
@@ -276,6 +290,54 @@ class AtomizadorNomes:
         # Se há múltiplos separadores E padrões de nomes
         if separators_count > 0 and matches > 0:
             confidence = max(confidence, 0.9)
+
+        # Palavras que indicam conjuntos de pessoas específicas
+        conjunto_keywords = [
+            r'pessoal\s+(do|da|de)\s+.+',        # "Pessoal do Museu Goeldi"
+            r'equipe\s+(do|da|de)\s+.+',         # "Equipe do Laboratório"
+            r'funcionários\s+(do|da|de)\s+.+',   # "Funcionários do Instituto"
+        ]
+
+        text_lower = text.lower()
+        for pattern in conjunto_keywords:
+            if re.search(pattern, text_lower):
+                confidence = max(confidence, 0.85)
+
+        return confidence
+
+    def _calculate_ausencia_coletor_confidence(self, text: str) -> float:
+        """
+        Calcula confiança de que o texto representa ausência de coletor
+        """
+        confidence = 0.0
+        text_lower = text.lower().strip()
+
+        # Casos específicos de ausência de coletor (alta confiança)
+        ausencia_patterns = [
+            r'^\?+$',                           # "?" ou "???"
+            r'^s/\s*coletor',                   # "s/ coletor", "s/coletor"
+            r'^sem\s+coletor',                  # "Sem coletor"
+            r'^coletor\s+não\s+identificado',   # "Coletor não identificado"
+            r'^não\s+identificado',             # "Não identificado"
+            r'^sem\s+informação',               # "Sem informação"
+            r'^não\s+informado',                # "Não informado"
+            r'^anônimo$',                       # "Anônimo"
+            r'^anonimo$',                       # "Anonimo"
+            r'^s\.?i\.?$',                      # "S.I." ou "SI"
+            r'^n\.?i\.?$',                      # "N.I." ou "NI"
+            r'^desconhecido$',                  # "Desconhecido"
+            r'^ignorado$',                      # "Ignorado"
+            r'^vazio$',                         # "Vazio"
+            r'^indefinido$',                    # "Indefinido"
+            r'^sem\s+dados',                    # "Sem dados"
+            r'^não\s+disponível',               # "Não disponível"
+            r'^nd$',                            # "ND"
+            r'^na$',                            # "NA"
+        ]
+
+        for pattern in ausencia_patterns:
+            if re.search(pattern, text_lower):
+                return 0.95
 
         return confidence
 
@@ -331,6 +393,7 @@ class AtomizadorNomes:
         # Padrões que indicam nomes de pessoas (incluindo caracteres acentuados)
         person_patterns = [
             r'^[A-ZÀ-Ý][a-zà-ÿç]+,\s*[A-Z]\.([A-Z]\.)*',  # "Silva, J.C."
+            r'^[A-ZÀ-Ý][a-zà-ÿç]+,[A-Z]$',                # "Roncoleta,T" (sem espaço)
             r'^[A-Z]\.([A-Z]\.)*\s+[A-ZÀ-Ý][a-zà-ÿç]+',   # "J.C. Silva"
             r'[A-ZÀ-Ý][a-zà-ÿç]+,\s*[A-ZÀ-Ý][a-zà-ÿç]+',  # "Silva, João"
             r'^[A-ZÀ-Ý][a-zà-ÿç]+,\s*[A-Z]{2,4}$',        # "Amaral, AG", "Castro, BM", "Faria, JEQ", "Proença, CEB"
@@ -388,24 +451,6 @@ class AtomizadorNomes:
         confidence = 0.0
         text_lower = text.lower()
 
-        # Casos especiais de ausência de coletor (alta confiança)
-        missing_collector_patterns = [
-            r'^\?+$',                           # "?" ou "???"
-            r'^sem\s+coletor',                  # "Sem coletor"
-            r'^coletor\s+não\s+identificado',   # "Coletor não identificado"
-            r'^não\s+identificado',             # "Não identificado"
-            r'^sem\s+informação',               # "Sem informação"
-            r'^não\s+informado',                # "Não informado"
-            r'^anônimo$',                       # "Anônimo"
-            r'^anonimo$',                       # "Anonimo"
-            r'^s\.?i\.?$',                      # "S.I." ou "SI"
-            r'^n\.?i\.?$',                      # "N.I." ou "NI"
-        ]
-
-        for pattern in missing_collector_patterns:
-            if re.search(pattern, text_lower):
-                return 0.95
-
         # Grupos de instituições (ex: "Taxonomy Class of Universidade de Brasília")
         institutional_group_patterns = [
             r'.+\s+(of|da|de|do)\s+(universidade|instituto|laboratorio|centro)',
@@ -421,18 +466,20 @@ class AtomizadorNomes:
         if self._contains_proper_names(text):
             return 0.0
 
-        # Palavras-chave de grupos genéricos (confiança alta)
-        group_keywords = {
-            'equipe': 0.85, 'grupo': 0.80, 'projeto': 0.75,
-            'pesquisa': 0.70, 'estudo': 0.65, 'alunos': 0.90,
-            'turma': 0.85, 'curso': 0.75, 'disciplina': 0.80,
-            'coleta': 0.65, 'campo': 0.60, 'coletor': 0.70,
-            'coletores': 0.75, 'botanica': 0.70, 'botanicos': 0.75,
-            'pesquisadores': 0.80, 'expedição': 0.75, 'expedição': 0.75
-        }
+        # Palavras-chave de grupos genéricos (usando word boundaries para evitar falsos positivos)
+        group_keywords = [
+            (r'\bequipe\b', 0.85), (r'\bgrupo\b', 0.80), (r'\bprojeto\b', 0.75),
+            (r'\bpesquisa\b', 0.70), (r'\bestudo\b', 0.65), (r'\balunos\b', 0.90),
+            (r'\bturma\b', 0.85), (r'\bcurso\b', 0.75), (r'\bdisciplina\b', 0.80),
+            (r'\bcoleta\s+(coletiva|de\s+campo)\b', 0.65), (r'\bcampo\b', 0.60),
+            (r'\bcoletor\s+(não\s+identificado|desconhecido)\b', 0.70),
+            (r'\bcoletores\s+(não\s+identificados|desconhecidos)\b', 0.75),
+            (r'\bbotanica\b', 0.70), (r'\bbotanicos\b', 0.75),
+            (r'\bpesquisadores\b', 0.80), (r'\bexpedição\b', 0.75)
+        ]
 
-        for keyword, score in group_keywords.items():
-            if keyword in text_lower:
+        for pattern, score in group_keywords:
+            if re.search(pattern, text_lower):
                 confidence = max(confidence, score)
 
         # Expressões específicas de grupos genéricos (alta confiança)

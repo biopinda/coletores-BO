@@ -53,7 +53,8 @@ class AnalisadorColetores:
                 'pessoa': 0,
                 'conjunto_pessoas': 0,
                 'grupo_pessoas': 0,
-                'empresa_instituicao': 0
+                'empresa_instituicao': 0,
+                'ausencia_coletor': 0
             },
             'confiancas_classificacao': [],
             'distribuicao_separadores': Counter(),
@@ -66,7 +67,8 @@ class AnalisadorColetores:
                 'pessoa': [],
                 'conjunto_pessoas': [],
                 'grupo_pessoas': [],
-                'empresa_instituicao': []
+                'empresa_instituicao': [],
+                'ausencia_coletor': []
             }
         }
 
@@ -476,13 +478,8 @@ def main():
             print("="*50)
             print(relatorio[:2000] + "...\n[Relatório completo salvo em arquivo]")
 
-            # Dados JSON
-            arquivo_json = f"../reports/dados_analise_{timestamp}.json"
-            analisador.salvar_dados_json(arquivo_json)
-
-            print(f"\nArquivos gerados:")
+            print(f"\nArquivo gerado:")
             print(f"- Relatório: {arquivo_relatorio}")
-            print(f"- Dados JSON: {arquivo_json}")
 
             print("\nAnálise exploratória concluída com sucesso!")
 
