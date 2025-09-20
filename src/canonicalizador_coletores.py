@@ -1152,7 +1152,7 @@ class CanonizadorColetores:
             }],
             'total_registros': 1,
             'confianca_canonicalizacao': 1.0,
-            'kingdoms': nome_normalizado.get('kingdoms', {}),
+            'kingdom': nome_normalizado.get('kingdom', []),
             'tipo_coletor': nome_normalizado.get('tipo_coletor', 'pessoa'),
             'confianca_tipo_coletor': nome_normalizado.get('confianca_tipo_coletor', 0.5),
             'metadados': {
@@ -1208,13 +1208,14 @@ class CanonizadorColetores:
         candidato['total_registros'] += 1
         candidato['metadados']['ultima_atualizacao'] = datetime.now()
 
-        # Atualiza kingdoms
-        kingdoms_novos = nome_normalizado.get('kingdoms', {})
-        for kingdom, count in kingdoms_novos.items():
-            if kingdom in candidato['kingdoms']:
-                candidato['kingdoms'][kingdom] += count
-            else:
-                candidato['kingdoms'][kingdom] = count
+        # Atualiza kingdom
+        kingdom_novos = nome_normalizado.get('kingdom', [])
+        if not isinstance(candidato['kingdom'], list):
+            candidato['kingdom'] = []
+
+        for kingdom in kingdom_novos:
+            if kingdom and kingdom not in candidato['kingdom']:
+                candidato['kingdom'].append(kingdom)
 
         # Atualiza confiança (diminui se score for baixo)
         if score < self.confidence_threshold:
@@ -1404,7 +1405,7 @@ class GerenciadorMongoDB:
             # Adiciona timeout para evitar travamento
             cursor = self.ocorrencias.find(
                 {"recordedBy": {"$exists": True, "$ne": None, "$ne": ""}},
-                {"recordedBy": 1, "_id": 1}
+                {"recordedBy": 1, "kingdom": 1, "_id": 1}
             ).batch_size(batch_size).max_time_ms(30000)  # Timeout de 30 segundos
 
             batch = []

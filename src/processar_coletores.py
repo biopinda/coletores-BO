@@ -291,17 +291,27 @@ class ProcessadorColetores:
             self.stats['registros_vazios'] += 1
             return
 
+        # Obtém kingdom do documento
+        kingdom = documento.get('kingdom', '')
+
         # Processa cada nome atomizado
         for nome in nomes_atomizados:
-            self._processar_nome_individual(nome)
+            self._processar_nome_individual(nome, kingdom)
 
-    def _processar_nome_individual(self, nome: str):
+    def _processar_nome_individual(self, nome: str, kingdom: str = ''):
         """
         Processa um nome individual
         """
         try:
             # Normaliza o nome
             nome_normalizado = self.normalizador.normalizar(nome)
+
+            # Adiciona kingdom ao nome normalizado
+            if kingdom:
+                if 'kingdom' not in nome_normalizado:
+                    nome_normalizado['kingdom'] = []
+                if kingdom not in nome_normalizado['kingdom']:
+                    nome_normalizado['kingdom'].append(kingdom)
 
             if not nome_normalizado['sobrenome_normalizado']:
                 return  # Nome sem sobrenome identificável
