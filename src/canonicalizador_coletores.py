@@ -1153,8 +1153,8 @@ class CanonizadorColetores:
             'total_registros': 1,
             'confianca_canonicalizacao': 1.0,
             'kingdom': nome_normalizado.get('kingdom', []),
-            'tipo_coletor': nome_normalizado.get('tipo_coletor', 'pessoa'),
-            'confianca_tipo_coletor': nome_normalizado.get('confianca_tipo_coletor', 0.5),
+            'tipo_coletor': self._classificar_tipo_coletor(nome_normalizado),
+            'confianca_tipo_coletor': self._calcular_confianca_tipo_coletor(nome_normalizado),
             'metadados': {
                 'data_criacao': agora,
                 'ultima_atualizacao': agora,
@@ -1259,6 +1259,128 @@ class CanonizadorColetores:
             'precisam_revisao_manual': revisar_manualmente,
             'taxa_canonicalizacao': total_variacoes / total_canonicos if total_canonicos > 0 else 0
         }
+
+    def _classificar_tipo_coletor(self, nome_normalizado: Dict[str, any]) -> str:
+        """
+        Classifica o tipo de coletor baseado nas características do nome
+        """
+        nome_limpo = nome_normalizado.get('nome_limpo', '').lower()
+        sobrenome = nome_normalizado.get('sobrenome', '').lower()
+        iniciais = nome_normalizado.get('iniciais', [])
+
+        # Palavras que indicam empresa/instituição (usar word boundaries)
+        palavras_instituicao_exatas = {
+            'universidade', 'university', 'faculdade', 'college', 'instituto', 'institute',
+            'laboratório', 'laboratory', 'lab.', 'museu', 'museum', 'herbário', 'herbarium',
+            'empresa', 'company', 'corporation', 'ltda.', 'ltd.', 'inc.', ' sa ', ' cia ',
+            'embrapa', 'inpa', 'ibama', 'icmbio', 'cnpq', 'capes', 'fapesp'
+        }
+
+        # Acrônimos de universidades (busca exata)
+        acronimos_universidades = {
+            'usp', 'ufrj', 'ufmg', 'ufpe', 'ufc', 'ufsc', 'ufpr', 'ufrgs', 'ufpi'
+        }
+
+        # Palavras que indicam múltiplas pessoas
+        palavras_multiplas = {'&', 'e', 'and', 'com', 'with', 'et al', 'etal', 'al.'}
+
+        # Palavras que indicam ausência
+        palavras_ausencia = {'?', 'sem coletor', 'não identificado', 's.i.', 'unknown', 'anonymous'}
+
+        # Verifica ausência de coletor
+        for palavra in palavras_ausencia:
+            if palavra in nome_limpo:
+                return 'ausencia_coletor'
+
+        # Verifica acrônimos de universidades primeiro (match exato de palavras)
+        palavras = nome_limpo.split()
+        for palavra in palavras:
+            if palavra in acronimos_universidades:
+                return 'empresa_instituicao'
+
+        # Verifica empresa/instituição
+        for palavra in palavras_instituicao_exatas:
+            if palavra in nome_limpo or palavra in sobrenome:
+                return 'empresa_instituicao'
+
+        # Verifica múltiplas pessoas (deve vir depois de instituição)
+        for palavra in palavras_multiplas:
+            if palavra in nome_limpo:
+                if palavra in ['et al', 'etal', 'al.']:
+                    return 'grupo_pessoas'
+                else:
+                    return 'conjunto_pessoas'
+
+        # Se tem iniciais, provavelmente é pessoa
+        if iniciais:
+            return 'pessoa'
+
+        # Padrões que indicam pessoa (sobrenome conhecido)
+        if len(sobrenome) > 2 and sobrenome.isalpha():
+            return 'pessoa'
+
+        # Default para pessoa
+        return 'pessoa'
+
+    def _calcular_confianca_tipo_coletor(self, nome_normalizado: Dict[str, any]) -> float:
+        """
+        Calcula a confiança na classificação do tipo de coletor
+        """
+        nome_limpo = nome_normalizado.get('nome_limpo', '').lower()
+        sobrenome = nome_normalizado.get('sobrenome', '').lower()
+        iniciais = nome_normalizado.get('iniciais', [])
+        tipo = self._classificar_tipo_coletor(nome_normalizado)
+
+        if tipo == 'ausencia_coletor':
+            # Alta confiança para casos óbvios
+            if any(palavra in nome_limpo for palavra in ['?', 'sem coletor', 'não identificado']):
+                return 0.95
+            return 0.8
+
+        elif tipo == 'empresa_instituicao':
+            # Alta confiança para acrônimos conhecidos
+            acromimos_conhecidos = {'usp', 'embrapa', 'inpa', 'ibama', 'cnpq'}
+            if any(acr in nome_limpo for acr in acromimos_conhecidos):
+                return 0.98
+
+            # Boa confiança para palavras explícitas
+            palavras_explicitas = {'universidade', 'laboratório', 'museu', 'empresa'}
+            if any(palavra in nome_limpo for palavra in palavras_explicitas):
+                return 0.85
+
+            return 0.7
+
+        elif tipo == 'conjunto_pessoas':
+            # Confiança baseada em indicadores claros
+            if '&' in nome_limpo or ' e ' in nome_limpo:
+                return 0.9
+            return 0.75
+
+        elif tipo == 'grupo_pessoas':
+            # Alta confiança para "et al"
+            if 'et al' in nome_limpo or 'etal' in nome_limpo:
+                return 0.95
+            return 0.8
+
+        elif tipo == 'pessoa':
+            # Confiança baseada na qualidade do nome
+            base_confianca = 0.6
+
+            # Tem iniciais: +0.2
+            if iniciais:
+                base_confianca += 0.2
+
+            # Sobrenome bem formado: +0.1
+            if len(sobrenome) > 2 and sobrenome.isalpha():
+                base_confianca += 0.1
+
+            # Nome completo bem formado: +0.1
+            if len(nome_limpo.split()) >= 2:
+                base_confianca += 0.1
+
+            return min(base_confianca, 0.95)
+
+        return 0.5
 
 
 class GerenciadorMongoDB:
@@ -1564,11 +1686,32 @@ class GerenciadorMongoDB:
             if forma in variacoes_existentes:
                 # Atualiza variação existente
                 var_existente = variacoes_existentes[forma]
-                var_existente['frequencia'] += nova_variacao['frequencia']
+
+                # VALIDAÇÃO: Garante que frequência é um inteiro pequeno
+                freq_existente = var_existente.get('frequencia', 1)
+                freq_nova = nova_variacao.get('frequencia', 1)
+
+                # Se valores suspeitos (muito grandes), reseta para 1
+                if isinstance(freq_existente, (int, float)) and freq_existente > 1000000:
+                    logger.warning(f"Frequência suspeita detectada: {freq_existente}. Resetando para 1.")
+                    freq_existente = 1
+
+                if isinstance(freq_nova, (int, float)) and freq_nova > 1000000:
+                    logger.warning(f"Frequência nova suspeita detectada: {freq_nova}. Resetando para 1.")
+                    freq_nova = 1
+
+                var_existente['frequencia'] = freq_existente + freq_nova
                 var_existente['ultima_ocorrencia'] = nova_variacao['ultima_ocorrencia']
             else:
+                # Valida nova variação antes de adicionar
+                nova_var_copy = nova_variacao.copy()
+                freq = nova_var_copy.get('frequencia', 1)
+                if isinstance(freq, (int, float)) and freq > 1000000:
+                    logger.warning(f"Frequência suspeita em nova variação: {freq}. Resetando para 1.")
+                    nova_var_copy['frequencia'] = 1
+
                 # Adiciona nova variação
-                existente['variacoes'].append(nova_variacao)
+                existente['variacoes'].append(nova_var_copy)
 
         # Atualiza totais
         existente['total_registros'] = sum(v['frequencia'] for v in existente['variacoes'])
