@@ -149,6 +149,15 @@ class AtomizadorNomes:
                 'confianca_classificacao': group_confidence
             }
         else:
+            # Verifica se é um nome único (problemático)
+            single_name_pattern = r'^[A-ZÀ-Ý][a-zà-ÿç]+$'
+            if re.match(single_name_pattern, text.strip()):
+                # Nomes únicos têm baixa confiança - devem ser revisados
+                return {
+                    'tipo': 'pessoa',
+                    'confianca_classificacao': 0.3  # Baixa confiança para revisão manual
+                }
+
             # Confiança para "pessoa" baseada na ausência de outros padrões
             max_other = max(institution_confidence, conjunto_confidence, group_confidence, ausencia_confidence)
             person_confidence = 1.0 - max_other
@@ -235,7 +244,11 @@ class AtomizadorNomes:
             'centro': 0.75, 'departamento': 0.70, 'faculdade': 0.85,
             'embrapa': 0.95, 'ibama': 0.95, 'icmbio': 0.95,
             'secretaria': 0.85, 'ministerio': 0.90, 'federal': 0.80,
-            'estadual': 0.80, 'municipal': 0.75
+            'estadual': 0.80, 'municipal': 0.75, 'laboratory': 0.80,
+            'company': 0.90, 'corporation': 0.90, 'institute': 0.85,
+            'university': 0.90, 'college': 0.85, 'school': 0.75,
+            'organization': 0.85, 'foundation': 0.80, 'society': 0.80,
+            'association': 0.80, 'lab': 0.75, 'lab.': 0.80
         }
 
         for keyword, score in institutional_keywords.items():
@@ -382,7 +395,10 @@ class AtomizadorNomes:
         institutional_words = [
             'universidade', 'instituto', 'laboratorio', 'centro', 'museu',
             'departamento', 'faculdade', 'empresa', 'fundacao', 'secretaria',
-            'ministerio', 'federal', 'estadual', 'municipal', 'nacional'
+            'ministerio', 'federal', 'estadual', 'municipal', 'nacional',
+            'company', 'corporation', 'institute', 'university', 'college',
+            'school', 'organization', 'foundation', 'society', 'association',
+            'laboratory', 'lab', 'lab.'
         ]
 
         text_lower = text.lower()
@@ -423,6 +439,13 @@ class AtomizadorNomes:
         for pattern in person_patterns:
             if re.search(pattern, text):
                 return True
+
+        # IMPORTANTE: Nomes únicos (sem sobrenome/iniciais) são problemáticos
+        # Exemplo: "Edilson", "Maria", "João" sozinhos não são confiáveis
+        single_name_pattern = r'^[A-ZÀ-Ý][a-zà-ÿç]+$'
+        if re.match(single_name_pattern, text):
+            # Nome único - muito baixa confiabilidade para ser pessoa
+            return False
 
         return False
 
@@ -766,18 +789,85 @@ class NormalizadorNome:
     def _gerar_nome_normalizado(self, componentes: Dict[str, any]) -> str:
         """
         Gera uma forma normalizada do nome para canonicalização
+
+        PADRÃO DE CAPITALIZAÇÃO:
+        - Title Case: primeira letra maiúscula, resto minúsculo
+        - Acrônimos conhecidos mantêm formato original
+        - Preposições ficam minúsculas (de, da, do, dos, das)
         """
         sobrenome = componentes['sobrenome']
         iniciais = componentes['iniciais']
 
         if not sobrenome:
-            return nome
+            return ""
+
+        # Aplica padronização de capitalização
+        sobrenome_padronizado = self._padronizar_capitalizacao(sobrenome)
 
         if iniciais:
-            iniciais_str = '.'.join(iniciais) + '.'
-            return f"{sobrenome}, {iniciais_str}"
+            iniciais_str = '.'.join([i.upper() for i in iniciais]) + '.'
+            return f"{sobrenome_padronizado}, {iniciais_str}"
         else:
-            return sobrenome
+            return sobrenome_padronizado
+
+    def _padronizar_capitalizacao(self, texto: str) -> str:
+        """
+        Padroniza a capitalização de um texto
+
+        REGRAS:
+        - Title Case geral
+        - Acrônimos conhecidos mantêm maiúsculas
+        - Preposições em minúsculas
+        - Nomes compostos com hífen mantêm cada parte
+        """
+        if not texto:
+            return ""
+
+        # Acrônimos conhecidos que devem ficar em maiúsculas
+        acronimos_conhecidos = {
+            'USP', 'UFRJ', 'UFC', 'UFMG', 'UFPE', 'UFSC', 'UFPR', 'UFRGS',
+            'EMBRAPA', 'INPA', 'IBAMA', 'ICMBIO', 'CNPQ', 'CAPES', 'FAPESP',
+            'RB', 'SP', 'MG', 'HB', 'HUEFS', 'ALCB', 'VIC', 'HRCB', 'UFPI'
+        }
+
+        # Se é um acrônimo conhecido, mantém maiúsculo
+        if texto.upper() in acronimos_conhecidos:
+            return texto.upper()
+
+        # Preposições que ficam minúsculas
+        preposicoes = {'de', 'da', 'do', 'dos', 'das', 'e', 'em', 'na', 'no', 'nas', 'nos'}
+
+        # Divide em palavras
+        palavras = texto.split()
+        palavras_formatadas = []
+
+        for i, palavra in enumerate(palavras):
+            # Remove pontuação para verificação
+            palavra_limpa = re.sub(r'[^\w\-]', '', palavra)
+
+            # Se contém hífen, trata cada parte separadamente
+            if '-' in palavra:
+                partes = palavra.split('-')
+                partes_formatadas = []
+                for parte in partes:
+                    if parte.upper() in acronimos_conhecidos:
+                        partes_formatadas.append(parte.upper())
+                    elif parte.lower() in preposicoes and i > 0:  # Preposições não no início
+                        partes_formatadas.append(parte.lower())
+                    else:
+                        partes_formatadas.append(parte.capitalize())
+                palavras_formatadas.append('-'.join(partes_formatadas))
+            # Se é acrônimo conhecido
+            elif palavra_limpa.upper() in acronimos_conhecidos:
+                palavras_formatadas.append(palavra_limpa.upper())
+            # Se é preposição e não é a primeira palavra
+            elif palavra.lower() in preposicoes and i > 0:
+                palavras_formatadas.append(palavra.lower())
+            # Caso geral: Title Case
+            else:
+                palavras_formatadas.append(palavra.capitalize())
+
+        return ' '.join(palavras_formatadas)
 
     def _gerar_chaves_busca(self, componentes: Dict[str, any]) -> Dict[str, str]:
         """
