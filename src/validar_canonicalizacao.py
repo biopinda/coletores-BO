@@ -562,7 +562,11 @@ def main():
 
         # Gera relatório
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        arquivo_relatorio = f"reports/validacao_{timestamp}.txt"
+
+        # Garante que o diretório reports existe
+        os.makedirs("../reports", exist_ok=True)
+
+        arquivo_relatorio = f"../reports/validacao_{timestamp}.txt"
 
         relatorio = validador.gerar_relatorio_validacao(arquivo_relatorio)
 

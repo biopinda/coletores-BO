@@ -462,8 +462,11 @@ def main():
             # Gera relatórios
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
+            # Garante que o diretório reports existe
+            os.makedirs("../reports", exist_ok=True)
+
             # Relatório texto
-            arquivo_relatorio = f"reports/analise_exploratoria_{timestamp}.txt"
+            arquivo_relatorio = f"../reports/analise_exploratoria_{timestamp}.txt"
             relatorio = analisador.gerar_relatorio(arquivo_relatorio)
             print("\n" + "="*50)
             print("RESUMO DA ANÁLISE")
@@ -471,7 +474,7 @@ def main():
             print(relatorio[:2000] + "...\n[Relatório completo salvo em arquivo]")
 
             # Dados JSON
-            arquivo_json = f"reports/dados_analise_{timestamp}.json"
+            arquivo_json = f"../reports/dados_analise_{timestamp}.json"
             analisador.salvar_dados_json(arquivo_json)
 
             print(f"\nArquivos gerados:")

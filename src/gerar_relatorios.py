@@ -43,7 +43,7 @@ class GeradorRelatorios:
         self.mongo_manager = None
         logger.info("GeradorRelatorios inicializado")
 
-    def gerar_todos_relatorios(self, diretorio_saida: str = "reports") -> Dict[str, str]:
+    def gerar_todos_relatorios(self, diretorio_saida: str = "../reports") -> Dict[str, str]:
         """
         Gera todos os relatórios disponíveis
 
@@ -535,8 +535,8 @@ def main():
     parser = argparse.ArgumentParser(description='Gerador de Relatórios de Canonicalização')
     parser.add_argument('--tipo', choices=['todos', 'estatisticas', 'top', 'qualidade', 'variacoes', 'csv'],
                        default='todos', help='Tipo de relatório a gerar')
-    parser.add_argument('--saida', type=str, default='reports',
-                       help='Diretório de saída (padrão: reports)')
+    parser.add_argument('--saida', type=str, default='../reports',
+                       help='Diretório de saída (padrão: ../reports)')
     parser.add_argument('--top-n', type=int, default=100,
                        help='Número de top coletores no relatório (padrão: 100)')
 
