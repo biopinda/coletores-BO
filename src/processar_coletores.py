@@ -375,25 +375,45 @@ class ProcessadorColetores:
         agora = datetime.now()
         tempo_decorrido = (agora - self.stats['inicio_processamento']).total_seconds()
 
-        # Estimativa de total se não conhecida
+        # Obtém total real de documentos se não conhecida
         if not self.stats['total_estimado']:
-            # Estima baseado na velocidade atual (primeira estimativa conservadora)
-            self.stats['total_estimado'] = int(self.stats['total_registros_processados'] * 2)
+            try:
+                # Usa estimated_document_count para performance (mais rápido que count_documents)
+                total_docs = self.mongo_manager.ocorrencias.estimated_document_count()
+
+                # Estima que ~80% dos documentos têm recordedBy válido baseado na experiência
+                self.stats['total_estimado'] = int(total_docs * 0.8)
+
+                logger.info(f"Total estimado de documentos com recordedBy: {self.stats['total_estimado']:,} (de {total_docs:,} total)")
+            except Exception as e:
+                logger.warning(f"Erro ao obter total de documentos: {e}. Usando estimativa baseada no progresso.")
+                # Fallback para estimativa baseada na progressão atual
+                if self.stats['total_registros_processados'] > 50000:
+                    # Estima baseado na progressão (assume que processou ~20% até agora)
+                    self.stats['total_estimado'] = int(self.stats['total_registros_processados'] * 5)
+                elif self.stats['total_registros_processados'] > 10000:
+                    self.stats['total_estimado'] = int(self.stats['total_registros_processados'] * 3)
+                else:
+                    self.stats['total_estimado'] = 8000000  # Estimativa padrão baseada em 11M * 0.8
 
         # Calcula estimativas
         processados = self.stats['total_registros_processados']
         restantes = max(0, self.stats['total_estimado'] - processados)
 
-        if self.stats['velocidade_media'] > 0:
+        if self.stats['velocidade_media'] > 0 and restantes > 0:
             tempo_restante_seg = restantes / self.stats['velocidade_media']
             tempo_restante = time.strftime('%H:%M:%S', time.gmtime(tempo_restante_seg))
             previsao_termino = (agora + pd.Timedelta(seconds=tempo_restante_seg)).strftime('%H:%M:%S')
+        elif restantes <= 0:
+            tempo_restante = "00:00:00"
+            previsao_termino = "Finalizando..."
         else:
             tempo_restante = "Calculando..."
             previsao_termino = "Calculando..."
 
-        # Progresso percentual
+        # Progresso percentual (limitado a 100%)
         percentual = (processados / self.stats['total_estimado'] * 100) if self.stats['total_estimado'] > 0 else 0
+        percentual = min(percentual, 100.0)  # Limita a 100% máximo
 
         print("\n" + "=" * 80)
         print(">> PROGRESSO DA CANONICALIZACAO DE COLETORES")
