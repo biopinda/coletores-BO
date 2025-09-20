@@ -16,7 +16,7 @@ import json
 # Adiciona o diretório pai ao path para importar módulos
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from config.mongodb_config import MONGODB_CONFIG, ALGORITHM_CONFIG, SEPARATOR_PATTERNS, GROUP_PATTERNS
+from config.mongodb_config import MONGODB_CONFIG, ALGORITHM_CONFIG, SEPARATOR_PATTERNS, GROUP_PATTERNS, INSTITUTION_PATTERNS
 from src.canonicalizador_coletores import AtomizadorNomes, NormalizadorNome, GerenciadorMongoDB
 
 # Configurar logging
@@ -40,7 +40,7 @@ class AnalisadorColetores:
         """
         Inicializa o analisador
         """
-        self.atomizador = AtomizadorNomes(SEPARATOR_PATTERNS, GROUP_PATTERNS)
+        self.atomizador = AtomizadorNomes(SEPARATOR_PATTERNS, GROUP_PATTERNS, INSTITUTION_PATTERNS)
         self.normalizador = NormalizadorNome()
 
         # Estatísticas
@@ -49,14 +49,23 @@ class AnalisadorColetores:
             'registros_vazios': 0,
             'registros_validos': 0,
             'total_nomes_atomizados': 0,
-            'grupos_projetos_identificados': 0,
+            'entidades_por_tipo': {
+                'pessoa': 0,
+                'grupo_pessoas': 0,
+                'empresa_instituicao': 0
+            },
+            'confiancas_classificacao': [],
             'distribuicao_separadores': Counter(),
             'distribuicao_tamanhos': Counter(),
             'distribuicao_formatos': Counter(),
             'caracteres_especiais': Counter(),
             'casos_problematicos': [],
             'amostras_por_padrao': defaultdict(list),
-            'exemplos_grupos_projetos': []
+            'exemplos_por_tipo': {
+                'pessoa': [],
+                'grupo_pessoas': [],
+                'empresa_instituicao': []
+            }
         }
 
         logger.info("AnalisadorColetores inicializado")
@@ -98,11 +107,20 @@ class AnalisadorColetores:
         recorded_by = recorded_by.strip()
         self.stats['registros_validos'] += 1
 
-        # Verifica se é um grupo/projeto
-        if self.atomizador.is_group_or_project(recorded_by):
-            self.stats['grupos_projetos_identificados'] += 1
-            if len(self.stats['exemplos_grupos_projetos']) < 20:
-                self.stats['exemplos_grupos_projetos'].append(recorded_by)
+        # Classifica o tipo de entidade
+        classificacao = self.atomizador.classify_entity_type(recorded_by)
+        tipo_entidade = classificacao['tipo']
+        confianca = classificacao['confianca_classificacao']
+
+        self.stats['entidades_por_tipo'][tipo_entidade] += 1
+        self.stats['confiancas_classificacao'].append(confianca)
+
+        # Coleta exemplos de cada tipo
+        if len(self.stats['exemplos_por_tipo'][tipo_entidade]) < 15:
+            self.stats['exemplos_por_tipo'][tipo_entidade].append({
+                'texto': recorded_by,
+                'confianca': confianca
+            })
 
         # Analisa tamanho
         self.stats['distribuicao_tamanhos'][self._categorizar_tamanho(len(recorded_by))] += 1
@@ -242,6 +260,20 @@ class AnalisadorColetores:
         # Converte amostras por padrão para dict normal
         self.stats['amostras_por_padrao'] = dict(self.stats['amostras_por_padrao'])
 
+        # Calcula estatísticas de confiança por tipo
+        if self.stats['confiancas_classificacao']:
+            import statistics
+            self.stats['confianca_classificacao_media'] = statistics.mean(self.stats['confiancas_classificacao'])
+            self.stats['confianca_classificacao_mediana'] = statistics.median(self.stats['confiancas_classificacao'])
+
+            # Calcula confiança baixa (< 0.7)
+            baixa_confianca = [c for c in self.stats['confiancas_classificacao'] if c < 0.7]
+            self.stats['casos_baixa_confianca_classificacao'] = len(baixa_confianca)
+        else:
+            self.stats['confianca_classificacao_media'] = 0
+            self.stats['confianca_classificacao_mediana'] = 0
+            self.stats['casos_baixa_confianca_classificacao'] = 0
+
     def gerar_relatorio(self, arquivo_saida: str = None) -> str:
         """
         Gera relatório detalhado da análise
@@ -267,7 +299,25 @@ class AnalisadorColetores:
         relatorio.append(f"Registros vazios: {self.stats['registros_vazios']:,}")
         relatorio.append(f"Total de nomes atomizados: {self.stats['total_nomes_atomizados']:,}")
         relatorio.append(f"Taxa de atomização: {self.stats['taxa_atomizacao']:.2f} nomes/registro")
-        relatorio.append(f"Grupos/Projetos identificados: {self.stats['grupos_projetos_identificados']:,}")
+        relatorio.append("")
+
+        # Distribuição por tipo de entidade
+        relatorio.append("DISTRIBUIÇÃO POR TIPO DE ENTIDADE")
+        relatorio.append("-" * 40)
+        total_entidades = sum(self.stats['entidades_por_tipo'].values())
+        for tipo, count in self.stats['entidades_por_tipo'].items():
+            porcentagem = (count / total_entidades) * 100 if total_entidades > 0 else 0
+            tipo_formatado = tipo.replace('_', ' ').title()
+            relatorio.append(f"{tipo_formatado}: {count:,} ({porcentagem:.1f}%)")
+
+        relatorio.append("")
+
+        # Estatísticas de confiança
+        relatorio.append("CONFIANÇA NA CLASSIFICAÇÃO")
+        relatorio.append("-" * 40)
+        relatorio.append(f"Confiança média: {self.stats.get('confianca_classificacao_media', 0):.3f}")
+        relatorio.append(f"Confiança mediana: {self.stats.get('confianca_classificacao_mediana', 0):.3f}")
+        relatorio.append(f"Casos com baixa confiança (<0.7): {self.stats.get('casos_baixa_confianca_classificacao', 0):,}")
         relatorio.append("")
 
         # Distribuição por tamanho
@@ -301,13 +351,19 @@ class AnalisadorColetores:
             relatorio.append(f"'{char}': {count:,}")
         relatorio.append("")
 
-        # Exemplos de grupos/projetos identificados
-        if self.stats['exemplos_grupos_projetos']:
-            relatorio.append("EXEMPLOS DE GRUPOS/PROJETOS IDENTIFICADOS")
-            relatorio.append("-" * 40)
-            for exemplo in self.stats['exemplos_grupos_projetos']:
-                relatorio.append(f"  - {exemplo}")
-            relatorio.append("")
+        # Exemplos por tipo de entidade
+        relatorio.append("EXEMPLOS POR TIPO DE ENTIDADE")
+        relatorio.append("-" * 40)
+
+        for tipo, exemplos in self.stats['exemplos_por_tipo'].items():
+            if exemplos:
+                tipo_formatado = tipo.replace('_', ' ').title()
+                relatorio.append(f"\n{tipo_formatado.upper()}:")
+                for exemplo in exemplos[:10]:  # Máximo 10 exemplos
+                    texto = exemplo['texto']
+                    confianca = exemplo['confianca']
+                    relatorio.append(f"  - {texto} (confiança: {confianca:.2f})")
+        relatorio.append("")
 
         # Amostras por padrão
         relatorio.append("AMOSTRAS POR PADRÃO")

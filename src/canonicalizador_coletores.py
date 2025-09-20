@@ -21,13 +21,14 @@ class AtomizadorNomes:
     Classe responsável por separar múltiplos coletores em strings
     """
 
-    def __init__(self, separator_patterns: List[str], group_patterns: List[str] = None):
+    def __init__(self, separator_patterns: List[str], group_patterns: List[str] = None, institution_patterns: List[str] = None):
         """
-        Inicializa o atomizador com padrões de separação e identificação de grupos
+        Inicializa o atomizador com padrões de separação e identificação de entidades
 
         Args:
             separator_patterns: Lista de padrões regex para separar nomes
-            group_patterns: Lista de padrões regex para identificar grupos/projetos
+            group_patterns: Lista de padrões regex para identificar grupos de pessoas
+            institution_patterns: Lista de padrões regex para identificar empresas/instituições
         """
         self.separator_patterns = separator_patterns
         self.compiled_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in separator_patterns]
@@ -35,7 +36,10 @@ class AtomizadorNomes:
         self.group_patterns = group_patterns or []
         self.compiled_group_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self.group_patterns]
 
-        logger.info(f"AtomizadorNomes inicializado com {len(separator_patterns)} padrões de separação e {len(self.group_patterns)} padrões de grupos")
+        self.institution_patterns = institution_patterns or []
+        self.compiled_institution_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self.institution_patterns]
+
+        logger.info(f"AtomizadorNomes inicializado com {len(separator_patterns)} padrões de separação, {len(self.group_patterns)} padrões de grupos e {len(self.institution_patterns)} padrões de instituições")
 
     def atomizar(self, text: str) -> List[str]:
         """
@@ -76,27 +80,126 @@ class AtomizadorNomes:
         logger.debug(f"Atomização: '{text}' -> {nomes_validos}")
         return nomes_validos
 
+    def classify_entity_type(self, text: str) -> Dict[str, any]:
+        """
+        Classifica o tipo de entidade representada pelo texto com score de confiança
+
+        Args:
+            text: Texto a ser classificado
+
+        Returns:
+            Dicionário com 'tipo' e 'confianca_classificacao'
+        """
+        if not text or not isinstance(text, str):
+            return {
+                'tipo': 'pessoa',
+                'confianca_classificacao': 0.5
+            }
+
+        text = text.strip()
+
+        # Verifica padrões de empresas/instituições com diferentes níveis de confiança
+        institution_confidence = self._calculate_institution_confidence(text)
+        group_confidence = self._calculate_group_confidence(text)
+
+        # Classifica baseado na maior confiança
+        if institution_confidence > group_confidence and institution_confidence > 0.6:
+            return {
+                'tipo': 'empresa_instituicao',
+                'confianca_classificacao': institution_confidence
+            }
+        elif group_confidence > 0.6:
+            return {
+                'tipo': 'grupo_pessoas',
+                'confianca_classificacao': group_confidence
+            }
+        else:
+            # Confiança para "pessoa" baseada na ausência de padrões organizacionais
+            person_confidence = 1.0 - max(institution_confidence, group_confidence)
+            return {
+                'tipo': 'pessoa',
+                'confianca_classificacao': max(person_confidence, 0.3)  # Mínimo de 30%
+            }
+
+    def _calculate_institution_confidence(self, text: str) -> float:
+        """
+        Calcula confiança de que o texto representa uma empresa/instituição
+        """
+        confidence = 0.0
+        text_upper = text.upper()
+
+        # Acrônimos em maiúsculas (alta confiança)
+        if re.match(r'^[A-Z]{2,8}$', text):
+            confidence = max(confidence, 0.95)
+        elif re.match(r'^[A-Z]{2,8}[-_][A-Z]{2,8}$', text):
+            confidence = max(confidence, 0.90)
+
+        # Códigos de herbário (alta confiança)
+        if re.match(r'^[A-Z]{1,4}$', text) and len(text) <= 4:
+            confidence = max(confidence, 0.95)
+
+        # Sufixos corporativos (alta confiança)
+        if re.search(r'\b(S\.?A\.?|LTDA\.?|EIRELI\.?|EPP\.?|Ltd\.?|Inc\.?|Corp\.?)\b', text, re.IGNORECASE):
+            confidence = max(confidence, 0.95)
+
+        # Palavras-chave institucionais (confiança moderada a alta)
+        institutional_keywords = {
+            'universidade': 0.90, 'instituto': 0.85, 'laboratorio': 0.80,
+            'museu': 0.85, 'fundacao': 0.80, 'empresa': 0.90,
+            'centro': 0.75, 'departamento': 0.70, 'faculdade': 0.85,
+            'embrapa': 0.95, 'ibama': 0.95, 'icmbio': 0.95
+        }
+
+        for keyword, score in institutional_keywords.items():
+            if keyword in text.lower():
+                confidence = max(confidence, score)
+
+        # Padrões com códigos/números (confiança moderada)
+        if re.search(r'[A-Z]{3,}\s*[0-9]+', text):
+            confidence = max(confidence, 0.75)
+
+        return confidence
+
+    def _calculate_group_confidence(self, text: str) -> float:
+        """
+        Calcula confiança de que o texto representa um grupo de pessoas
+        """
+        confidence = 0.0
+
+        # Palavras-chave de grupos (confiança moderada)
+        group_keywords = {
+            'equipe': 0.80, 'grupo': 0.75, 'projeto': 0.70,
+            'pesquisa': 0.65, 'estudo': 0.60, 'alunos': 0.85,
+            'turma': 0.80, 'curso': 0.70, 'disciplina': 0.75
+        }
+
+        for keyword, score in group_keywords.items():
+            if keyword in text.lower():
+                confidence = max(confidence, score)
+
+        # Expressões específicas (alta confiança)
+        if 'pesquisas da biodiversidade' in text.lower():
+            confidence = max(confidence, 0.90)
+        if 'coleta coletiva' in text.lower():
+            confidence = max(confidence, 0.95)
+        if 'não identificado' in text.lower() or 'anonimo' in text.lower():
+            confidence = max(confidence, 0.85)
+
+        return confidence
+
     def is_group_or_project(self, text: str) -> bool:
         """
         Verifica se o texto representa um grupo/projeto ao invés de uma pessoa
+        (Mantido para compatibilidade, mas usa o novo sistema de classificação)
 
         Args:
             text: Texto a ser verificado
 
         Returns:
-            True se for identificado como grupo/projeto
+            True se for identificado como grupo/projeto ou empresa/instituição
         """
-        if not text or not isinstance(text, str):
-            return False
-
-        text = text.strip()
-
-        # Verifica contra os padrões de grupos
-        for pattern in self.compiled_group_patterns:
-            if pattern.match(text):
-                return True
-
-        return False
+        classification = self.classify_entity_type(text)
+        return classification['tipo'] in ['grupo_pessoas', 'empresa_instituicao']
 
     def _validar_nome(self, nome: str) -> bool:
         """
@@ -530,6 +633,7 @@ class CanonizadorColetores:
             'confianca_canonicalizacao': 1.0,
             'kingdoms': nome_normalizado.get('kingdoms', {}),
             'tipo_coletor': nome_normalizado.get('tipo_coletor', 'pessoa'),
+            'confianca_tipo_coletor': nome_normalizado.get('confianca_tipo_coletor', 0.5),
             'metadados': {
                 'data_criacao': agora,
                 'ultima_atualizacao': agora,

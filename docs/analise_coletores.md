@@ -19,12 +19,30 @@ O script `analise_coletores.py` realiza uma análise exploratória dos dados de 
   - `maiusculo`: "SILVA"
   - `sobrenome_virgula_inicial`: "Silva, J."
 
-### 3. Detecção de Grupos/Projetos
-Identifica registros que representam grupos ou projetos ao invés de pessoas individuais:
-- Pesquisas da Biodiversidade
-- Alunos da disciplina de botânica
-- Equipes, laboratórios, institutos
-- Coletores não identificados
+### 3. Sistema de Classificação de Entidades
+Classifica registros em três categorias principais com índice de confiança:
+
+#### 👤 Pessoa (pessoa)
+- Nomes individuais de coletores
+- Ex: "Silva, J.C.", "Maria Santos", "A. Costa"
+- Confiança baseada na ausência de padrões organizacionais
+
+#### 👥 Grupo de Pessoas (grupo_pessoas)
+- Equipes e projetos de pesquisa
+- Ex: "Pesquisas da Biodiversidade", "Alunos da disciplina"
+- Coletores não identificados ou anônimos
+
+#### 🏢 Empresa/Instituição (empresa_instituicao)
+- Acrônimos e códigos institucionais
+- Ex: "EMBRAPA", "USP", "RB", "INPA"
+- Universidades, museus, herbários
+- Empresas e órgãos governamentais
+
+#### 📊 Índice de Confiança
+- **Score 0.0-1.0**: Confiança na classificação
+- **>0.9**: Alta confiança (acrônimos, palavras-chave específicas)
+- **0.7-0.9**: Confiança moderada (padrões reconhecidos)
+- **<0.7**: Baixa confiança (requer revisão manual)
 
 ### 4. Análise de Separadores
 Detecta padrões utilizados para separar múltiplos coletores:
@@ -99,16 +117,45 @@ SEPARATOR_PATTERNS = [
 ]
 ```
 
-### Detecção de Grupos
-Utiliza padrões regex para identificar grupos/projetos:
+### Sistema de Classificação Inteligente
+Utiliza algoritmo híbrido com múltiplos padrões e cálculo de confiança:
+
+#### Detecção de Empresas/Instituições
 ```python
-GROUP_PATTERNS = [
-    r'.*[Pp]esquisas?\s+(da\s+)?[Bb]iodiversidade.*',
-    r'.*[Aa]lunos?\s+(da\s+)?[Dd]isciplina.*',
-    r'.*[Ee]quipe.*',
-    r'.*[Gg]rupo.*',
-    ...
-]
+def _calculate_institution_confidence(text):
+    confidence = 0.0
+
+    # Acrônimos em maiúsculas (95% confiança)
+    if re.match(r'^[A-Z]{2,8}$', text):
+        confidence = 0.95
+
+    # Códigos de herbário (95% confiança)
+    if re.match(r'^[A-Z]{1,4}$', text) and len(text) <= 4:
+        confidence = 0.95
+
+    # Palavras-chave institucionais
+    keywords = {
+        'universidade': 0.90, 'instituto': 0.85,
+        'embrapa': 0.95, 'ibama': 0.95
+    }
+
+    return confidence
+```
+
+#### Detecção de Grupos de Pessoas
+```python
+def _calculate_group_confidence(text):
+    # Palavras-chave de grupos
+    keywords = {
+        'equipe': 0.80, 'projeto': 0.70,
+        'alunos': 0.85, 'pesquisa': 0.65
+    }
+
+    # Expressões específicas (alta confiança)
+    if 'pesquisas da biodiversidade' in text.lower():
+        confidence = 0.90
+
+    return confidence
 ```
 
 ### Categorização de Formatos
@@ -128,10 +175,23 @@ ALGORITHM_CONFIG = {
     ...
 }
 
-# Padrões de grupos
+# Padrões de grupos de pessoas
 GROUP_PATTERNS = [
     r'.*[Pp]esquisas?\s+(da\s+)?[Bb]iodiversidade.*',
     r'.*[Aa]lunos?\s+(da\s+)?[Dd]isciplina.*',
+    r'.*[Ee]quipe.*',
+    r'.*[Gg]rupo.*',
+    ...
+]
+
+# Padrões de empresas/instituições
+INSTITUTION_PATTERNS = [
+    r'^[A-Z]{2,8}$',  # Acrônimos
+    r'^[A-Z]{1,4}$',  # Códigos de herbário
+    r'.*[Ii]nstituto.*',
+    r'.*[Uu]niversidade.*',
+    r'.*[Ee]mbrapa.*',
+    r'.*[Ii]bama.*',
     ...
 ]
 ```

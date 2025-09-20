@@ -15,10 +15,12 @@ Este projeto está associado ao [DarwinCoreJSON](https://github.com/biopinda/Dar
 - **Especialização detectada**: Identifica coletores especializados em botânica ou zoologia
 - **Análise comparativa**: Estatísticas específicas por reino biológico
 
-### 🏛️ Detecção de Grupos e Projetos
-- **Identificação automática**: Reconhece grupos de pesquisa, laboratórios e projetos
-- **Padrões avançados**: Detecta "Pesquisas da Biodiversidade", "Alunos da disciplina", etc.
-- **Normalização especializada**: Tratamento diferenciado para entidades vs pessoas
+### 🏛️ Sistema de Classificação de Entidades
+- **Três categorias**: Pessoa, Grupo de Pessoas, Empresa/Instituição
+- **Detecção automática**: Reconhece acrônimos, códigos de herbário, instituições
+- **Índice de confiança**: Score de 0.0 a 1.0 para cada classificação
+- **Padrões avançados**: Detecta "EMBRAPA", "Pesquisas da Biodiversidade", "USP", etc.
+- **Classificação assistida**: Suporte para revisão manual de casos de baixa confiança
 
 ### 📊 Sistema de Canonicalização Avançado
 - **Algoritmo de similaridade**: Combina análise fonética, inicial e sobrenome
@@ -87,13 +89,17 @@ python analise_coletores.py
 
 **Novos recursos**:
 - ✅ Amostragem estratificada: 100k registros de Plantae + 100k de Animalia
-- ✅ Detecção de grupos/projetos (ex: "Pesquisas da Biodiversidade")
+- ✅ Sistema de classificação de entidades com 3 categorias
+- ✅ Índice de confiança para classificação (0.0-1.0)
+- ✅ Detecção de empresas/instituições (ex: "EMBRAPA", "USP", "RB")
 - ✅ Análise por kingdom especializado
 
 **Saída**: Relatório em `reports/` com:
+- Distribuição por tipo de entidade (pessoa/grupo/empresa)
+- Estatísticas de confiança na classificação
 - Distribuição de formatos de nomes por kingdom
 - Separadores mais comuns
-- Grupos/projetos identificados
+- Exemplos classificados por tipo com score de confiança
 - Caracteres especiais identificados
 - Amostras por padrão detectado
 
@@ -211,7 +217,8 @@ python gerar_relatorios.py --tipo csv
     "Plantae": 2800,
     "Animalia": 1400
   },
-  "tipo_coletor": "pessoa",  // "pessoa" ou "grupo_projeto"
+  "tipo_coletor": "pessoa",  // "pessoa", "grupo_pessoas" ou "empresa_instituicao"
+  "confianca_tipo_coletor": 0.85,  // Confiança na classificação do tipo (0.0-1.0)
   "metadados": {
     "data_criacao": ISODate("..."),
     "ultima_atualizacao": ISODate("..."),
