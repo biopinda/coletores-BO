@@ -443,14 +443,15 @@ def main():
             print("Conexão estabelecida com sucesso!")
 
             # Obtém amostra estratificada por kingdom
+            sample_size = ALGORITHM_CONFIG['sample_size']
             print("Obtendo amostra estratificada por kingdom...")
-            print("- 100,000 registros de Plantae")
-            print("- 100,000 registros de Animalia")
+            print(f"- {sample_size:,} registros de Plantae")
+            print(f"- {sample_size:,} registros de Animalia")
 
-            amostra_plantae = mongo_manager.obter_amostra_recordedby_por_kingdom(100000, "Plantae")
+            amostra_plantae = mongo_manager.obter_amostra_recordedby_por_kingdom(sample_size, "Plantae")
             print(f"Amostra Plantae obtida: {len(amostra_plantae):,} registros")
 
-            amostra_animalia = mongo_manager.obter_amostra_recordedby_por_kingdom(100000, "Animalia")
+            amostra_animalia = mongo_manager.obter_amostra_recordedby_por_kingdom(sample_size, "Animalia")
             print(f"Amostra Animalia obtida: {len(amostra_animalia):,} registros")
 
             # Combina as amostras

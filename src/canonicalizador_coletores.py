@@ -113,17 +113,26 @@ class AtomizadorNomes:
         # Verifica padrões de grupos genéricos (sem nomes próprios)
         group_confidence = self._calculate_group_confidence(text)
 
-        # Classifica baseado na maior confiança
-        if institution_confidence > 0.6 and institution_confidence >= max(conjunto_confidence, group_confidence):
+        # Classifica baseado na maior confiança com prioridades específicas
+        # Prioridade 1: Grupos com alta confiança (casos especiais como "?" e grupos de instituições)
+        if group_confidence >= 0.9:
             return {
-                'tipo': 'empresa_instituicao',
-                'confianca_classificacao': institution_confidence
+                'tipo': 'grupo_pessoas',
+                'confianca_classificacao': group_confidence
             }
+        # Prioridade 2: Conjunto de pessoas com alta confiança
         elif conjunto_confidence > 0.7 and conjunto_confidence >= max(institution_confidence, group_confidence):
             return {
                 'tipo': 'conjunto_pessoas',
                 'confianca_classificacao': conjunto_confidence
             }
+        # Prioridade 3: Instituições
+        elif institution_confidence > 0.6 and institution_confidence >= max(conjunto_confidence, group_confidence):
+            return {
+                'tipo': 'empresa_instituicao',
+                'confianca_classificacao': institution_confidence
+            }
+        # Prioridade 4: Grupos com confiança moderada
         elif group_confidence > 0.6:
             return {
                 'tipo': 'grupo_pessoas',
@@ -378,6 +387,35 @@ class AtomizadorNomes:
         """
         confidence = 0.0
         text_lower = text.lower()
+
+        # Casos especiais de ausência de coletor (alta confiança)
+        missing_collector_patterns = [
+            r'^\?+$',                           # "?" ou "???"
+            r'^sem\s+coletor',                  # "Sem coletor"
+            r'^coletor\s+não\s+identificado',   # "Coletor não identificado"
+            r'^não\s+identificado',             # "Não identificado"
+            r'^sem\s+informação',               # "Sem informação"
+            r'^não\s+informado',                # "Não informado"
+            r'^anônimo$',                       # "Anônimo"
+            r'^anonimo$',                       # "Anonimo"
+            r'^s\.?i\.?$',                      # "S.I." ou "SI"
+            r'^n\.?i\.?$',                      # "N.I." ou "NI"
+        ]
+
+        for pattern in missing_collector_patterns:
+            if re.search(pattern, text_lower):
+                return 0.95
+
+        # Grupos de instituições (ex: "Taxonomy Class of Universidade de Brasília")
+        institutional_group_patterns = [
+            r'.+\s+(of|da|de|do)\s+(universidade|instituto|laboratorio|centro)',
+            r'(classe|class|turma|grupo|equipe)\s+.+\s+(universidade|instituto)',
+            r'.+\s+(universidade|instituto)\s+(de|do|da)',
+        ]
+
+        for pattern in institutional_group_patterns:
+            if re.search(pattern, text_lower):
+                return 0.90
 
         # Se contém nomes próprios, NÃO é grupo genérico
         if self._contains_proper_names(text):
