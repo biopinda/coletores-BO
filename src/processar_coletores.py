@@ -146,6 +146,9 @@ class ProcessadorColetores:
             print(">> Verificando indices da colecao coletores...")
             self.mongo_manager.criar_indices_coletores()
 
+            # Conecta o canonizador ao MongoDB para busca de duplicatas
+            self.canonizador.mongo_manager = self.mongo_manager
+
             # Verifica se deve reiniciar
             checkpoint = None
             if not restart:

@@ -753,6 +753,21 @@ class NormalizadorNome:
                 componentes['sobrenome'] = sobrenome
                 componentes['iniciais'] = iniciais
 
+        # Formato: iniciais coladas com sobrenome (ex: "R.C.Forzza", "R.Forzza")
+        elif re.match(r'^[A-ZÀ-Ÿ]\.([A-ZÀ-Ÿ]\.)*[A-ZÀ-Ÿ][a-zà-ÿ]+$', nome):
+            # Separa iniciais do sobrenome
+            # Encontra onde começam as letras minúsculas (início do sobrenome)
+            match = re.match(r'^([A-ZÀ-Ÿ]\.(?:[A-ZÀ-Ÿ]\.)*)([A-ZÀ-Ÿ][a-zà-ÿ]+)$', nome)
+            if match:
+                iniciais_str = match.group(1)
+                sobrenome = match.group(2)
+
+                # Extrai iniciais
+                iniciais = re.findall(r'([A-ZÀ-Ÿ])\.?', iniciais_str)
+
+                componentes['sobrenome'] = sobrenome
+                componentes['iniciais'] = iniciais
+
         # Formato: apenas sobrenome
         else:
             # Remove pontos e pega a primeira palavra significativa
@@ -911,17 +926,19 @@ class CanonizadorColetores:
     Classe responsável por agrupar variações do mesmo coletor
     """
 
-    def __init__(self, similarity_threshold: float = 0.85, confidence_threshold: float = 0.7):
+    def __init__(self, similarity_threshold: float = 0.85, confidence_threshold: float = 0.7, mongo_manager=None):
         """
         Inicializa o canonizador
 
         Args:
             similarity_threshold: Limiar de similaridade para agrupamento
             confidence_threshold: Limiar de confiança para canonicalização automática
+            mongo_manager: Gerenciador MongoDB para consultas persistentes
         """
         self.similarity_threshold = similarity_threshold
         self.confidence_threshold = confidence_threshold
-        self.coletores_canonicos = {}  # sobrenome_normalizado -> dados do coletor canônico
+        self.mongo_manager = mongo_manager
+        self.coletores_canonicos = {}  # Cache em memória para performance
         logger.info(f"CanonizadorColetores inicializado (similarity={similarity_threshold}, confidence={confidence_threshold})")
 
     def processar_nome(self, nome_normalizado: Dict[str, any]) -> Dict[str, any]:
@@ -959,18 +976,44 @@ class CanonizadorColetores:
     def _buscar_candidatos(self, nome_normalizado: Dict[str, any]) -> List[Dict[str, any]]:
         """
         Busca candidatos para agrupamento baseado em similaridade
+        Consulta tanto cache em memória quanto MongoDB para encontrar coletores existentes
         """
         candidatos = []
         sobrenome_norm = nome_normalizado['sobrenome_normalizado']
-
-        # Busca exata por sobrenome
-        if sobrenome_norm in self.coletores_canonicos:
-            candidatos.append(self.coletores_canonicos[sobrenome_norm])
-
-        # Busca por similaridade fonética
         soundex_atual = nome_normalizado['chaves_busca']['soundex']
         metaphone_atual = nome_normalizado['chaves_busca']['metaphone']
 
+        # 1. Busca no cache em memória (mais rápido)
+        if sobrenome_norm in self.coletores_canonicos:
+            candidatos.append(self.coletores_canonicos[sobrenome_norm])
+
+        # 2. Busca no MongoDB por sobrenome exato
+        if self.mongo_manager:
+            try:
+                # Busca por sobrenome normalizado exato
+                mongo_candidatos = self.mongo_manager.buscar_coletores_por_sobrenome(sobrenome_norm)
+                for candidato in mongo_candidatos:
+                    # Evita duplicatas
+                    if not any(c.get('_id') == candidato.get('_id') for c in candidatos):
+                        candidatos.append(candidato)
+                        # Adiciona ao cache para próximas consultas
+                        self.coletores_canonicos[candidato['sobrenome_normalizado']] = candidato
+
+                # 3. Busca por similaridade fonética no MongoDB
+                if soundex_atual or metaphone_atual:
+                    mongo_foneticos = self.mongo_manager.buscar_coletores_por_fonetica(soundex_atual, metaphone_atual)
+                    for candidato in mongo_foneticos:
+                        # Evita duplicatas e auto-match
+                        if (candidato['sobrenome_normalizado'] != sobrenome_norm and
+                            not any(c.get('_id') == candidato.get('_id') for c in candidatos)):
+                            candidatos.append(candidato)
+                            # Adiciona ao cache
+                            self.coletores_canonicos[candidato['sobrenome_normalizado']] = candidato
+
+            except Exception as e:
+                logger.warning(f"Erro ao buscar candidatos no MongoDB: {e}")
+
+        # 4. Busca fonética no cache em memória (fallback)
         for coletor in self.coletores_canonicos.values():
             if coletor['sobrenome_normalizado'] == sobrenome_norm:
                 continue  # Já adicionado acima
@@ -978,7 +1021,8 @@ class CanonizadorColetores:
             # Verifica se tem mesma chave fonética
             if (soundex_atual and coletor['indices_busca']['soundex'] == soundex_atual) or \
                (metaphone_atual and coletor['indices_busca']['metaphone'] == metaphone_atual):
-                candidatos.append(coletor)
+                if not any(c.get('_id') == coletor.get('_id') for c in candidatos):
+                    candidatos.append(coletor)
 
         return candidatos
 
@@ -1401,6 +1445,7 @@ class GerenciadorMongoDB:
     def salvar_coletor_canonico(self, coletor_canonico: Dict[str, any]) -> bool:
         """
         Salva ou atualiza um coletor canônico no MongoDB
+        Implementa merge inteligente de variações para deduplicação
 
         Args:
             coletor_canonico: Dados do coletor canônico
@@ -1409,25 +1454,86 @@ class GerenciadorMongoDB:
             True se salvou com sucesso
         """
         try:
-            # Usa upsert baseado no sobrenome normalizado
             filtro = {"sobrenome_normalizado": coletor_canonico["sobrenome_normalizado"]}
 
-            resultado = self.coletores.replace_one(
-                filtro,
-                coletor_canonico,
-                upsert=True
-            )
+            # Verifica se já existe um coletor com o mesmo sobrenome normalizado
+            existente = self.coletores.find_one(filtro)
 
-            if resultado.upserted_id:
-                logger.debug(f"Novo coletor inserido: {coletor_canonico['coletor_canonico']}")
+            if existente:
+                # Faz merge das variações
+                self._merge_variacoes(existente, coletor_canonico)
+
+                # Atualiza o documento existente
+                resultado = self.coletores.replace_one(
+                    {"_id": existente["_id"]},
+                    existente
+                )
+                logger.debug(f"Coletor atualizado (merge): {existente['coletor_canonico']}")
             else:
-                logger.debug(f"Coletor atualizado: {coletor_canonico['coletor_canonico']}")
+                # Insere novo documento
+                resultado = self.coletores.insert_one(coletor_canonico)
+                logger.debug(f"Novo coletor inserido: {coletor_canonico['coletor_canonico']}")
 
             return True
 
         except Exception as e:
             logger.error(f"Erro ao salvar coletor canônico: {e}")
             return False
+
+    def _merge_variacoes(self, existente: Dict[str, any], novo: Dict[str, any]):
+        """
+        Faz merge das variações entre um coletor existente e um novo
+        """
+        from datetime import datetime
+
+        # Merge das variações
+        variacoes_existentes = {v['forma_original']: v for v in existente['variacoes']}
+
+        for nova_variacao in novo['variacoes']:
+            forma = nova_variacao['forma_original']
+
+            if forma in variacoes_existentes:
+                # Atualiza variação existente
+                var_existente = variacoes_existentes[forma]
+                var_existente['frequencia'] += nova_variacao['frequencia']
+                var_existente['ultima_ocorrencia'] = nova_variacao['ultima_ocorrencia']
+            else:
+                # Adiciona nova variação
+                existente['variacoes'].append(nova_variacao)
+
+        # Atualiza totais
+        existente['total_registros'] = sum(v['frequencia'] for v in existente['variacoes'])
+
+        # Atualiza metadados
+        existente['metadados']['ultima_atualizacao'] = datetime.now()
+
+        # Escolhe o melhor nome canônico (mais específico ganha)
+        if self._nome_mais_especifico(novo['coletor_canonico'], existente['coletor_canonico']):
+            existente['coletor_canonico'] = novo['coletor_canonico']
+            if 'iniciais' in novo:
+                existente['iniciais'] = novo['iniciais']
+
+    def _nome_mais_especifico(self, nome1: str, nome2: str) -> bool:
+        """
+        Determina se nome1 é mais específico que nome2
+        """
+        # Conta iniciais e informações
+        iniciais1 = len([c for c in nome1 if c.isupper() and c != nome1[0]])
+        iniciais2 = len([c for c in nome2 if c.isupper() and c != nome2[0]])
+
+        # Mais iniciais = mais específico
+        if iniciais1 != iniciais2:
+            return iniciais1 > iniciais2
+
+        # Formato "Sobrenome, I." é mais específico que só "Sobrenome"
+        tem_virgula1 = ',' in nome1
+        tem_virgula2 = ',' in nome2
+
+        if tem_virgula1 != tem_virgula2:
+            return tem_virgula1
+
+        # Por último, o mais longo
+        return len(nome1) > len(nome2)
 
     def buscar_coletor_por_forma(self, forma_original: str) -> Optional[Dict[str, any]]:
         """
@@ -1573,6 +1679,74 @@ class GerenciadorMongoDB:
         except Exception as e:
             logger.error(f"Erro ao limpar coleção: {e}")
             return False
+
+    def buscar_coletores_por_sobrenome(self, sobrenome_normalizado: str) -> List[Dict[str, any]]:
+        """
+        Busca coletores por sobrenome normalizado exato
+
+        Args:
+            sobrenome_normalizado: Sobrenome normalizado para busca
+
+        Returns:
+            Lista de coletores encontrados
+        """
+        try:
+            cursor = self.coletores.find(
+                {"sobrenome_normalizado": sobrenome_normalizado}
+            )
+            return list(cursor)
+        except Exception as e:
+            logger.error(f"Erro ao buscar coletores por sobrenome '{sobrenome_normalizado}': {e}")
+            return []
+
+    def buscar_coletores_por_fonetica(self, soundex: str = None, metaphone: str = None) -> List[Dict[str, any]]:
+        """
+        Busca coletores por similaridade fonética
+
+        Args:
+            soundex: Código Soundex para busca
+            metaphone: Código Metaphone para busca
+
+        Returns:
+            Lista de coletores encontrados
+        """
+        try:
+            filtros = []
+
+            if soundex:
+                filtros.append({"indices_busca.soundex": soundex})
+
+            if metaphone:
+                filtros.append({"indices_busca.metaphone": metaphone})
+
+            if not filtros:
+                return []
+
+            # Busca por qualquer dos códigos fonéticos
+            query = {"$or": filtros} if len(filtros) > 1 else filtros[0]
+
+            cursor = self.coletores.find(query).limit(20)  # Limita resultados para performance
+            return list(cursor)
+
+        except Exception as e:
+            logger.error(f"Erro ao buscar coletores por fonética (soundex={soundex}, metaphone={metaphone}): {e}")
+            return []
+
+    def buscar_coletor_por_id(self, coletor_id) -> Dict[str, any]:
+        """
+        Busca um coletor específico por ID
+
+        Args:
+            coletor_id: ID do coletor
+
+        Returns:
+            Dados do coletor ou None se não encontrado
+        """
+        try:
+            return self.coletores.find_one({"_id": coletor_id})
+        except Exception as e:
+            logger.error(f"Erro ao buscar coletor por ID '{coletor_id}': {e}")
+            return None
 
     def fechar_conexao(self):
         """
