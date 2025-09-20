@@ -149,23 +149,46 @@ class AtomizadorNomes:
         if self._looks_like_person_name(text):
             return 0.0
 
-        # Verifica padrões institucionais da configuração (alta confiança)
-        for pattern in self.institution_patterns:
-            if re.search(pattern, text, re.IGNORECASE):
-                confidence = max(confidence, 0.85)
+        # Lista de sobrenomes comuns que não devem ser considerados acrônimos
+        common_surnames = {
+            'silva', 'santos', 'oliveira', 'souza', 'rodrigues', 'ferreira',
+            'alves', 'pereira', 'lima', 'gomes', 'ribeiro', 'carvalho',
+            'almeida', 'lopes', 'soares', 'fernandes', 'vieira', 'barbosa',
+            'rocha', 'dias', 'monteiro', 'cardoso', 'reis', 'sacco', 'orth',
+            'ramos', 'moreira', 'jesus', 'martins', 'araujo', 'costa',
+            'cruz', 'castro', 'pinto', 'teixeira', 'correia', 'andrade'
+        }
 
-        # Acrônimos em maiúsculas isolados (alta confiança)
-        # Exclui iniciais de nomes que geralmente vêm com pontos
-        if re.match(r'^[A-Z]{3,8}$', text) and '.' not in text:
-            confidence = max(confidence, 0.95)
-        elif re.match(r'^[A-Z]{3,8}[-_][A-Z]{3,8}$', text):
-            confidence = max(confidence, 0.90)
+        # Verifica se é um sobrenome comum (não deve ser instituição)
+        if text_lower in common_surnames:
+            return 0.0
 
-        # Códigos de herbário (alta confiança) - apenas se isolados
-        if re.match(r'^[A-Z]{2,4}$', text) and len(text) <= 4 and '.' not in text:
-            # Verifica se não é parte de um nome
-            if not re.search(r'[a-z]', text):
+        # Verifica se é nome com hífen (geralmente sobrenome composto)
+        if '-' in text and not text.isupper():
+            # Se contém letras minúsculas, provavelmente é nome de pessoa
+            if re.search(r'[a-z]', text):
+                return 0.0
+
+        # Acrônimos em maiúsculas - ser mais restritivo
+        if re.match(r'^[A-Z]{2,8}$', text) and '.' not in text:
+            # Só considera se tem 3+ letras OU se é um acrônimo conhecido
+            known_institutions = {
+                'USP', 'UFRJ', 'UFC', 'UFMG', 'UFPE', 'UFSC', 'UFPR', 'UFRGS',
+                'EMBRAPA', 'INPA', 'IBAMA', 'ICMBIO', 'CNPq', 'CAPES', 'FAPESP',
+                'RB', 'SP', 'MG', 'HB', 'HUEFS', 'ALCB', 'VIC', 'HRCB'
+            }
+
+            if text in known_institutions:
                 confidence = max(confidence, 0.95)
+            elif len(text) >= 4:  # Acrônimos com 4+ letras têm maior chance de serem instituições
+                confidence = max(confidence, 0.80)
+            elif len(text) == 3:  # Mais cauteloso com 3 letras
+                confidence = max(confidence, 0.60)
+            # Ignora acrônimos de 2 letras (muito provavelmente são iniciais)
+
+        # Códigos com hífen/underscore - mais restritivo
+        elif re.match(r'^[A-Z]{3,8}[-_][A-Z]{3,8}$', text):
+            confidence = max(confidence, 0.85)
 
         # Sufixos corporativos específicos (alta confiança)
         # Mais restritivos para evitar iniciais como "S.A."
@@ -303,6 +326,9 @@ class AtomizadorNomes:
             r'[A-ZÀ-Ý][a-zà-ÿç]+,\s*[A-ZÀ-Ý][a-zà-ÿç]+',  # "Silva, João"
             r'^[A-ZÀ-Ý][a-zà-ÿç]+,\s*[A-Z]{2,4}$',        # "Amaral, AG", "Castro, BM", "Faria, JEQ", "Proença, CEB"
             r'^[A-Z]\.[A-Z]\.\s+[A-ZÀ-Ý][a-zà-ÿç]+(-[A-ZÀ-Ý][a-zà-ÿç]+)?$',  # "G.A. Damasceno-Junior"
+            r'^[A-Z]\.([A-Z]\.)*\s+(dos?\s+|das?\s+|de\s+)?[A-ZÀ-Ý][a-zà-ÿç]+$',  # "M.C.F. dos Santos"
+            r'^[A-ZÀ-Ý][a-zà-ÿç]+-[A-ZÀ-Ý][a-zà-ÿç]+$',   # "Andrade-Lima"
+            r'^[A-ZÀ-Ý][a-zà-ÿç]+\s+[A-ZÀ-Ý][a-zà-ÿç]+\s+[A-ZÀ-Ý][a-zà-ÿç]+$',  # "Lilian Silva Santos"
             r';.*et\s+al\.?',                       # Contém "et al."
             r';\s*[A-ZÀ-Ý][a-zà-ÿç]+',             # Lista de nomes separados por ;
         ]
@@ -311,6 +337,15 @@ class AtomizadorNomes:
         simple_name_pattern = r'^[A-ZÀ-Ý][a-zà-ÿç]+\s+[A-ZÀ-Ý][a-zà-ÿç]+$'
         if re.match(simple_name_pattern, text):
             # Se já passou pela verificação de palavras institucionais acima, é válido
+            return True
+
+        # Verifica padrões especiais de nomes
+        # Sobrenomes compostos com hífen
+        if re.match(r'^[A-ZÀ-Ý][a-zà-ÿç]+-[A-ZÀ-Ý][a-zà-ÿç]+$', text):
+            return True
+
+        # Três nomes (nome + sobrenome + sobrenome)
+        if re.match(r'^[A-ZÀ-Ý][a-zà-ÿç]+\s+[A-ZÀ-Ý][a-zà-ÿç]+\s+[A-ZÀ-Ý][a-zà-ÿç]+$', text):
             return True
 
         for pattern in person_patterns:
