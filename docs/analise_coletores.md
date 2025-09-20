@@ -20,21 +20,26 @@ O script `analise_coletores.py` realiza uma análise exploratória dos dados de 
   - `sobrenome_virgula_inicial`: "Silva, J."
 
 ### 3. Sistema de Classificação de Entidades
-Classifica registros em três categorias principais com índice de confiança:
+Classifica registros em quatro categorias principais com índice de confiança:
 
 #### 👤 Pessoa (pessoa)
-- Nomes individuais de coletores
-- Ex: "Silva, J.C.", "Maria Santos", "A. Costa"
-- Confiança baseada na ausência de padrões organizacionais
+- Nome próprio de uma única pessoa
+- Ex: "Silva, J.C.", "Maria Santos", "A. Costa", "G.A. Damasceno-Junior"
+- Confiança baseada na presença de padrões de nomes individuais
 
-#### 👥 Grupo de Pessoas (grupo_pessoas)
-- Equipes e projetos de pesquisa
-- Ex: "Pesquisas da Biodiversidade", "Alunos da disciplina"
+#### 👥 Conjunto de Pessoas (conjunto_pessoas)
+- Múltiplos nomes próprios para atomização
+- Ex: "Silva, J.; Santos, M.; et al.", "Gonçalves, J.M.; A.O.Moraes"
+- Contém nomes próprios separados por `;`, `&`, ou `et al.`
+
+#### 🎯 Grupo de Pessoas (grupo_pessoas)
+- Denominações genéricas SEM nomes próprios
+- Ex: "Pesquisas da Biodiversidade", "Alunos da disciplina", "Equipe de pesquisa"
 - Coletores não identificados ou anônimos
 
 #### 🏢 Empresa/Instituição (empresa_instituicao)
 - Acrônimos e códigos institucionais
-- Ex: "EMBRAPA", "USP", "RB", "INPA"
+- Ex: "EMBRAPA", "USP", "RB", "INPA", "Universidade Federal"
 - Universidades, museus, herbários
 - Empresas e órgãos governamentais
 
@@ -82,6 +87,13 @@ Registros vazios: 0
 Total de nomes atomizados: 502,874
 Taxa de atomização: 2.51 nomes/registro
 Grupos/Projetos identificados: 1,250
+
+DISTRIBUIÇÃO POR TIPO DE ENTIDADE
+----------------------------------------
+pessoa: 145,230 (72.6%)
+conjunto_pessoas: 35,120 (17.6%)
+grupo_pessoas: 15,340 (7.7%)
+empresa_instituicao: 4,310 (2.2%)
 
 DISTRIBUIÇÃO POR TAMANHO
 ----------------------------------------
@@ -142,18 +154,43 @@ def _calculate_institution_confidence(text):
     return confidence
 ```
 
-#### Detecção de Grupos de Pessoas
+#### Detecção de Conjunto de Pessoas
+```python
+def _calculate_conjunto_pessoas_confidence(text):
+    confidence = 0.0
+
+    # Múltiplos nomes separados por ; (80% confiança)
+    if ';' in text:
+        confidence = max(confidence, 0.8)
+
+    # Padrão "et al." indica múltiplas pessoas (90% confiança)
+    if re.search(r'et\s+al\.?|et\s+alli', text, re.IGNORECASE):
+        confidence = max(confidence, 0.9)
+
+    # Múltiplos padrões de nomes de pessoas
+    matches = len(re.findall(r'[A-Z][a-z]+,\s*[A-Z]\.', text))
+    if matches > 1:
+        confidence = max(confidence, 0.85)
+
+    return confidence
+```
+
+#### Detecção de Grupos Genéricos
 ```python
 def _calculate_group_confidence(text):
-    # Palavras-chave de grupos
+    # Se contém nomes próprios, NÃO é grupo genérico
+    if self._contains_proper_names(text):
+        return 0.0
+
+    # Palavras-chave de grupos genéricos
     keywords = {
-        'equipe': 0.80, 'projeto': 0.70,
-        'alunos': 0.85, 'pesquisa': 0.65
+        'equipe': 0.85, 'projeto': 0.75,
+        'alunos': 0.90, 'pesquisa': 0.70
     }
 
     # Expressões específicas (alta confiança)
     if 'pesquisas da biodiversidade' in text.lower():
-        confidence = 0.90
+        confidence = 0.95
 
     return confidence
 ```

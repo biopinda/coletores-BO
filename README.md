@@ -16,7 +16,11 @@ Este projeto está associado ao [DarwinCoreJSON](https://github.com/biopinda/Dar
 - **Análise comparativa**: Estatísticas específicas por reino biológico
 
 ### 🏛️ Sistema de Classificação de Entidades
-- **Três categorias**: Pessoa, Grupo de Pessoas, Empresa/Instituição
+- **Quatro categorias inteligentes**:
+  - `pessoa`: Um único nome próprio de pessoa
+  - `conjunto_pessoas`: Múltiplos nomes próprios (para atomização)
+  - `grupo_pessoas`: Denominações genéricas sem nomes próprios
+  - `empresa_instituicao`: Organizações, empresas, instituições
 - **Detecção automática**: Reconhece acrônimos, códigos de herbário, instituições
 - **Índice de confiança**: Score de 0.0 a 1.0 para cada classificação
 - **Padrões avançados**: Detecta "EMBRAPA", "Pesquisas da Biodiversidade", "USP", etc.
@@ -89,13 +93,14 @@ python analise_coletores.py
 
 **Novos recursos**:
 - ✅ Amostragem estratificada: 100k registros de Plantae + 100k de Animalia
-- ✅ Sistema de classificação de entidades com 3 categorias
+- ✅ Sistema de classificação de entidades com 4 categorias inteligentes
+- ✅ Distinção entre conjunto_pessoas (nomes múltiplos) e grupo_pessoas (denominações genéricas)
 - ✅ Índice de confiança para classificação (0.0-1.0)
 - ✅ Detecção de empresas/instituições (ex: "EMBRAPA", "USP", "RB")
 - ✅ Análise por kingdom especializado
 
 **Saída**: Relatório em `reports/` com:
-- Distribuição por tipo de entidade (pessoa/grupo/empresa)
+- Distribuição por 4 tipos de entidade (pessoa/conjunto_pessoas/grupo_pessoas/empresa_instituicao)
 - Estatísticas de confiança na classificação
 - Distribuição de formatos de nomes por kingdom
 - Separadores mais comuns
@@ -167,6 +172,43 @@ python gerar_relatorios.py --tipo csv
 - Estatísticas de grupos/projetos
 - Métricas de qualidade avançadas
 
+## Sistema de Classificação de Entidades
+
+### 📋 Quatro Categorias Inteligentes
+
+O algoritmo classifica cada entrada de coletor em uma das quatro categorias:
+
+#### 1. `pessoa` - Pessoa Individual
+Nomes próprios de uma única pessoa:
+- Exemplos: `"G.A. Damasceno-Junior"`, `"Amaral, AG"`, `"João Santos"`
+- **Tratamento**: Canonicalizado diretamente
+- **Características**: Um único nome próprio com possíveis iniciais
+
+#### 2. `conjunto_pessoas` - Múltiplos Nomes Próprios
+Strings contendo múltiplos nomes próprios que serão atomizados:
+- Exemplos: `"Gonçalves, J.M.; A.O.Moraes, LSantiago"`, `"Silva, J.; Santos, M.; et al."`
+- **Tratamento**: Atomizado em pessoas individuais
+- **Características**: Contém nomes próprios separados por `;`, `&`, ou `et al.`
+
+#### 3. `grupo_pessoas` - Denominações Genéricas
+Denominações de grupos SEM nomes próprios específicos:
+- Exemplos: `"Alunos da disciplina de botânica"`, `"Equipe de pesquisa de campo"`
+- **Tratamento**: Mantido como grupo genérico
+- **Características**: Palavras descritivas sem nomes próprios
+
+#### 4. `empresa_instituicao` - Organizações
+Empresas, universidades, instituições e códigos:
+- Exemplos: `"EMBRAPA"`, `"Universidade Federal do Rio de Janeiro"`, `"RB"`
+- **Tratamento**: Canonicalizado como entidade institucional
+- **Características**: Acrônimos, códigos de herbário, nomes institucionais
+
+### 🎯 Vantagens da Classificação
+
+- **Processamento otimizado**: Cada tipo recebe tratamento específico
+- **Qualidade melhorada**: Evita misturar pessoas com instituições
+- **Atomização inteligente**: Separa automaticamente conjuntos de pessoas
+- **Suporte a grupos**: Preserva denominações genéricas importantes
+
 ## Algoritmo
 
 ### Classes Principais
@@ -217,7 +259,7 @@ python gerar_relatorios.py --tipo csv
     "Plantae": 2800,
     "Animalia": 1400
   },
-  "tipo_coletor": "pessoa",  // "pessoa", "grupo_pessoas" ou "empresa_instituicao"
+  "tipo_coletor": "pessoa",  // "pessoa", "conjunto_pessoas", "grupo_pessoas" ou "empresa_instituicao"
   "confianca_tipo_coletor": 0.85,  // Confiança na classificação do tipo (0.0-1.0)
   "metadados": {
     "data_criacao": ISODate("..."),

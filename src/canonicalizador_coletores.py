@@ -84,6 +84,12 @@ class AtomizadorNomes:
         """
         Classifica o tipo de entidade representada pelo texto com score de confiança
 
+        Tipos possíveis:
+        - 'pessoa': um único nome próprio de pessoa
+        - 'conjunto_pessoas': múltiplos nomes próprios (para atomização)
+        - 'grupo_pessoas': denominações genéricas sem nomes próprios
+        - 'empresa_instituicao': organizações, empresas, instituições
+
         Args:
             text: Texto a ser classificado
 
@@ -98,15 +104,25 @@ class AtomizadorNomes:
 
         text = text.strip()
 
-        # Verifica padrões de empresas/instituições com diferentes níveis de confiança
+        # Verifica se é conjunto de pessoas (múltiplos nomes próprios)
+        conjunto_confidence = self._calculate_conjunto_pessoas_confidence(text)
+
+        # Verifica padrões de empresas/instituições
         institution_confidence = self._calculate_institution_confidence(text)
+
+        # Verifica padrões de grupos genéricos (sem nomes próprios)
         group_confidence = self._calculate_group_confidence(text)
 
         # Classifica baseado na maior confiança
-        if institution_confidence > group_confidence and institution_confidence > 0.6:
+        if institution_confidence > 0.6 and institution_confidence >= max(conjunto_confidence, group_confidence):
             return {
                 'tipo': 'empresa_instituicao',
                 'confianca_classificacao': institution_confidence
+            }
+        elif conjunto_confidence > 0.7 and conjunto_confidence >= max(institution_confidence, group_confidence):
+            return {
+                'tipo': 'conjunto_pessoas',
+                'confianca_classificacao': conjunto_confidence
             }
         elif group_confidence > 0.6:
             return {
@@ -114,8 +130,9 @@ class AtomizadorNomes:
                 'confianca_classificacao': group_confidence
             }
         else:
-            # Confiança para "pessoa" baseada na ausência de padrões organizacionais
-            person_confidence = 1.0 - max(institution_confidence, group_confidence)
+            # Confiança para "pessoa" baseada na ausência de outros padrões
+            max_other = max(institution_confidence, conjunto_confidence, group_confidence)
+            person_confidence = 1.0 - max_other
             return {
                 'tipo': 'pessoa',
                 'confianca_classificacao': max(person_confidence, 0.3)  # Mínimo de 30%
@@ -126,33 +143,64 @@ class AtomizadorNomes:
         Calcula confiança de que o texto representa uma empresa/instituição
         """
         confidence = 0.0
-        text_upper = text.upper()
+        text_lower = text.lower()
 
-        # Acrônimos em maiúsculas (alta confiança)
-        if re.match(r'^[A-Z]{2,8}$', text):
+        # Verifica se parece com nome de pessoa (reduz confiança)
+        if self._looks_like_person_name(text):
+            return 0.0
+
+        # Verifica padrões institucionais da configuração (alta confiança)
+        for pattern in self.institution_patterns:
+            if re.search(pattern, text, re.IGNORECASE):
+                confidence = max(confidence, 0.85)
+
+        # Acrônimos em maiúsculas isolados (alta confiança)
+        # Exclui iniciais de nomes que geralmente vêm com pontos
+        if re.match(r'^[A-Z]{3,8}$', text) and '.' not in text:
             confidence = max(confidence, 0.95)
-        elif re.match(r'^[A-Z]{2,8}[-_][A-Z]{2,8}$', text):
+        elif re.match(r'^[A-Z]{3,8}[-_][A-Z]{3,8}$', text):
             confidence = max(confidence, 0.90)
 
-        # Códigos de herbário (alta confiança)
-        if re.match(r'^[A-Z]{1,4}$', text) and len(text) <= 4:
-            confidence = max(confidence, 0.95)
+        # Códigos de herbário (alta confiança) - apenas se isolados
+        if re.match(r'^[A-Z]{2,4}$', text) and len(text) <= 4 and '.' not in text:
+            # Verifica se não é parte de um nome
+            if not re.search(r'[a-z]', text):
+                confidence = max(confidence, 0.95)
 
-        # Sufixos corporativos (alta confiança)
-        if re.search(r'\b(S\.?A\.?|LTDA\.?|EIRELI\.?|EPP\.?|Ltd\.?|Inc\.?|Corp\.?)\b', text, re.IGNORECASE):
-            confidence = max(confidence, 0.95)
+        # Sufixos corporativos específicos (alta confiança)
+        # Mais restritivos para evitar iniciais como "S.A."
+        corporate_patterns = [
+            r'\bS\.?A\.?\s*$',  # Final da string
+            r'\bLTDA\.?\s*$',
+            r'\bEIRELI\.?\s*$',
+            r'\bEPP\.?\s*$',
+            r'\bLtd\.?\s*$',
+            r'\bInc\.?\s*$',
+            r'\bCorp\.?\s*$',
+            r'\bS\.?L\.?\s*$'
+        ]
+
+        for pattern in corporate_patterns:
+            if re.search(pattern, text, re.IGNORECASE):
+                # Verifica se é realmente um sufixo corporativo e não iniciais
+                if not self._is_person_initials_context(text):
+                    confidence = max(confidence, 0.95)
 
         # Palavras-chave institucionais (confiança moderada a alta)
         institutional_keywords = {
             'universidade': 0.90, 'instituto': 0.85, 'laboratorio': 0.80,
             'museu': 0.85, 'fundacao': 0.80, 'empresa': 0.90,
             'centro': 0.75, 'departamento': 0.70, 'faculdade': 0.85,
-            'embrapa': 0.95, 'ibama': 0.95, 'icmbio': 0.95
+            'embrapa': 0.95, 'ibama': 0.95, 'icmbio': 0.95,
+            'secretaria': 0.85, 'ministerio': 0.90, 'federal': 0.80,
+            'estadual': 0.80, 'municipal': 0.75
         }
 
         for keyword, score in institutional_keywords.items():
-            if keyword in text.lower():
-                confidence = max(confidence, score)
+            if keyword in text_lower:
+                # Verifica se a palavra-chave está em contexto institucional
+                if self._is_institutional_context(text_lower, keyword):
+                    confidence = max(confidence, score)
 
         # Padrões com códigos/números (confiança moderada)
         if re.search(r'[A-Z]{3,}\s*[0-9]+', text):
@@ -160,32 +208,251 @@ class AtomizadorNomes:
 
         return confidence
 
-    def _calculate_group_confidence(self, text: str) -> float:
+    def _calculate_conjunto_pessoas_confidence(self, text: str) -> float:
         """
-        Calcula confiança de que o texto representa um grupo de pessoas
+        Calcula confiança de que o texto representa múltiplos nomes próprios de pessoas
         """
         confidence = 0.0
 
-        # Palavras-chave de grupos (confiança moderada)
+        # Conta separadores que indicam múltiplos nomes
+        separators_count = 0
+
+        # Padrão de múltiplos nomes separados por ponto e vírgula
+        if ';' in text:
+            separators_count += text.count(';')
+            confidence = max(confidence, 0.8)
+
+        # Padrão "et al." indica múltiplas pessoas
+        if re.search(r'et\s+al\.?|et\s+alli', text, re.IGNORECASE):
+            confidence = max(confidence, 0.9)
+
+        # Múltiplos padrões de nomes de pessoas
+        person_patterns = [
+            r'[A-ZÀ-Ý][a-zà-ÿç]+,\s*[A-Z]\.([A-Z]\.)*',  # "Silva, J.C."
+            r'[A-ZÀ-Ý][a-zà-ÿç]+,\s*[A-Z]{2,4}',         # "Amaral, AG"
+            r'[A-Z]\.([A-Z]\.)*\s+[A-ZÀ-Ý][a-zà-ÿç]+',   # "J.C. Silva"
+        ]
+
+        matches = 0
+        for pattern in person_patterns:
+            matches += len(re.findall(pattern, text))
+
+        # Se há múltiplas correspondências de nomes, é conjunto
+        if matches > 1:
+            confidence = max(confidence, 0.85)
+
+        # Se há múltiplos separadores E padrões de nomes
+        if separators_count > 0 and matches > 0:
+            confidence = max(confidence, 0.9)
+
+        return confidence
+
+    def _is_institutional_context(self, text_lower: str, keyword: str) -> bool:
+        """
+        Verifica se uma palavra-chave está em contexto institucional válido
+        """
+        # Palavras que indicam contexto institucional quando próximas da palavra-chave
+        institutional_context = [
+            'universidade', 'instituto', 'fundacao', 'centro', 'museu',
+            'departamento', 'faculdade', 'laboratorio', 'secretaria',
+            'ministerio', 'empresa', 'federal', 'estadual', 'municipal',
+            'nacional', 'pesquisa', 'ciencias', 'botanica', 'zoologia'
+        ]
+
+        # Encontra a posição da palavra-chave
+        keyword_pos = text_lower.find(keyword)
+        if keyword_pos == -1:
+            return False
+
+        # Verifica contexto antes e depois (janela de 50 caracteres)
+        context_start = max(0, keyword_pos - 50)
+        context_end = min(len(text_lower), keyword_pos + len(keyword) + 50)
+        context = text_lower[context_start:context_end]
+
+        # Se encontrar palavras de contexto institucional, é válido
+        for ctx_word in institutional_context:
+            if ctx_word in context:
+                return True
+
+        # Se a palavra-chave está no início ou tem maiúsculas, pode ser institucional
+        if keyword_pos <= 5 or keyword.upper() in text_lower.upper():
+            return True
+
+        return False
+
+    def _looks_like_person_name(self, text: str) -> bool:
+        """
+        Verifica se o texto parece ser um nome de pessoa
+        """
+        # Primeiro verifica se contém palavras que claramente indicam instituições
+        institutional_words = [
+            'universidade', 'instituto', 'laboratorio', 'centro', 'museu',
+            'departamento', 'faculdade', 'empresa', 'fundacao', 'secretaria',
+            'ministerio', 'federal', 'estadual', 'municipal', 'nacional'
+        ]
+
+        text_lower = text.lower()
+        for word in institutional_words:
+            if word in text_lower:
+                return False
+
+        # Padrões que indicam nomes de pessoas (incluindo caracteres acentuados)
+        person_patterns = [
+            r'^[A-ZÀ-Ý][a-zà-ÿç]+,\s*[A-Z]\.([A-Z]\.)*',  # "Silva, J.C."
+            r'^[A-Z]\.([A-Z]\.)*\s+[A-ZÀ-Ý][a-zà-ÿç]+',   # "J.C. Silva"
+            r'[A-ZÀ-Ý][a-zà-ÿç]+,\s*[A-ZÀ-Ý][a-zà-ÿç]+',  # "Silva, João"
+            r'^[A-ZÀ-Ý][a-zà-ÿç]+,\s*[A-Z]{2,4}$',        # "Amaral, AG", "Castro, BM", "Faria, JEQ", "Proença, CEB"
+            r'^[A-Z]\.[A-Z]\.\s+[A-ZÀ-Ý][a-zà-ÿç]+(-[A-ZÀ-Ý][a-zà-ÿç]+)?$',  # "G.A. Damasceno-Junior"
+            r';.*et\s+al\.?',                       # Contém "et al."
+            r';\s*[A-ZÀ-Ý][a-zà-ÿç]+',             # Lista de nomes separados por ;
+        ]
+
+        # Padrão para nomes simples (dois nomes próprios)
+        simple_name_pattern = r'^[A-ZÀ-Ý][a-zà-ÿç]+\s+[A-ZÀ-Ý][a-zà-ÿç]+$'
+        if re.match(simple_name_pattern, text):
+            # Se já passou pela verificação de palavras institucionais acima, é válido
+            return True
+
+        for pattern in person_patterns:
+            if re.search(pattern, text):
+                return True
+
+        return False
+
+    def _is_person_initials_context(self, text: str) -> bool:
+        """
+        Verifica se as iniciais estão em contexto de nome de pessoa
+        """
+        # Padrões que indicam que S.A., etc. são iniciais de pessoa
+        initials_context_patterns = [
+            r'[A-Z][a-z]+,\s*[A-Z]\.([A-Z]\.)*',  # "Martins, S.A."
+            r'^[A-Z]\.([A-Z]\.)*\s+[A-Z][a-z]+',  # "S.A. Martins"
+            r';\s*[A-Z][a-z]+,\s*[A-Z]\.([A-Z]\.)*',  # "; Souza, S.A.O."
+        ]
+
+        for pattern in initials_context_patterns:
+            if re.search(pattern, text):
+                return True
+
+        return False
+
+    def _calculate_group_confidence(self, text: str) -> float:
+        """
+        Calcula confiança de que o texto representa um grupo genérico de pessoas
+        (SEM nomes próprios - apenas denominações genéricas)
+        """
+        confidence = 0.0
+        text_lower = text.lower()
+
+        # Se contém nomes próprios, NÃO é grupo genérico
+        if self._contains_proper_names(text):
+            return 0.0
+
+        # Palavras-chave de grupos genéricos (confiança alta)
         group_keywords = {
-            'equipe': 0.80, 'grupo': 0.75, 'projeto': 0.70,
-            'pesquisa': 0.65, 'estudo': 0.60, 'alunos': 0.85,
-            'turma': 0.80, 'curso': 0.70, 'disciplina': 0.75
+            'equipe': 0.85, 'grupo': 0.80, 'projeto': 0.75,
+            'pesquisa': 0.70, 'estudo': 0.65, 'alunos': 0.90,
+            'turma': 0.85, 'curso': 0.75, 'disciplina': 0.80,
+            'coleta': 0.65, 'campo': 0.60, 'coletor': 0.70,
+            'coletores': 0.75, 'botanica': 0.70, 'botanicos': 0.75,
+            'pesquisadores': 0.80, 'expedição': 0.75, 'expedição': 0.75
         }
 
         for keyword, score in group_keywords.items():
-            if keyword in text.lower():
+            if keyword in text_lower:
                 confidence = max(confidence, score)
 
-        # Expressões específicas (alta confiança)
-        if 'pesquisas da biodiversidade' in text.lower():
-            confidence = max(confidence, 0.90)
-        if 'coleta coletiva' in text.lower():
-            confidence = max(confidence, 0.95)
-        if 'não identificado' in text.lower() or 'anonimo' in text.lower():
-            confidence = max(confidence, 0.85)
+        # Expressões específicas de grupos genéricos (alta confiança)
+        generic_expressions = [
+            ('pesquisas da biodiversidade', 0.95),
+            ('coleta coletiva', 0.95),
+            ('não identificado', 0.90),
+            ('sem informação', 0.90),
+            ('não informado', 0.90),
+            ('anônimo', 0.90),
+            ('anonimo', 0.90),
+            ('equipe de pesquisa', 0.95),
+            ('grupo de estudos', 0.95),
+            ('alunos da disciplina', 0.95),
+            ('projeto de pesquisa', 0.90)
+        ]
+
+        for expr, score in generic_expressions:
+            if expr in text_lower:
+                confidence = max(confidence, score)
 
         return confidence
+
+    def _contains_proper_names(self, text: str) -> bool:
+        """
+        Verifica se o texto contém nomes próprios de pessoas
+        """
+        # Primeiro verifica se contém palavras institucionais
+        institutional_words = [
+            'universidade', 'instituto', 'laboratorio', 'centro', 'museu',
+            'departamento', 'faculdade', 'empresa', 'fundacao', 'secretaria',
+            'ministerio', 'federal', 'estadual', 'municipal', 'nacional'
+        ]
+
+        text_lower = text.lower()
+        for word in institutional_words:
+            if word in text_lower:
+                return False
+
+        # Padrões que indicam presença de nomes próprios
+        proper_name_patterns = [
+            r'[A-ZÀ-Ý][a-zà-ÿç]+,\s*[A-Z]\.([A-Z]\.)*',  # "Silva, J.C."
+            r'[A-ZÀ-Ý][a-zà-ÿç]+,\s*[A-Z]{2,4}',         # "Amaral, AG"
+            r'[A-Z]\.([A-Z]\.)*\s+[A-ZÀ-Ý][a-zà-ÿç]+',   # "J.C. Silva"
+            r'^[A-Z]\.[A-Z]\.\s+[A-ZÀ-Ý][a-zà-ÿç]+',     # "G.A. Damasceno"
+            r'[A-ZÀ-Ý][a-zà-ÿç]+,\s*[A-ZÀ-Ý][a-zà-ÿç]+', # "Silva, João"
+            r'^[A-ZÀ-Ý][a-zà-ÿç]+\s+[A-ZÀ-Ý][a-zà-ÿç]+$', # "João Santos"
+        ]
+
+        for pattern in proper_name_patterns:
+            if re.search(pattern, text):
+                return True
+
+        # Verifica se há múltiplos nomes separados por ;
+        if ';' in text:
+            parts = text.split(';')
+            for part in parts:
+                part = part.strip()
+                # Se qualquer parte parece um nome próprio
+                if re.search(r'[A-ZÀ-Ý][a-zà-ÿç]+', part):
+                    return True
+
+        return False
+
+    def _has_multiple_person_names(self, text: str) -> bool:
+        """
+        Verifica se o texto contém múltiplos nomes de pessoas
+        """
+        # Padrões que indicam múltiplos nomes
+        multiple_names_patterns = [
+            r'[A-Z][a-z]+,\s*[A-Z]\.([A-Z]\.)*;\s*[A-Z][a-z]+',  # "Silva, J.; Santos"
+            r'[A-Z][a-z]+;\s*[A-Z][a-z]+',                        # "Silva; Santos"
+            r'[A-Z][a-z]+,\s*[A-Z]\.([A-Z]\.)*;\s*[A-Z][a-z]+,\s*[A-Z]\.([A-Z]\.)*',  # Múltiplos com iniciais
+        ]
+
+        for pattern in multiple_names_patterns:
+            if re.search(pattern, text):
+                return True
+
+        # Conta vírgulas e pontos-e-vírgulas que separam nomes
+        semicolon_count = text.count(';')
+        if semicolon_count >= 1:
+            # Verifica se há nomes após o ponto-e-vírgula
+            parts = text.split(';')
+            person_parts = 0
+            for part in parts:
+                part = part.strip()
+                if re.search(r'^[A-Z][a-z]+', part):  # Começa com nome próprio
+                    person_parts += 1
+
+            return person_parts >= 2
+
+        return False
 
     def is_group_or_project(self, text: str) -> bool:
         """

@@ -17,8 +17,10 @@ O script `processar_coletores.py` é o módulo principal do sistema de canonical
 - **Scoring**: Cálculo de confiança na canonicalização
 
 ### 3. Detecção de Tipos
-- **Pessoas**: Coletores individuais
-- **Grupos/Projetos**: Equipes, laboratórios, projetos de pesquisa
+- **Pessoas**: Coletores individuais com nome próprio único
+- **Conjunto de Pessoas**: Múltiplos nomes próprios para atomização
+- **Grupos Genéricos**: Denominações sem nomes próprios específicos
+- **Empresas/Instituições**: Organizações, universidades, códigos
 - **Análise por Kingdom**: Plantae, Animalia, etc.
 
 ### 4. Sistema de Recuperação
