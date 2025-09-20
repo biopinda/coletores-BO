@@ -1664,6 +1664,22 @@ class GerenciadorMongoDB:
             logger.error(f"Erro ao carregar checkpoint: {e}")
             return None
 
+    def limpar_checkpoint(self) -> bool:
+        """
+        Remove dados de checkpoint (usado para reiniciar processamento)
+
+        Returns:
+            True se removeu com sucesso
+        """
+        try:
+            resultado = self.db.checkpoints.delete_many({"tipo": "canonicalizacao"})
+            logger.info(f"Checkpoints removidos: {resultado.deleted_count} documentos")
+            return True
+
+        except Exception as e:
+            logger.error(f"Erro ao limpar checkpoint: {e}")
+            return False
+
     def limpar_colecao_coletores(self) -> bool:
         """
         Limpa a coleção de coletores (usado para reiniciar processamento)

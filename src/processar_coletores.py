@@ -35,7 +35,10 @@ def configurar_logging():
     )
 
     # Handler para arquivo
-    file_handler = logging.FileHandler('../logs/processamento.log', encoding='utf-8')
+    log_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, 'processamento.log')
+    file_handler = logging.FileHandler(log_file, encoding='utf-8')
     file_handler.setFormatter(log_formatter)
     file_handler.setLevel(logging.INFO)  # Mudado de DEBUG para INFO
 
@@ -148,6 +151,17 @@ class ProcessadorColetores:
 
             # Conecta o canonizador ao MongoDB para busca de duplicatas
             self.canonizador.mongo_manager = self.mongo_manager
+
+            # Verifica se a coleção coletores está vazia
+            print(">> Verificando estado da colecao coletores...")
+            total_coletores = self.mongo_manager.coletores.count_documents({})
+
+            if total_coletores == 0:
+                print(">> Colecao coletores vazia. Resetando checkpoints e reiniciando do zero...")
+                self.mongo_manager.limpar_checkpoint()
+                restart = True  # Força reinício quando coleção está vazia
+            else:
+                print(f">> Encontrados {total_coletores:,} coletores na colecao")
 
             # Verifica se deve reiniciar
             checkpoint = None
