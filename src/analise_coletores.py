@@ -51,6 +51,7 @@ class AnalisadorColetores:
             'total_nomes_atomizados': 0,
             'entidades_por_tipo': {
                 'pessoa': 0,
+                'conjunto_pessoas': 0,
                 'grupo_pessoas': 0,
                 'empresa_instituicao': 0
             },
@@ -63,6 +64,7 @@ class AnalisadorColetores:
             'amostras_por_padrao': defaultdict(list),
             'exemplos_por_tipo': {
                 'pessoa': [],
+                'conjunto_pessoas': [],
                 'grupo_pessoas': [],
                 'empresa_instituicao': []
             }
