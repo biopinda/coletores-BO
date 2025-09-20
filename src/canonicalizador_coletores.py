@@ -21,16 +21,21 @@ class AtomizadorNomes:
     Classe responsável por separar múltiplos coletores em strings
     """
 
-    def __init__(self, separator_patterns: List[str]):
+    def __init__(self, separator_patterns: List[str], group_patterns: List[str] = None):
         """
-        Inicializa o atomizador com padrões de separação
+        Inicializa o atomizador com padrões de separação e identificação de grupos
 
         Args:
             separator_patterns: Lista de padrões regex para separar nomes
+            group_patterns: Lista de padrões regex para identificar grupos/projetos
         """
         self.separator_patterns = separator_patterns
         self.compiled_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in separator_patterns]
-        logger.info(f"AtomizadorNomes inicializado com {len(separator_patterns)} padrões")
+
+        self.group_patterns = group_patterns or []
+        self.compiled_group_patterns = [re.compile(pattern, re.IGNORECASE) for pattern in self.group_patterns]
+
+        logger.info(f"AtomizadorNomes inicializado com {len(separator_patterns)} padrões de separação e {len(self.group_patterns)} padrões de grupos")
 
     def atomizar(self, text: str) -> List[str]:
         """
@@ -70,6 +75,28 @@ class AtomizadorNomes:
 
         logger.debug(f"Atomização: '{text}' -> {nomes_validos}")
         return nomes_validos
+
+    def is_group_or_project(self, text: str) -> bool:
+        """
+        Verifica se o texto representa um grupo/projeto ao invés de uma pessoa
+
+        Args:
+            text: Texto a ser verificado
+
+        Returns:
+            True se for identificado como grupo/projeto
+        """
+        if not text or not isinstance(text, str):
+            return False
+
+        text = text.strip()
+
+        # Verifica contra os padrões de grupos
+        for pattern in self.compiled_group_patterns:
+            if pattern.match(text):
+                return True
+
+        return False
 
     def _validar_nome(self, nome: str) -> bool:
         """
@@ -501,6 +528,8 @@ class CanonizadorColetores:
             }],
             'total_registros': 1,
             'confianca_canonicalizacao': 1.0,
+            'kingdoms': nome_normalizado.get('kingdoms', {}),
+            'tipo_coletor': nome_normalizado.get('tipo_coletor', 'pessoa'),
             'metadados': {
                 'data_criacao': agora,
                 'ultima_atualizacao': agora,
@@ -553,6 +582,14 @@ class CanonizadorColetores:
         # Atualiza totais
         candidato['total_registros'] += 1
         candidato['metadados']['ultima_atualizacao'] = datetime.now()
+
+        # Atualiza kingdoms
+        kingdoms_novos = nome_normalizado.get('kingdoms', {})
+        for kingdom, count in kingdoms_novos.items():
+            if kingdom in candidato['kingdoms']:
+                candidato['kingdoms'][kingdom] += count
+            else:
+                candidato['kingdoms'][kingdom] = count
 
         # Atualiza confiança (diminui se score for baixo)
         if score < self.confidence_threshold:
@@ -687,6 +724,39 @@ class GerenciadorMongoDB:
 
         except Exception as e:
             logger.error(f"Erro ao obter amostra: {e}")
+            raise
+
+    def obter_amostra_recordedby_por_kingdom(self, tamanho: int = 100000, kingdom: str = "Plantae") -> List[str]:
+        """
+        Obtém uma amostra dos valores de recordedBy filtrada por kingdom para análise
+
+        Args:
+            tamanho: Tamanho da amostra
+            kingdom: Kingdom para filtrar (Plantae, Animalia, etc.)
+
+        Returns:
+            Lista de valores de recordedBy
+        """
+        try:
+            logger.info(f"Obtendo amostra de {tamanho} registros de recordedBy para kingdom '{kingdom}'...")
+
+            pipeline = [
+                {"$match": {
+                    "recordedBy": {"$exists": True, "$ne": None, "$ne": ""},
+                    "kingdom": kingdom
+                }},
+                {"$sample": {"size": tamanho}},
+                {"$project": {"recordedBy": 1, "kingdom": 1, "_id": 0}}
+            ]
+
+            resultado = list(self.ocorrencias.aggregate(pipeline))
+            recordedby_values = [doc['recordedBy'] for doc in resultado if doc.get('recordedBy')]
+
+            logger.info(f"Amostra obtida para {kingdom}: {len(recordedby_values)} registros")
+            return recordedby_values
+
+        except Exception as e:
+            logger.error(f"Erro ao obter amostra por kingdom: {e}")
             raise
 
     def obter_todos_recordedby(self, batch_size: int = 10000):

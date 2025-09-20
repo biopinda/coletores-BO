@@ -16,7 +16,7 @@ import json
 # Adiciona o diretório pai ao path para importar módulos
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from config.mongodb_config import MONGODB_CONFIG, ALGORITHM_CONFIG, SEPARATOR_PATTERNS
+from config.mongodb_config import MONGODB_CONFIG, ALGORITHM_CONFIG, SEPARATOR_PATTERNS, GROUP_PATTERNS
 from src.canonicalizador_coletores import AtomizadorNomes, NormalizadorNome, GerenciadorMongoDB
 
 # Configurar logging
@@ -24,7 +24,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('logs/analise_exploratoria.log'),
+        logging.FileHandler('../logs/analise_exploratoria.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -40,7 +40,7 @@ class AnalisadorColetores:
         """
         Inicializa o analisador
         """
-        self.atomizador = AtomizadorNomes(SEPARATOR_PATTERNS)
+        self.atomizador = AtomizadorNomes(SEPARATOR_PATTERNS, GROUP_PATTERNS)
         self.normalizador = NormalizadorNome()
 
         # Estatísticas
@@ -49,12 +49,14 @@ class AnalisadorColetores:
             'registros_vazios': 0,
             'registros_validos': 0,
             'total_nomes_atomizados': 0,
+            'grupos_projetos_identificados': 0,
             'distribuicao_separadores': Counter(),
             'distribuicao_tamanhos': Counter(),
             'distribuicao_formatos': Counter(),
             'caracteres_especiais': Counter(),
             'casos_problematicos': [],
-            'amostras_por_padrao': defaultdict(list)
+            'amostras_por_padrao': defaultdict(list),
+            'exemplos_grupos_projetos': []
         }
 
         logger.info("AnalisadorColetores inicializado")
@@ -96,6 +98,12 @@ class AnalisadorColetores:
         recorded_by = recorded_by.strip()
         self.stats['registros_validos'] += 1
 
+        # Verifica se é um grupo/projeto
+        if self.atomizador.is_group_or_project(recorded_by):
+            self.stats['grupos_projetos_identificados'] += 1
+            if len(self.stats['exemplos_grupos_projetos']) < 20:
+                self.stats['exemplos_grupos_projetos'].append(recorded_by)
+
         # Analisa tamanho
         self.stats['distribuicao_tamanhos'][self._categorizar_tamanho(len(recorded_by))] += 1
 
@@ -136,7 +144,7 @@ class AnalisadorColetores:
         Categoriza o tamanho do texto
         """
         if tamanho <= 10:
-            return 'muito_curto (≤10)'
+            return 'muito_curto (<=10)'
         elif tamanho <= 30:
             return 'curto (11-30)'
         elif tamanho <= 60:
@@ -259,6 +267,7 @@ class AnalisadorColetores:
         relatorio.append(f"Registros vazios: {self.stats['registros_vazios']:,}")
         relatorio.append(f"Total de nomes atomizados: {self.stats['total_nomes_atomizados']:,}")
         relatorio.append(f"Taxa de atomização: {self.stats['taxa_atomizacao']:.2f} nomes/registro")
+        relatorio.append(f"Grupos/Projetos identificados: {self.stats['grupos_projetos_identificados']:,}")
         relatorio.append("")
 
         # Distribuição por tamanho
@@ -291,6 +300,14 @@ class AnalisadorColetores:
         for char, count in list(self.stats['caracteres_especiais'].items())[:15]:
             relatorio.append(f"'{char}': {count:,}")
         relatorio.append("")
+
+        # Exemplos de grupos/projetos identificados
+        if self.stats['exemplos_grupos_projetos']:
+            relatorio.append("EXEMPLOS DE GRUPOS/PROJETOS IDENTIFICADOS")
+            relatorio.append("-" * 40)
+            for exemplo in self.stats['exemplos_grupos_projetos']:
+                relatorio.append(f"  - {exemplo}")
+            relatorio.append("")
 
         # Amostras por padrão
         relatorio.append("AMOSTRAS POR PADRÃO")
@@ -367,12 +384,20 @@ def main():
 
             print("Conexão estabelecida com sucesso!")
 
-            # Obtém amostra dos dados
-            tamanho_amostra = ALGORITHM_CONFIG['sample_size']
-            print(f"Obtendo amostra de {tamanho_amostra:,} registros...")
+            # Obtém amostra estratificada por kingdom
+            print("Obtendo amostra estratificada por kingdom...")
+            print("- 100,000 registros de Plantae")
+            print("- 100,000 registros de Animalia")
 
-            amostra = mongo_manager.obter_amostra_recordedby(tamanho_amostra)
-            print(f"Amostra obtida: {len(amostra):,} registros")
+            amostra_plantae = mongo_manager.obter_amostra_recordedby_por_kingdom(100000, "Plantae")
+            print(f"Amostra Plantae obtida: {len(amostra_plantae):,} registros")
+
+            amostra_animalia = mongo_manager.obter_amostra_recordedby_por_kingdom(100000, "Animalia")
+            print(f"Amostra Animalia obtida: {len(amostra_animalia):,} registros")
+
+            # Combina as amostras
+            amostra = amostra_plantae + amostra_animalia
+            print(f"Amostra total: {len(amostra):,} registros")
 
             # Executa análise
             analisador = AnalisadorColetores()

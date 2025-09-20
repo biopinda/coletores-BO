@@ -24,7 +24,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('logs/relatorios.log'),
+        logging.FileHandler('../logs/relatorios.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
@@ -159,7 +159,7 @@ class GeradorRelatorios:
                     "_id": {
                         "$switch": {
                             "branches": [
-                                {"case": {"$gte": ["$confianca_canonicalizacao", 0.95]}, "then": "Muito Alta (≥0.95)"},
+                                {"case": {"$gte": ["$confianca_canonicalizacao", 0.95]}, "then": "Muito Alta (>=0.95)"},
                                 {"case": {"$gte": ["$confianca_canonicalizacao", 0.85]}, "then": "Alta (0.85-0.94)"},
                                 {"case": {"$gte": ["$confianca_canonicalizacao", 0.70]}, "then": "Média (0.70-0.84)"},
                                 {"case": {"$gte": ["$confianca_canonicalizacao", 0.50]}, "then": "Baixa (0.50-0.69)"}

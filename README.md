@@ -8,6 +8,23 @@ Este projeto implementa um algoritmo para canonicalização de nomes de coletore
 
 Este projeto está associado ao [DarwinCoreJSON](https://github.com/biopinda/DarwinCoreJSON), um sistema para conversão de dados de biodiversidade para o padrão Darwin Core em formato JSON. O **coletoresDWC2JSON** atua como um componente de melhoria da qualidade dos dados, especificamente focado na normalização e canonicalização dos nomes de coletores no banco de dados gerado pelo DarwinCoreJSON, aumentando a consistência e facilitando análises posteriores.
 
+## Principais Funcionalidades
+
+### 🔬 Análise por Kingdom
+- **Amostragem estratificada**: 100.000 registros de Plantae + 100.000 de Animalia
+- **Especialização detectada**: Identifica coletores especializados em botânica ou zoologia
+- **Análise comparativa**: Estatísticas específicas por reino biológico
+
+### 🏛️ Detecção de Grupos e Projetos
+- **Identificação automática**: Reconhece grupos de pesquisa, laboratórios e projetos
+- **Padrões avançados**: Detecta "Pesquisas da Biodiversidade", "Alunos da disciplina", etc.
+- **Normalização especializada**: Tratamento diferenciado para entidades vs pessoas
+
+### 📊 Sistema de Canonicalização Avançado
+- **Algoritmo de similaridade**: Combina análise fonética, inicial e sobrenome
+- **Scoring inteligente**: Calcula confiança na canonicalização
+- **Revisão automática**: Identifica casos que necessitam validação manual
+
 ## Visão Geral
 
 O algoritmo resolve o problema de múltiplas representações do mesmo coletor (ex: "FORZZA", "Forzza, R." e "R.C. Forzza") através de:
@@ -48,6 +65,17 @@ pip install -r requirements.txt
 
 ## Uso
 
+### Scripts Disponíveis
+
+O sistema é composto por quatro scripts principais, cada um com funcionalidades específicas:
+
+| Script | Descrição | Documentação |
+|--------|-----------|--------------|
+| `analise_coletores.py` | Análise exploratória dos dados | [📖 Documentação](docs/analise_coletores.md) |
+| `processar_coletores.py` | Processamento principal e canonicalização | [📖 Documentação](docs/processar_coletores.md) |
+| `validar_canonicalizacao.py` | Validação de qualidade dos resultados | [📖 Documentação](docs/validar_canonicalizacao.md) |
+| `gerar_relatorios.py` | Geração de relatórios detalhados | [📖 Documentação](docs/gerar_relatorios.md) |
+
 ### 1. Análise Exploratória
 
 Primeiro, execute uma análise para entender os padrões dos dados:
@@ -57,9 +85,15 @@ cd src
 python analise_coletores.py
 ```
 
+**Novos recursos**:
+- ✅ Amostragem estratificada: 100k registros de Plantae + 100k de Animalia
+- ✅ Detecção de grupos/projetos (ex: "Pesquisas da Biodiversidade")
+- ✅ Análise por kingdom especializado
+
 **Saída**: Relatório em `reports/` com:
-- Distribuição de formatos de nomes
+- Distribuição de formatos de nomes por kingdom
 - Separadores mais comuns
+- Grupos/projetos identificados
 - Caracteres especiais identificados
 - Amostras por padrão detectado
 
@@ -77,6 +111,11 @@ python processar_coletores.py --restart
 # Ver casos que precisam revisão manual
 python processar_coletores.py --revisao
 ```
+
+**Melhorias implementadas**:
+- ✅ Suporte a análise por kingdom (Plantae/Animalia)
+- ✅ Identificação de tipos: pessoa vs grupo/projeto
+- ✅ Estrutura expandida com estatísticas por reino
 
 **Características**:
 - Processamento em lotes (10k registros por vez)
@@ -96,6 +135,12 @@ python validar_canonicalizacao.py
 python validar_canonicalizacao.py --csv validacao_manual.csv
 ```
 
+**Funcionalidades de validação**:
+- Análise de qualidade por kingdom
+- Detecção de especialização de coletores
+- Identificação de casos problemáticos
+- Recomendações automatizadas
+
 ### 4. Relatórios
 
 Gere relatórios detalhados:
@@ -109,6 +154,12 @@ python gerar_relatorios.py --tipo estatisticas
 python gerar_relatorios.py --tipo top --top-n 50
 python gerar_relatorios.py --tipo csv
 ```
+
+**Novos tipos de relatório**:
+- Análise comparativa por kingdom
+- Coletores especialistas vs generalistas
+- Estatísticas de grupos/projetos
+- Métricas de qualidade avançadas
 
 ## Algoritmo
 
@@ -156,6 +207,11 @@ python gerar_relatorios.py --tipo csv
   ],
   "total_registros": 4200,
   "confianca_canonicalizacao": 0.95,
+  "kingdoms": {
+    "Plantae": 2800,
+    "Animalia": 1400
+  },
+  "tipo_coletor": "pessoa",  // "pessoa" ou "grupo_projeto"
   "metadados": {
     "data_criacao": ISODate("..."),
     "ultima_atualizacao": ISODate("..."),

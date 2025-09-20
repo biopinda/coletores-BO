@@ -34,7 +34,7 @@ def configurar_logging():
     )
 
     # Handler para arquivo
-    file_handler = logging.FileHandler('logs/processamento.log', encoding='utf-8')
+    file_handler = logging.FileHandler('../logs/processamento.log', encoding='utf-8')
     file_handler.setFormatter(log_formatter)
     file_handler.setLevel(logging.DEBUG)
 

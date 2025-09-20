@@ -23,7 +23,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('logs/validacao.log'),
+        logging.FileHandler('../logs/validacao.log', encoding='utf-8'),
         logging.StreamHandler()
     ]
 )
