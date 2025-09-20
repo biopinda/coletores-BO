@@ -1278,7 +1278,14 @@ class GerenciadorMongoDB:
         import pymongo
         from pymongo import MongoClient
 
-        self.client = MongoClient(connection_string, serverSelectionTimeoutMS=30000)
+        self.client = MongoClient(
+            connection_string,
+            serverSelectionTimeoutMS=60000,  # 60 segundos para seleção de servidor
+            socketTimeoutMS=60000,           # 60 segundos para operações de socket
+            connectTimeoutMS=30000,          # 30 segundos para conectar
+            maxPoolSize=10,                  # Pool de conexões
+            retryWrites=True                 # Retry automático para writes
+        )
         self.db = self.client[database_name]
         self.collections = collections
 
@@ -1446,7 +1453,7 @@ class GerenciadorMongoDB:
     def salvar_coletor_canonico(self, coletor_canonico: Dict[str, any]) -> bool:
         """
         Salva ou atualiza um coletor canônico no MongoDB
-        Implementa merge inteligente de variações para deduplicação
+        Implementa merge inteligente de variações para deduplicação com retry logic
 
         Args:
             coletor_canonico: Dados do coletor canônico
@@ -1454,38 +1461,64 @@ class GerenciadorMongoDB:
         Returns:
             True se salvou com sucesso
         """
-        try:
-            # Sanitiza dados antes de salvar
-            coletor_canonico = self._sanitizar_dados_mongodb(coletor_canonico)
+        import time
+        import random
+        from pymongo.errors import OperationFailure, NetworkTimeout, ServerSelectionTimeoutError
 
-            filtro = {"sobrenome_normalizado": coletor_canonico["sobrenome_normalizado"]}
+        max_retries = 3
+        base_delay = 1.0
 
-            # Verifica se já existe um coletor com o mesmo sobrenome normalizado
-            existente = self.coletores.find_one(filtro)
+        for tentativa in range(max_retries):
+            try:
+                # Sanitiza dados antes de salvar
+                coletor_canonico_sanitizado = self._sanitizar_dados_mongodb(coletor_canonico)
 
-            if existente:
-                # Faz merge das variações
-                self._merge_variacoes(existente, coletor_canonico)
+                filtro = {"sobrenome_normalizado": coletor_canonico_sanitizado["sobrenome_normalizado"]}
 
-                # Sanitiza dados existentes antes de salvar
-                existente_sanitizado = self._sanitizar_dados_mongodb(existente)
+                # Verifica se já existe um coletor com o mesmo sobrenome normalizado
+                # Adiciona timeout explícito para find_one
+                existente = self.coletores.find_one(filtro, max_time_ms=10000)
 
-                # Atualiza o documento existente
-                resultado = self.coletores.replace_one(
-                    {"_id": existente["_id"]},
-                    existente_sanitizado
-                )
-                logger.debug(f"Coletor atualizado (merge): {existente['coletor_canonico']}")
-            else:
-                # Insere novo documento
-                resultado = self.coletores.insert_one(coletor_canonico)
-                logger.debug(f"Novo coletor inserido: {coletor_canonico['coletor_canonico']}")
+                if existente:
+                    # Faz merge das variações
+                    self._merge_variacoes(existente, coletor_canonico_sanitizado)
 
-            return True
+                    # Sanitiza dados existentes antes de salvar
+                    existente_sanitizado = self._sanitizar_dados_mongodb(existente)
 
-        except Exception as e:
-            logger.error(f"Erro ao salvar coletor canônico: {e}")
-            return False
+                    # Atualiza o documento existente
+                    resultado = self.coletores.replace_one(
+                        {"_id": existente["_id"]},
+                        existente_sanitizado
+                    )
+                    logger.debug(f"Coletor atualizado (merge): {existente['coletor_canonico']}")
+                else:
+                    # Insere novo documento
+                    resultado = self.coletores.insert_one(coletor_canonico_sanitizado)
+                    logger.debug(f"Novo coletor inserido: {coletor_canonico_sanitizado['coletor_canonico']}")
+
+                return True
+
+            except (OperationFailure, NetworkTimeout, ServerSelectionTimeoutError) as e:
+                if "operation cancelled" in str(e).lower() or "timeout" in str(e).lower():
+                    if tentativa < max_retries - 1:
+                        # Backoff exponencial com jitter
+                        delay = base_delay * (2 ** tentativa) + random.uniform(0, 1)
+                        logger.warning(f"Timeout na tentativa {tentativa + 1}/{max_retries}. Tentando novamente em {delay:.1f}s...")
+                        time.sleep(delay)
+                        continue
+                    else:
+                        logger.error(f"Falhou após {max_retries} tentativas. Erro: {e}")
+                        return False
+                else:
+                    # Erro não relacionado a timeout, não tenta novamente
+                    logger.error(f"Erro não recuperável ao salvar coletor: {e}")
+                    return False
+            except Exception as e:
+                logger.error(f"Erro inesperado ao salvar coletor canônico: {e}")
+                return False
+
+        return False
 
     def _sanitizar_dados_mongodb(self, dados: Dict[str, any]) -> Dict[str, any]:
         """
