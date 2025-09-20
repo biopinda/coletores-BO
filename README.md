@@ -1,4 +1,6 @@
-# Algoritmo de Canonicalização de Coletores
+# Harmonização do nome de coletores de amostras de herbário e coleções biológicas no Brasil
+
+> **Nota**: Este repositório foi migrado para https://github.com/biopinda/coletoresDWC2JSON
 
 Este projeto implementa um algoritmo para canonicalização de nomes de coletores de amostras biológicas botânicas e zoológicas, processando dados armazenados em MongoDB.
 
