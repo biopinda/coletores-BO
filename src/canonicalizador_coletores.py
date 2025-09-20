@@ -1250,43 +1250,59 @@ class GerenciadorMongoDB:
             logger.error(f"Erro ao obter amostra por kingdom: {e}")
             raise
 
-    def obter_todos_recordedby(self, batch_size: int = 10000):
+    def obter_todos_recordedby(self, batch_size: int = 10000, deve_parar_callback=None):
         """
         Gerador que retorna todos os valores de recordedBy em lotes
 
         Args:
             batch_size: Tamanho do lote
+            deve_parar_callback: Função que retorna True se deve parar
 
         Yields:
             Lotes de documentos com recordedBy
         """
         try:
-            total_docs = self.ocorrencias.count_documents(
-                {"recordedBy": {"$exists": True, "$ne": None, "$ne": ""}}
-            )
-            logger.info(f"Total de documentos com recordedBy: {total_docs}")
+            logger.info("Iniciando processamento de documentos com recordedBy...")
 
             processed = 0
+            batch_count = 0
+
+            # Adiciona timeout para evitar travamento
             cursor = self.ocorrencias.find(
                 {"recordedBy": {"$exists": True, "$ne": None, "$ne": ""}},
                 {"recordedBy": 1, "_id": 1}
-            ).batch_size(batch_size)
+            ).batch_size(batch_size).max_time_ms(30000)  # Timeout de 30 segundos
 
             batch = []
+            doc_count = 0
+
             for doc in cursor:
+                # Verifica se deve parar a cada 1000 documentos
+                if deve_parar_callback and doc_count % 1000 == 0:
+                    if deve_parar_callback():
+                        logger.warning("Interrupção detectada durante leitura de documentos")
+                        if batch:  # Retorna lote parcial se houver
+                            yield batch
+                        return
+
                 batch.append(doc)
+                doc_count += 1
 
                 if len(batch) >= batch_size:
                     processed += len(batch)
-                    logger.info(f"Processando lote: {processed}/{total_docs} ({processed/total_docs*100:.1f}%)")
+                    batch_count += 1
+                    logger.info(f"Processando lote {batch_count}: {processed} registros processados")
                     yield batch
                     batch = []
 
             # Último lote (se houver)
             if batch:
                 processed += len(batch)
-                logger.info(f"Processando último lote: {processed}/{total_docs}")
+                batch_count += 1
+                logger.info(f"Processando último lote {batch_count}: {processed} registros processados")
                 yield batch
+
+            logger.info(f"Processamento concluído: {processed} registros em {batch_count} lotes")
 
         except Exception as e:
             logger.error(f"Erro ao obter dados: {e}")

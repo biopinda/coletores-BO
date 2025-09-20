@@ -12,11 +12,12 @@ from datetime import datetime
 from typing import Dict, List, Optional
 from tqdm import tqdm
 import traceback
+import pandas as pd
 
 # Adiciona o diretório pai ao path para importar módulos
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from config.mongodb_config import MONGODB_CONFIG, ALGORITHM_CONFIG, SEPARATOR_PATTERNS
+from config.mongodb_config import MONGODB_CONFIG, ALGORITHM_CONFIG, SEPARATOR_PATTERNS, GROUP_PATTERNS, INSTITUTION_PATTERNS
 from src.canonicalizador_coletores import (
     AtomizadorNomes,
     NormalizadorNome,
@@ -36,7 +37,7 @@ def configurar_logging():
     # Handler para arquivo
     file_handler = logging.FileHandler('../logs/processamento.log', encoding='utf-8')
     file_handler.setFormatter(log_formatter)
-    file_handler.setLevel(logging.DEBUG)
+    file_handler.setLevel(logging.INFO)  # Mudado de DEBUG para INFO
 
     # Handler para console
     console_handler = logging.StreamHandler()
@@ -45,9 +46,16 @@ def configurar_logging():
 
     # Logger principal
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)  # Mudado de DEBUG para INFO
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
+
+    # Silencia logs do MongoDB (pymongo)
+    logging.getLogger('pymongo').setLevel(logging.WARNING)
+    logging.getLogger('pymongo.command').setLevel(logging.WARNING)
+    logging.getLogger('pymongo.connection').setLevel(logging.WARNING)
+    logging.getLogger('pymongo.server').setLevel(logging.WARNING)
+    logging.getLogger('pymongo.topology').setLevel(logging.WARNING)
 
     return logger
 
@@ -63,7 +71,7 @@ class ProcessadorColetores:
         """
         Inicializa o processador
         """
-        self.atomizador = AtomizadorNomes(SEPARATOR_PATTERNS)
+        self.atomizador = AtomizadorNomes(SEPARATOR_PATTERNS, GROUP_PATTERNS, INSTITUTION_PATTERNS)
         self.normalizador = NormalizadorNome()
         self.canonizador = CanonizadorColetores(
             similarity_threshold=ALGORITHM_CONFIG['similarity_threshold'],
@@ -82,7 +90,10 @@ class ProcessadorColetores:
             'tempo_processamento': 0,
             'registros_por_segundo': 0,
             'ultimo_checkpoint': None,
-            'checkpoint_count': 0
+            'checkpoint_count': 0,
+            'ultimo_relatorio_progresso': None,
+            'total_estimado': None,
+            'velocidade_media': 0
         }
 
         # Controle de processamento
@@ -93,14 +104,18 @@ class ProcessadorColetores:
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
-        logger.info("ProcessadorColetores inicializado")
-
     def _signal_handler(self, signum, frame):
         """
         Handler para sinais de interrupção
         """
-        logger.warning(f"Sinal recebido ({signum}). Iniciando parada controlada...")
-        self.deve_parar = True
+        if not self.deve_parar:
+            logger.warning(f"Sinal recebido ({signum}). Iniciando parada controlada...")
+            logger.warning("Pressione Ctrl+C novamente para forçar a saída imediata")
+            self.deve_parar = True
+        else:
+            logger.error("Forçando saída imediata...")
+            import sys
+            sys.exit(1)
 
     def processar_todos_coletores(self, restart: bool = False) -> Dict:
         """
@@ -112,15 +127,15 @@ class ProcessadorColetores:
         Returns:
             Dicionário com estatísticas do processamento
         """
-        logger.info("=" * 80)
-        logger.info("INICIANDO PROCESSAMENTO DE CANONICALIZAÇÃO DE COLETORES")
-        logger.info("=" * 80)
+        print("\n" + "=" * 80)
+        print(">> INICIANDO PROCESSAMENTO DE CANONICALIZACAO DE COLETORES")
+        print("=" * 80)
 
         self.stats['inicio_processamento'] = datetime.now()
 
         try:
             # Conecta ao MongoDB
-            logger.info("Conectando ao MongoDB...")
+            print(">> Conectando ao MongoDB...")
             self.mongo_manager = GerenciadorMongoDB(
                 MONGODB_CONFIG['connection_string'],
                 MONGODB_CONFIG['database_name'],
@@ -128,7 +143,7 @@ class ProcessadorColetores:
             )
 
             # Cria índices se necessário
-            logger.info("Verificando índices da coleção coletores...")
+            print(">> Verificando indices da colecao coletores...")
             self.mongo_manager.criar_indices_coletores()
 
             # Verifica se deve reiniciar
@@ -136,12 +151,14 @@ class ProcessadorColetores:
             if not restart:
                 checkpoint = self.mongo_manager.carregar_checkpoint()
                 if checkpoint:
-                    logger.info(f"Checkpoint encontrado: {checkpoint['total_registros_processados']} registros processados")
+                    print(f">> Checkpoint encontrado: {checkpoint.get('total_registros_processados', 0):,} registros ja processados")
                     self._carregar_estado_checkpoint(checkpoint)
 
             if restart:
-                logger.warning("Reiniciando processamento. Limpando coleção coletores...")
+                print(">> Reiniciando processamento. Limpando colecao coletores...")
                 self.mongo_manager.limpar_colecao_coletores()
+
+            print(">> Iniciando processamento dos dados de coletores...\n")
 
             # Processa em lotes
             self._processar_em_lotes()
@@ -180,7 +197,7 @@ class ProcessadorColetores:
         """
         # Em uma implementação completa, recarregaria o estado interno do canonizador
         # Por simplicidade, deixamos o canonizador reconstruir a partir do MongoDB
-        logger.info("Estado do canonizador será reconstruído a partir do MongoDB")
+        pass
 
     def _processar_em_lotes(self):
         """
@@ -189,16 +206,14 @@ class ProcessadorColetores:
         batch_size = ALGORITHM_CONFIG['batch_size']
         checkpoint_interval = ALGORITHM_CONFIG['checkpoint_interval']
 
-        logger.info(f"Iniciando processamento em lotes (tamanho: {batch_size})")
-
         # Pula registros já processados se houver checkpoint
         skip_count = self.stats['total_registros_processados']
 
         # Itera sobre todos os registros
         batch_count = 0
-        for batch in self.mongo_manager.obter_todos_recordedby(batch_size):
+        for batch in self.mongo_manager.obter_todos_recordedby(batch_size, lambda: self.deve_parar):
             if self.deve_parar:
-                logger.warning("Interrupção solicitada. Salvando checkpoint...")
+                print("\n>> INTERRUPCAO solicitada. Salvando checkpoint...")
                 self._salvar_checkpoint()
                 break
 
@@ -214,38 +229,42 @@ class ProcessadorColetores:
                     skip_count = 0
 
             batch_count += 1
-            logger.info(f"Processando lote {batch_count} ({len(batch)} registros)...")
 
-            # Processa lote com barra de progresso
-            self._processar_lote(batch)
+            # Processa lote
+            self._processar_lote(batch, batch_count)
 
-            # Salva checkpoint periodicamente
+            # Mostra progresso e salva checkpoint periodicamente
             if self.stats['total_registros_processados'] % checkpoint_interval == 0:
                 self._salvar_checkpoint()
+                self._exibir_progresso()
 
-    def _processar_lote(self, batch: List[Dict]):
+    def _processar_lote(self, batch: List[Dict], batch_num: int):
         """
         Processa um lote de registros
         """
-        with tqdm(batch, desc="Processando registros", leave=False) as pbar:
-            for documento in pbar:
-                try:
-                    self._processar_documento(documento)
+        inicio_lote = time.time()
 
-                except Exception as e:
-                    logger.error(f"Erro ao processar documento {documento.get('_id', 'unknown')}: {e}")
-                    self.stats['registros_com_erro'] += 1
+        for documento in batch:
+            try:
+                self._processar_documento(documento)
+            except Exception as e:
+                self.stats['registros_com_erro'] += 1
+            finally:
+                self.stats['total_registros_processados'] += 1
 
-                finally:
-                    self.stats['total_registros_processados'] += 1
+        # Calcula velocidade do lote
+        tempo_lote = time.time() - inicio_lote
+        velocidade_lote = len(batch) / tempo_lote if tempo_lote > 0 else 0
 
-                    # Atualiza estatísticas da barra de progresso
-                    pbar.set_postfix({
-                        'Processados': self.stats['total_registros_processados'],
-                        'Atomizados': self.stats['total_nomes_atomizados'],
-                        'Canônicos': len(self.canonizador.coletores_canonicos),
-                        'Erros': self.stats['registros_com_erro']
-                    })
+        # Atualiza velocidade média
+        if self.stats['velocidade_media'] == 0:
+            self.stats['velocidade_media'] = velocidade_lote
+        else:
+            # Média móvel ponderada (70% histórico, 30% atual)
+            self.stats['velocidade_media'] = (0.7 * self.stats['velocidade_media']) + (0.3 * velocidade_lote)
+
+        # Exibe progresso simplificado
+        self._exibir_progresso_lote(batch_num, len(batch), tempo_lote)
 
     def _processar_documento(self, documento: Dict):
         """
@@ -318,10 +337,64 @@ class ProcessadorColetores:
             self.stats['checkpoint_count'] += 1
             self.stats['ultimo_checkpoint'] = datetime.now()
 
-            logger.info(f"Checkpoint {self.stats['checkpoint_count']} salvo")
-
         except Exception as e:
-            logger.error(f"Erro ao salvar checkpoint: {e}")
+            print(f">> ERRO ao salvar checkpoint: {e}")
+
+    def _exibir_progresso_lote(self, batch_num: int, tamanho_lote: int, tempo_lote: float):
+        """
+        Exibe progresso de um lote específico
+        """
+        # Calcula estatísticas básicas
+        coletores_unicos = len(self.canonizador.coletores_canonicos)
+        velocidade = tamanho_lote / tempo_lote if tempo_lote > 0 else 0
+
+        print(f"Lote {batch_num:>4}: {tamanho_lote:>5} registros -> "
+              f"{self.stats['total_nomes_atomizados']:>6} nomes -> "
+              f"{coletores_unicos:>5} coletores unicos "
+              f"({velocidade:>6.1f} reg/s)")
+
+    def _exibir_progresso(self):
+        """
+        Exibe relatório de progresso completo com estimativas
+        """
+        agora = datetime.now()
+        tempo_decorrido = (agora - self.stats['inicio_processamento']).total_seconds()
+
+        # Estimativa de total se não conhecida
+        if not self.stats['total_estimado']:
+            # Estima baseado na velocidade atual (primeira estimativa conservadora)
+            self.stats['total_estimado'] = int(self.stats['total_registros_processados'] * 2)
+
+        # Calcula estimativas
+        processados = self.stats['total_registros_processados']
+        restantes = max(0, self.stats['total_estimado'] - processados)
+
+        if self.stats['velocidade_media'] > 0:
+            tempo_restante_seg = restantes / self.stats['velocidade_media']
+            tempo_restante = time.strftime('%H:%M:%S', time.gmtime(tempo_restante_seg))
+            previsao_termino = (agora + pd.Timedelta(seconds=tempo_restante_seg)).strftime('%H:%M:%S')
+        else:
+            tempo_restante = "Calculando..."
+            previsao_termino = "Calculando..."
+
+        # Progresso percentual
+        percentual = (processados / self.stats['total_estimado'] * 100) if self.stats['total_estimado'] > 0 else 0
+
+        print("\n" + "=" * 80)
+        print(">> PROGRESSO DA CANONICALIZACAO DE COLETORES")
+        print("=" * 80)
+        print(f"   Registros processados: {processados:>10,}")
+        print(f"   Nomes atomizados:      {self.stats['total_nomes_atomizados']:>10,}")
+        print(f"   Coletores unicos:      {len(self.canonizador.coletores_canonicos):>10,}")
+        print(f"   Registros com erro:    {self.stats['registros_com_erro']:>10,}")
+        print(f"   Velocidade media:      {self.stats['velocidade_media']:>10.1f} reg/s")
+        print(f"   Tempo decorrido:       {time.strftime('%H:%M:%S', time.gmtime(tempo_decorrido))}")
+        print(f"   Progresso:             {percentual:>10.1f}%")
+        print(f"   Tempo restante:        {tempo_restante}")
+        print(f"   Previsao termino:      {previsao_termino}")
+        print("=" * 80 + "\n")
+
+        self.stats['ultimo_relatorio_progresso'] = agora
 
     def _finalizar_processamento(self):
         """

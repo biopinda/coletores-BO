@@ -28,6 +28,14 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
+# Silencia logs do MongoDB (pymongo)
+logging.getLogger('pymongo').setLevel(logging.WARNING)
+logging.getLogger('pymongo.command').setLevel(logging.WARNING)
+logging.getLogger('pymongo.connection').setLevel(logging.WARNING)
+logging.getLogger('pymongo.server').setLevel(logging.WARNING)
+logging.getLogger('pymongo.topology').setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
 
