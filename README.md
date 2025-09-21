@@ -73,14 +73,41 @@ pip install -r requirements.txt
 
 ### Scripts Disponíveis
 
-O sistema é composto por quatro scripts principais, cada um com funcionalidades específicas:
+O sistema é composto por quatro scripts principais e um módulo central:
 
 | Script | Descrição | Documentação |
 |--------|-----------|--------------|
+| `canonicalizador_coletores.py` | **Módulo central** - Classes principais do algoritmo | Usado pelos outros scripts |
 | `analise_coletores.py` | Análise exploratória dos dados | [📖 Documentação](docs/analise_coletores.md) |
 | `processar_coletores.py` | Processamento principal e canonicalização | [📖 Documentação](docs/processar_coletores.md) |
 | `validar_canonicalizacao.py` | Validação de qualidade dos resultados | [📖 Documentação](docs/validar_canonicalizacao.md) |
 | `gerar_relatorios.py` | Geração de relatórios detalhados | [📖 Documentação](docs/gerar_relatorios.md) |
+
+### ⚠️ ORDEM CORRETA DE EXECUÇÃO
+
+**IMPORTANTE**: O `canonicalizador_coletores.py` é um **módulo de classes**, não um script executável. Ele contém as classes `AtomizadorNomes`, `NormalizadorNome` e `CanonizadorColetores` que são importadas pelos outros scripts.
+
+**Sequência recomendada**:
+
+1. **Análise Exploratória** (opcional, mas recomendado)
+2. **Processamento Principal** (obrigatório)
+3. **Validação** (recomendado)
+4. **Relatórios** (opcional)
+
+```bash
+# 1. PRIMEIRO: Análise exploratória (recomendado)
+cd src
+python analise_coletores.py
+
+# 2. SEGUNDO: Processamento principal (OBRIGATÓRIO)
+python processar_coletores.py
+
+# 3. TERCEIRO: Validação da qualidade (recomendado)
+python validar_canonicalizacao.py
+
+# 4. QUARTO: Geração de relatórios (opcional)
+python gerar_relatorios.py
+```
 
 ### 1. Análise Exploratória
 
