@@ -180,7 +180,7 @@ O script automaticamente verifica a integridade da coleção "coletores" ao inic
 
 ```bash
 # 1. Iniciar processamento
-cd D:\git\coletoresDWC2JSON\src
+cd D:\git\coletoresBO\src
 python processar_coletores.py
 
 # 2. Aguardar até ver processamento em andamento

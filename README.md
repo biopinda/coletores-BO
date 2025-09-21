@@ -1,12 +1,10 @@
-# Harmonização do nome de coletores de amostras de herbário e coleções biológicas no Brasil
-
-> **Nota**: Este repositório foi migrado para https://github.com/biopinda/coletoresDWC2JSON
+# Harmonização do nome de coletores de amostras de herbário e coleções biológicas no Brasil - Biodiversidade Online
 
 Este projeto implementa um algoritmo para canonicalização de nomes de coletores de amostras biológicas botânicas e zoológicas, processando dados armazenados em MongoDB.
 
 ## Projeto Relacionado
 
-Este projeto está associado ao [DarwinCoreJSON](https://github.com/biopinda/DarwinCoreJSON), um sistema para conversão de dados de biodiversidade para o padrão Darwin Core em formato JSON. O **coletoresDWC2JSON** atua como um componente de melhoria da qualidade dos dados, especificamente focado na normalização e canonicalização dos nomes de coletores no banco de dados gerado pelo DarwinCoreJSON, aumentando a consistência e facilitando análises posteriores.
+Este projeto está associado ao [DarwinCoreJSON](https://github.com/biopinda/DarwinCoreJSON), um sistema para conversão de dados de biodiversidade para o padrão Darwin Core em formato JSON. O **coletores-BO** atua como um componente de melhoria da qualidade dos dados, especificamente focado na normalização e canonicalização dos nomes de coletores no banco de dados gerado pelo DarwinCoreJSON, aumentando a consistência e facilitando análises posteriores.
 
 ## Principais Funcionalidades
 
