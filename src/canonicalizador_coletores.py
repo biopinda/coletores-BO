@@ -105,6 +105,14 @@ class AtomizadorNomes:
 
         text = text.strip()
 
+        # PRIORITÁRIO: Verifica se é claramente um nome de pessoa (override outras classificações)
+        if self._looks_like_person_name(text):
+            # Se parece nome de pessoa, força classificação como pessoa, ignorando outras possibilidades
+            return {
+                'tipo': 'pessoa',
+                'confianca_classificacao': 0.95  # Alta confiança quando claramente é nome de pessoa
+            }
+
         # Verifica primeiro se é ausência de coletor (prioridade máxima)
         ausencia_confidence = self._calculate_ausencia_coletor_confidence(text)
 
@@ -136,8 +144,8 @@ class AtomizadorNomes:
                 'tipo': 'grupo_pessoas',
                 'confianca_classificacao': group_confidence
             }
-        # Prioridade 4: Instituições
-        elif institution_confidence > 0.6 and institution_confidence >= max(conjunto_confidence, group_confidence):
+        # Prioridade 4: Instituições (threshold aumentado para ser mais restritivo)
+        elif institution_confidence > 0.8 and institution_confidence >= max(conjunto_confidence, group_confidence):
             return {
                 'tipo': 'empresa_instituicao',
                 'confianca_classificacao': institution_confidence
@@ -233,9 +241,11 @@ class AtomizadorNomes:
 
         for pattern in corporate_patterns:
             if re.search(pattern, text, re.IGNORECASE):
-                # Verifica se é realmente um sufixo corporativo e não iniciais
+                # CRITICAL: Verifica se é realmente um sufixo corporativo e não iniciais de pessoa
                 if not self._is_person_initials_context(text):
-                    confidence = max(confidence, 0.95)
+                    # Verifica se não tem formato de nome de pessoa antes do sufixo
+                    if not re.search(r'^[A-ZÀ-Ý][a-zà-ÿç]+(\s+[A-ZÀ-Ý][a-zà-ÿç]+)*,\s*[A-Z]', text):
+                        confidence = max(confidence, 0.95)
 
         # Palavras-chave institucionais (confiança moderada a alta)
         institutional_keywords = {
@@ -455,9 +465,11 @@ class AtomizadorNomes:
         """
         # Padrões que indicam que S.A., etc. são iniciais de pessoa
         initials_context_patterns = [
-            r'[A-Z][a-z]+,\s*[A-Z]\.([A-Z]\.)*',  # "Martins, S.A."
-            r'^[A-Z]\.([A-Z]\.)*\s+[A-Z][a-z]+',  # "S.A. Martins"
-            r';\s*[A-Z][a-z]+,\s*[A-Z]\.([A-Z]\.)*',  # "; Souza, S.A.O."
+            r'[A-Z][a-z]+,\s*[A-Z]\.([A-Z]\.)*',     # "Martins, S.A."
+            r'^[A-Z]\.([A-Z]\.)*\s+[A-Z][a-z]+',     # "S.A. Martins"
+            r';\s*[A-Z][a-z]+,\s*[A-Z]\.([A-Z]\.)*', # "; Souza, S.A.O."
+            r'^[A-ZÀ-Ý][a-zà-ÿç]+(\s+[A-ZÀ-Ý][a-zà-ÿç]+)*,\s*[A-Z]{1,4}$',  # "Lucena Neto, SA"
+            r'^[A-ZÀ-Ý][a-zà-ÿç]+(\s+[A-ZÀ-Ý][a-zà-ÿç]+)*,\s*[A-Z]\.([A-Z]\.)*$',  # "Silva Santos, A.B."
         ]
 
         for pattern in initials_context_patterns:
