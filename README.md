@@ -11,7 +11,7 @@ Este projeto está associado ao [DarwinCoreJSON](https://github.com/biopinda/Dar
 ## Principais Funcionalidades
 
 ### 🔬 Análise por Kingdom
-- **Amostragem estratificada**: 100.000 registros de Plantae + 100.000 de Animalia
+- **Amostragem estratificada**: 3.000.000 registros de Plantae + 3.000.000 de Animalia
 - **Especialização detectada**: Identifica coletores especializados em botânica ou zoologia
 - **Análise comparativa**: Estatísticas específicas por reino biológico
 
@@ -119,7 +119,7 @@ python analise_coletores.py
 ```
 
 **Novos recursos**:
-- ✅ Amostragem estratificada: 100k registros de Plantae + 100k de Animalia
+- ✅ Amostragem estratificada: 3M registros de Plantae + 3M de Animalia
 - ✅ Sistema de classificação de entidades com 4 categorias inteligentes
 - ✅ Distinção entre conjunto_pessoas (nomes múltiplos) e grupo_pessoas (denominações genéricas)
 - ✅ Índice de confiança para classificação (0.0-1.0)
@@ -320,7 +320,7 @@ Para uma análise completa dos algoritmos e estratégias utilizadas, consulte:
 - `similarity_threshold`: 0.85 (limiar de similaridade para agrupamento)
 - `confidence_threshold`: 0.7 (limiar de confiança automática)
 - `batch_size`: 10000 (registros por lote)
-- `sample_size`: 100000 (tamanho da amostra para análise)
+- `sample_size`: 3000000 (tamanho da amostra para análise - por kingdom)
 
 ### Padrões de Separação
 

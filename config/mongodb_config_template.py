@@ -22,7 +22,7 @@ ALGORITHM_CONFIG = {
     'similarity_threshold': 0.85,
     'confidence_threshold': 0.7,
     'levenshtein_max_distance': 3,
-    'sample_size': 100000,  # Para análise exploratória
+    'sample_size': 3000000,  # Para análise exploratória
     'checkpoint_interval': 50000  # Salvar checkpoint a cada N registros
 }
 

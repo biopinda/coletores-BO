@@ -6,9 +6,9 @@ O script `analise_coletores.py` realiza uma análise exploratória dos dados de 
 ## Funcionalidades Principais
 
 ### 1. Amostragem Estratificada por Kingdom
-- **Plantae**: 100.000 registros aleatórios
-- **Animalia**: 100.000 registros aleatórios
-- **Total**: 200.000 registros para análise
+- **Plantae**: 3.000.000 registros aleatórios
+- **Animalia**: 3.000.000 registros aleatórios
+- **Total**: 6.000.000 registros para análise
 
 ### 2. Análise de Padrões de Nomes
 - **Atomização**: Separação de múltiplos coletores em uma string
@@ -81,10 +81,10 @@ Data/Hora: 2025-09-20 05:48:44
 
 ESTATÍSTICAS GERAIS
 ----------------------------------------
-Total de registros analisados: 200,000
-Registros válidos: 200,000
+Total de registros analisados: 6,000,000
+Registros válidos: 6,000,000
 Registros vazios: 0
-Total de nomes atomizados: 502,874
+Total de nomes atomizados: 15,086,220
 Taxa de atomização: 2.51 nomes/registro
 Grupos/Projetos identificados: 1,250
 
@@ -208,7 +208,7 @@ def _calculate_group_confidence(text):
 ```python
 # config/mongodb_config.py
 ALGORITHM_CONFIG = {
-    'sample_size': 100000,  # Por kingdom
+    'sample_size': 3000000,  # Por kingdom
     ...
 }
 
@@ -253,7 +253,7 @@ python analise_coletores.py
 ## Métricas de Performance
 
 ### Tempo de Execução
-- **200.000 registros**: ~2-3 minutos
+- **6.000.000 registros**: ~60-90 minutos
 - **Performance**: ~1.000-1.500 registros/segundo
 - **Memória**: ~500MB RAM
 
