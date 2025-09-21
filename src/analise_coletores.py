@@ -382,7 +382,7 @@ class AnalisadorColetores:
         relatorio.append("-" * 40)
         for formato, amostras in self.stats['amostras_por_padrao'].items():
             relatorio.append(f"\n{formato.upper()}:")
-            for amostra in amostras[:5]:  # Apenas 5 amostras por padrão
+            for amostra in amostras[:10]:  # 10 amostras por padrão
                 relatorio.append(f"  - {amostra}")
         relatorio.append("")
 

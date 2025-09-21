@@ -1660,8 +1660,8 @@ class GerenciadorMongoDB:
                 for i, item in enumerate(obj):
                     obj[i] = sanitizar_recursivo(item)
             elif isinstance(obj, datetime):
-                # Converte datetime para timestamp Unix (segundos) como float
-                return obj.timestamp()
+                # Mantém datetime como objeto datetime para MongoDB
+                return obj
             elif isinstance(obj, int):
                 # Verifica se o inteiro está dentro do limite de 64 bits
                 if obj > 9223372036854775807 or obj < -9223372036854775808:
