@@ -238,6 +238,18 @@ Empresas, universidades, instituições e códigos:
 
 ## Algoritmo
 
+### 📖 Documentação Técnica Detalhada
+
+Para uma análise completa dos algoritmos e estratégias utilizadas, consulte:
+
+- **[📘 Algoritmos de Canonicalização](docs/ALGORITMOS_CANONICALIZACAO.md)** - Documentação técnica completa sobre:
+  - Estratégias de atomização e separação de nomes múltiplos
+  - Algoritmos de similaridade (Levenshtein, Soundex, Metaphone)
+  - Sistema de classificação de entidades com machine learning
+  - Técnicas de agrupamento e canonicalização
+  - Otimizações de performance e índices MongoDB
+  - Métricas de qualidade e validação
+
 ### Classes Principais
 
 #### `AtomizadorNomes`
