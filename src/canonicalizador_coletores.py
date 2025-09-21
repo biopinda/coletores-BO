@@ -105,13 +105,8 @@ class AtomizadorNomes:
 
         text = text.strip()
 
-        # PRIORITÁRIO: Verifica se é claramente um nome de pessoa (override outras classificações)
-        if self._looks_like_person_name(text):
-            # Se parece nome de pessoa, força classificação como pessoa, ignorando outras possibilidades
-            return {
-                'tipo': 'pessoa',
-                'confianca_classificacao': 0.95  # Alta confiança quando claramente é nome de pessoa
-            }
+        # IMPORTANTE: NÃO sobrescrever outras classificações aqui
+        # O método _looks_like_person_name será usado apenas como uma verificação auxiliar
 
         # Verifica primeiro se é ausência de coletor (prioridade máxima)
         ausencia_confidence = self._calculate_ausencia_coletor_confidence(text)
@@ -182,7 +177,8 @@ class AtomizadorNomes:
         text_lower = text.lower()
 
         # Verifica se parece com nome de pessoa (reduz confiança)
-        if self._looks_like_person_name(text):
+        # CRÍTICO: Verifica se é claramente um nome de pessoa primeiro
+        if self._is_clearly_person_name(text):
             return 0.0
 
         # Lista de sobrenomes comuns que não devem ser considerados acrônimos
@@ -285,21 +281,27 @@ class AtomizadorNomes:
         # Padrão de múltiplos nomes separados por separadores
         if ';' in text:
             separators_count += text.count(';')
-            confidence = max(confidence, 0.8)
+            confidence = max(confidence, 0.9)  # Aumentado para priorizar sobre pessoa
 
         if '|' in text:
             separators_count += text.count('|')
-            confidence = max(confidence, 0.8)
-
-        # Padrão "et al." indica múltiplas pessoas
-        if re.search(r'et\s+al\.?|et\s+alli', text, re.IGNORECASE):
             confidence = max(confidence, 0.9)
 
-        # Múltiplos padrões de nomes de pessoas
+        # Padrão "et al." indica múltiplas pessoas, mas apenas "et al." sozinho deve ser ausência
+        if re.search(r'et\s+al\.?|et\s+alli?', text, re.IGNORECASE):
+            # Se é apenas "et al." sozinho, não é conjunto_pessoas
+            if re.match(r'^\s*et\s+al\.?\s*$', text, re.IGNORECASE):
+                return 0.0  # Deixa para ausencia_coletor classificar
+            else:
+                confidence = max(confidence, 0.95)  # Muito alta confiança para et al.
+
+        # Múltiplos padrões de nomes de pessoas - melhorado
         person_patterns = [
             r'[A-ZÀ-Ý][a-zà-ÿç]+,\s*[A-Z]\.([A-Z]\.)*',  # "Silva, J.C."
             r'[A-ZÀ-Ý][a-zà-ÿç]+,\s*[A-Z]{2,4}',         # "Amaral, AG"
             r'[A-Z]\.([A-Z]\.)*\s+[A-ZÀ-Ý][a-zà-ÿç]+',   # "J.C. Silva"
+            r'[A-Z]\.\s*[A-ZÀ-Ý][a-zà-ÿç]+',              # "C. Silva"
+            r'[A-ZÀ-Ý]+,\s*[A-Z]',                        # "RIBAMAR, J"
         ]
 
         matches = 0
@@ -308,16 +310,29 @@ class AtomizadorNomes:
 
         # Se há múltiplas correspondências de nomes, é conjunto
         if matches > 1:
-            confidence = max(confidence, 0.85)
+            confidence = max(confidence, 0.95)  # Aumentado
 
         # Se há múltiplos separadores E padrões de nomes
         if separators_count > 0 and matches > 0:
-            confidence = max(confidence, 0.9)
+            confidence = max(confidence, 0.95)  # Aumentado
+
+        # Detecção de múltiplos nomes mesmo sem padrões formais
+        # Caso: "C. Silva; C. Snak, L.P. Queiroz"
+        if ';' in text:
+            parts = [part.strip() for part in text.split(';')]
+            if len(parts) >= 2:
+                # Verifica se cada parte parece um nome de pessoa
+                person_parts = 0
+                for part in parts:
+                    if re.search(r'[A-ZÀ-Ý][a-zà-ÿç]*', part):  # Contém maiúsculas
+                        person_parts += 1
+                if person_parts >= 2:
+                    confidence = max(confidence, 0.95)
 
         # Palavras que indicam conjuntos de pessoas específicas
+        # NOTA: "Equipe de campo" deve ser grupo_pessoas, não conjunto_pessoas
         conjunto_keywords = [
             r'pessoal\s+(do|da|de)\s+.+',        # "Pessoal do Museu Goeldi"
-            r'equipe\s+(do|da|de)\s+.+',         # "Equipe do Laboratório"
             r'funcionários\s+(do|da|de)\s+.+',   # "Funcionários do Instituto"
         ]
 
@@ -356,6 +371,13 @@ class AtomizadorNomes:
             r'^não\s+disponível',               # "Não disponível"
             r'^nd$',                            # "ND"
             r'^na$',                            # "NA"
+            r'jesuíta\s+não\s+identificado',    # "Jesuíta não identificado"
+            r'local\s+guide\s+\w+',             # "local guide Junior"
+            r'guide\s+local',                   # "guide local"
+            r'guia\s+local',                    # "guia local"
+            r'coletor\s+local\s+não\s+identificado',  # "coletor local não identificado"
+            r'^\s*et\s+al\.?\s*$',              # "et al." sozinho
+            r'^\s*et\s+alli\s*$',               # "et alli" sozinho
         ]
 
         for pattern in ausencia_patterns:
@@ -459,6 +481,31 @@ class AtomizadorNomes:
 
         return False
 
+    def _is_clearly_person_name(self, text: str) -> bool:
+        """
+        Verifica se o texto é CLARAMENTE um nome de pessoa
+        (mais restritivo que _looks_like_person_name)
+        """
+        # Padrões que indicam claramente nomes de pessoas
+        clear_person_patterns = [
+            r'^[A-ZÀ-Ý][a-zà-ÿç]+,\s*[A-Z]\.([A-Z]\.)*$',      # "Silva, J.C."
+            r'^[A-ZÀ-Ý][a-zà-ÿç]+,\s*[A-Z]{2,4}$',             # "Amaral, AG"
+            r'^[A-Z]\.([A-Z]\.)*\s+[A-ZÀ-Ý][a-zà-ÿç]+$',       # "J.C. Silva"
+            r'^[A-ZÀ-Ý][a-zà-ÿç]+,\s*[A-ZÀ-Ý][a-zà-ÿç]+$',     # "Silva, João"
+            r'^[A-ZÀ-Ý][a-zà-ÿç]+-[A-ZÀ-Ý][a-zà-ÿç]+$',        # "Andrade-Lima"
+            r'^[A-Z]\.[A-Z]\.\s+[A-ZÀ-Ý][a-zà-ÿç]+(-[A-ZÀ-Ý][a-zà-ÿç]+)?$',  # "G.A. Damasceno-Junior"
+            r'^[A-ZÀ-Ý][a-zà-ÿç]+\s+[A-ZÀ-Ý][a-zà-ÿç]+\s+[A-ZÀ-Ý][a-zà-ÿç]+$',  # "João Silva Santos"
+            r'^[A-ZÀ-Ý]+,\s*[A-Z]\.([A-Z]\.)*$',                # "DUFLOTH, S.L."
+            r'^[A-Z]\.[A-Z]\.[A-Z]\.[A-Z]\.\s+de\s+[A-Z]+$',     # "K.L.V.R. de SA"
+            r'^[A-ZÀ-Ý][a-zà-ÿç]+\s+[A-Z]\.[A-Z]\.$',           # "Kleim S.L."
+        ]
+
+        for pattern in clear_person_patterns:
+            if re.search(pattern, text):
+                return True
+
+        return False
+
     def _is_person_initials_context(self, text: str) -> bool:
         """
         Verifica se as iniciais estão em contexto de nome de pessoa
@@ -487,15 +534,18 @@ class AtomizadorNomes:
         text_lower = text.lower()
 
         # Grupos de instituições (ex: "Taxonomy Class of Universidade de Brasília")
+        # Estes devem ser classificados como grupos, não como empresas
         institutional_group_patterns = [
             r'.+\s+(of|da|de|do)\s+(universidade|instituto|laboratorio|centro)',
             r'(classe|class|turma|grupo|equipe)\s+.+\s+(universidade|instituto)',
             r'.+\s+(universidade|instituto)\s+(de|do|da)',
+            r'taxonomy\s+class',                        # "Taxonomy Class"
+            r'(classe|class)\s+(de|da|do)',            # "Classe de..."
         ]
 
         for pattern in institutional_group_patterns:
             if re.search(pattern, text_lower):
-                return 0.90
+                return 0.95  # Alta confiança para ser grupo
 
         # Se contém nomes próprios, NÃO é grupo genérico
         if self._contains_proper_names(text):
@@ -510,7 +560,9 @@ class AtomizadorNomes:
             (r'\bcoletor\s+(não\s+identificado|desconhecido)\b', 0.70),
             (r'\bcoletores\s+(não\s+identificados|desconhecidos)\b', 0.75),
             (r'\bbotanica\b', 0.70), (r'\bbotanicos\b', 0.75),
-            (r'\bpesquisadores\b', 0.80), (r'\bexpedição\b', 0.75)
+            (r'\bpesquisadores\b', 0.80), (r'\bexpedição\b', 0.90),
+            (r'\bexcursão\b', 0.90), (r'\binventário\b', 0.90),
+            (r'\bexpedicao\b', 0.90), (r'\bexcursao\b', 0.90), (r'\binventario\b', 0.90)
         ]
 
         for pattern, score in group_keywords:
@@ -1699,28 +1751,19 @@ class GerenciadorMongoDB:
                 # Atualiza variação existente
                 var_existente = variacoes_existentes[forma]
 
-                # VALIDAÇÃO: Garante que frequência é um inteiro pequeno
+                # SIMPLIFICADO: Sempre incrementa em 1 para evitar bugs de acumulação
                 freq_existente = var_existente.get('frequencia', 1)
-                freq_nova = nova_variacao.get('frequencia', 1)
 
-                # Se valores suspeitos (muito grandes), reseta para 1
-                if isinstance(freq_existente, (int, float)) and freq_existente > 1000000:
-                    logger.warning(f"Frequência suspeita detectada: {freq_existente}. Resetando para 1.")
+                # Valida e corrige se necessário
+                if not isinstance(freq_existente, (int, float)) or freq_existente < 1 or freq_existente > 1000000:
                     freq_existente = 1
 
-                if isinstance(freq_nova, (int, float)) and freq_nova > 1000000:
-                    logger.warning(f"Frequência nova suspeita detectada: {freq_nova}. Resetando para 1.")
-                    freq_nova = 1
-
-                var_existente['frequencia'] = freq_existente + freq_nova
+                var_existente['frequencia'] = freq_existente + 1
                 var_existente['ultima_ocorrencia'] = nova_variacao['ultima_ocorrencia']
             else:
-                # Valida nova variação antes de adicionar
+                # Adiciona nova variação com frequência fixa em 1
                 nova_var_copy = nova_variacao.copy()
-                freq = nova_var_copy.get('frequencia', 1)
-                if isinstance(freq, (int, float)) and freq > 1000000:
-                    logger.warning(f"Frequência suspeita em nova variação: {freq}. Resetando para 1.")
-                    nova_var_copy['frequencia'] = 1
+                nova_var_copy['frequencia'] = 1
 
                 # Adiciona nova variação
                 existente['variacoes'].append(nova_var_copy)

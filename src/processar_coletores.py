@@ -92,8 +92,6 @@ class ProcessadorColetores:
             'registros_vazios': 0,
             'tempo_processamento': 0,
             'registros_por_segundo': 0,
-            'ultimo_checkpoint': None,
-            'checkpoint_count': 0,
             'ultimo_relatorio_progresso': None,
             'total_estimado': None,
             'velocidade_media': 0
@@ -152,16 +150,15 @@ class ProcessadorColetores:
             # Conecta o canonizador ao MongoDB para busca de duplicatas
             self.canonizador.mongo_manager = self.mongo_manager
 
-            # FRESH START: Sempre limpa a coleção coletores e checkpoints
-            print(">> FRESH START: Limpando colecao coletores e checkpoints...")
+            # SEMPRE FRESH START: Limpa a coleção coletores
+            print(">> FRESH START: Limpando coleção coletores...")
             total_coletores = self.mongo_manager.coletores.count_documents({})
             if total_coletores > 0:
                 print(f">> Removendo {total_coletores:,} coletores existentes...")
 
             self.mongo_manager.limpar_colecao_coletores()
-            self.mongo_manager.limpar_checkpoint()
 
-            print(">> Colecao coletores zerada. Iniciando processamento do zero...")
+            print(">> Coleção coletores zerada. Iniciando processamento do zero...")
 
             print(">> Iniciando processamento dos dados de coletores...\n")
 
@@ -182,20 +179,6 @@ class ProcessadorColetores:
 
         return self.stats
 
-    def _carregar_estado_checkpoint(self, checkpoint: Dict):
-        """
-        Carrega estado a partir de checkpoint
-        """
-        # Carrega estatísticas
-        for key in ['total_registros_processados', 'total_nomes_atomizados',
-                   'registros_com_erro', 'registros_vazios', 'checkpoint_count']:
-            if key in checkpoint:
-                self.stats[key] = checkpoint[key]
-
-        # Carrega estado do canonizador se disponível
-        if 'estado_canonizador' in checkpoint:
-            self._carregar_canonizador_estado(checkpoint['estado_canonizador'])
-
     def _carregar_canonizador_estado(self, estado: Dict):
         """
         Carrega estado do canonizador (implementação simplificada)
@@ -209,38 +192,21 @@ class ProcessadorColetores:
         Processa dados em lotes
         """
         batch_size = ALGORITHM_CONFIG['batch_size']
-        checkpoint_interval = ALGORITHM_CONFIG['checkpoint_interval']
-
-        # Pula registros já processados se houver checkpoint
-        skip_count = self.stats['total_registros_processados']
 
         # Itera sobre todos os registros
         batch_count = 0
         for batch in self.mongo_manager.obter_todos_recordedby(batch_size, lambda: self.deve_parar):
             if self.deve_parar:
-                print("\n>> INTERRUPCAO solicitada. Salvando checkpoint...")
-                self._salvar_checkpoint()
+                print("\n>> INTERRUPÇÃO solicitada. Finalizando...")
                 break
-
-            # Pula lotes já processados
-            if skip_count > 0:
-                registros_no_lote = len(batch)
-                if skip_count >= registros_no_lote:
-                    skip_count -= registros_no_lote
-                    continue
-                else:
-                    # Processa apenas parte do lote
-                    batch = batch[skip_count:]
-                    skip_count = 0
 
             batch_count += 1
 
             # Processa lote
             self._processar_lote(batch, batch_count)
 
-            # Mostra progresso e salva checkpoint periodicamente
-            if self.stats['total_registros_processados'] % checkpoint_interval == 0:
-                self._salvar_checkpoint()
+            # Mostra progresso periodicamente (a cada 5 lotes)
+            if batch_count % 5 == 0:
                 self._exibir_progresso()
 
     def _processar_lote(self, batch: List[Dict], batch_num: int):
@@ -331,29 +297,6 @@ class ProcessadorColetores:
             logger.debug(f"Erro ao processar nome '{nome}': {e}")
             raise
 
-    def _salvar_checkpoint(self):
-        """
-        Salva checkpoint do processamento
-        """
-        try:
-            checkpoint_data = {
-                'tipo': 'canonicalizacao',
-                'total_registros_processados': self.stats['total_registros_processados'],
-                'total_nomes_atomizados': self.stats['total_nomes_atomizados'],
-                'total_coletores_canonicos': self.stats['total_coletores_canonicos'],
-                'registros_com_erro': self.stats['registros_com_erro'],
-                'registros_vazios': self.stats['registros_vazios'],
-                'checkpoint_count': self.stats['checkpoint_count'] + 1,
-                'timestamp_checkpoint': datetime.now(),
-                'algoritmo_versao': '1.0'
-            }
-
-            self.mongo_manager.salvar_checkpoint(checkpoint_data)
-            self.stats['checkpoint_count'] += 1
-            self.stats['ultimo_checkpoint'] = datetime.now()
-
-        except Exception as e:
-            print(f">> ERRO ao salvar checkpoint: {e}")
 
     def _exibir_progresso_lote(self, batch_num: int, tamanho_lote: int, tempo_lote: float):
         """
@@ -454,8 +397,6 @@ class ProcessadorColetores:
         stats_mongodb = self.mongo_manager.obter_estatisticas_colecao()
         self.stats['mongodb_stats'] = stats_mongodb
 
-        # Salva checkpoint final
-        self._salvar_checkpoint()
 
         logger.info("=" * 80)
         logger.info("PROCESSAMENTO FINALIZADO")
@@ -476,7 +417,6 @@ class ProcessadorColetores:
         logger.info(f"Registros por segundo: {stats['registros_por_segundo']:.1f}")
         logger.info(f"Registros com erro: {stats['registros_com_erro']:,}")
         logger.info(f"Registros vazios: {stats['registros_vazios']:,}")
-        logger.info(f"Checkpoints salvos: {stats['checkpoint_count']}")
 
         if 'mongodb_stats' in stats and stats['mongodb_stats']:
             mongodb_stats = stats['mongodb_stats']

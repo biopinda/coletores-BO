@@ -11,7 +11,6 @@ from collections import Counter, defaultdict
 from datetime import datetime
 import pandas as pd
 from typing import Dict, List, Tuple
-import json
 
 # Adiciona o diretório pai ao path para importar módulos
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -409,30 +408,6 @@ class AnalisadorColetores:
 
         return relatorio_texto
 
-    def salvar_dados_json(self, arquivo_saida: str):
-        """
-        Salva os dados da análise em formato JSON
-
-        Args:
-            arquivo_saida: Caminho do arquivo JSON
-        """
-        try:
-            # Prepara dados para serialização JSON
-            dados_json = dict(self.stats)
-
-            # Converte objetos datetime para string
-            if 'casos_problematicos' in dados_json:
-                for caso in dados_json['casos_problematicos']:
-                    if 'timestamp' in caso and isinstance(caso['timestamp'], datetime):
-                        caso['timestamp'] = caso['timestamp'].isoformat()
-
-            with open(arquivo_saida, 'w', encoding='utf-8') as f:
-                json.dump(dados_json, f, indent=2, ensure_ascii=False)
-
-            logger.info(f"Dados salvos em JSON: {arquivo_saida}")
-
-        except Exception as e:
-            logger.error(f"Erro ao salvar dados JSON: {e}")
 
 
 def main():

@@ -499,45 +499,6 @@ class ValidadorCanonicalizacao:
 
         return relatorio_texto
 
-    def exportar_amostra_csv(self, arquivo_saida: str):
-        """
-        Exporta amostra para validação manual em CSV
-
-        Args:
-            arquivo_saida: Caminho do arquivo CSV
-        """
-        if 'amostra_validacao_manual' not in self.resultados_validacao:
-            logger.warning("Nenhuma amostra disponível para exportar")
-            return
-
-        try:
-            dados_csv = []
-
-            for coletor in self.resultados_validacao['amostra_validacao_manual']:
-                # Prepara dados básicos
-                linha_base = {
-                    'coletor_canonico': coletor['coletor_canonico'],
-                    'confianca': coletor['confianca_canonicalizacao'],
-                    'total_registros': coletor['total_registros'],
-                    'num_variacoes': len(coletor['variacoes'])
-                }
-
-                # Adiciona variações (até 5)
-                for i, variacao in enumerate(coletor['variacoes'][:5]):
-                    linha_base[f'variacao_{i+1}'] = variacao['forma_original']
-                    linha_base[f'freq_{i+1}'] = variacao['frequencia']
-
-                dados_csv.append(linha_base)
-
-            # Cria DataFrame e salva
-            df = pd.DataFrame(dados_csv)
-            df.to_csv(arquivo_saida, index=False, encoding='utf-8')
-
-            logger.info(f"Amostra para validação manual exportada: {arquivo_saida}")
-            logger.info(f"Total de casos: {len(dados_csv)}")
-
-        except Exception as e:
-            logger.error(f"Erro ao exportar CSV: {e}")
 
 
 def main():
@@ -549,8 +510,6 @@ def main():
     parser = argparse.ArgumentParser(description='Validador de Canonicalização de Coletores')
     parser.add_argument('--amostra', type=int, default=1000,
                        help='Tamanho da amostra para validação manual (padrão: 1000)')
-    parser.add_argument('--csv', type=str,
-                       help='Arquivo CSV para exportar amostra de validação manual')
 
     args = parser.parse_args()
 
@@ -577,10 +536,6 @@ def main():
         print(relatorio[:1500] + "...")
         print(f"\nRelatório completo: {arquivo_relatorio}")
 
-        # Exporta CSV se solicitado
-        if args.csv:
-            validador.exportar_amostra_csv(args.csv)
-            print(f"Amostra CSV: {args.csv}")
 
         print("\nValidação concluída com sucesso!")
         return 0

@@ -9,8 +9,6 @@ import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple, Optional
 from collections import Counter, defaultdict
-import json
-import csv
 import pandas as pd
 
 # Adiciona o diretório pai ao path para importar módulos
@@ -86,20 +84,12 @@ class GeradorRelatorios:
             self.gerar_relatorio_qualidade(arquivo_qualidade)
             arquivos_gerados['qualidade'] = arquivo_qualidade
 
-            # Exportação de dados em CSV
-            arquivo_csv = os.path.join(diretorio_saida, f"coletores_canonicos_{timestamp}.csv")
-            self.exportar_coletores_csv(arquivo_csv)
-            arquivos_gerados['csv_coletores'] = arquivo_csv
 
             # Relatório de variações
             arquivo_variacoes = os.path.join(diretorio_saida, f"relatorio_variacoes_{timestamp}.txt")
             self.gerar_relatorio_variacoes(arquivo_variacoes)
             arquivos_gerados['variacoes'] = arquivo_variacoes
 
-            # Dados em JSON para análises adicionais
-            arquivo_json = os.path.join(diretorio_saida, f"dados_completos_{timestamp}.json")
-            self.exportar_dados_json(arquivo_json)
-            arquivos_gerados['json_dados'] = arquivo_json
 
             logger.info("Todos os relatórios gerados com sucesso")
 
@@ -422,108 +412,7 @@ class GeradorRelatorios:
 
         logger.info(f"Relatório de variações salvo: {arquivo_saida}")
 
-    def exportar_coletores_csv(self, arquivo_saida: str, limite: int = 10000):
-        """
-        Exporta dados dos coletores para CSV
-        """
-        logger.info(f"Exportando dados para CSV (limite: {limite})...")
 
-        pipeline = [
-            {"$sort": {"total_registros": -1}},
-            {"$limit": limite},
-            {
-                "$project": {
-                    "coletor_canonico": 1,
-                    "sobrenome_normalizado": 1,
-                    "iniciais": 1,
-                    "total_registros": 1,
-                    "num_variacoes": {"$size": "$variacoes"},
-                    "confianca_canonicalizacao": 1,
-                    "primeira_variacao": {"$arrayElemAt": ["$variacoes.forma_original", 0]},
-                    "freq_primeira_variacao": {"$arrayElemAt": ["$variacoes.frequencia", 0]},
-                    "data_criacao": "$metadados.data_criacao",
-                    "revisar_manualmente": "$metadados.revisar_manualmente"
-                }
-            }
-        ]
-
-        coletores = list(self.mongo_manager.coletores.aggregate(pipeline))
-
-        if not coletores:
-            logger.warning("Nenhum coletor encontrado para exportar")
-            return
-
-        # Prepara dados para CSV
-        dados_csv = []
-        for coletor in coletores:
-            dados_csv.append({
-                'coletor_canonico': coletor.get('coletor_canonico', ''),
-                'sobrenome_normalizado': coletor.get('sobrenome_normalizado', ''),
-                'iniciais': ','.join(coletor.get('iniciais', [])),
-                'total_registros': coletor.get('total_registros', 0),
-                'num_variacoes': coletor.get('num_variacoes', 0),
-                'confianca': coletor.get('confianca_canonicalizacao', 0),
-                'primeira_variacao': coletor.get('primeira_variacao', ''),
-                'freq_primeira_variacao': coletor.get('freq_primeira_variacao', 0),
-                'data_criacao': coletor.get('data_criacao', ''),
-                'revisar_manualmente': coletor.get('revisar_manualmente', False)
-            })
-
-        # Salva CSV
-        df = pd.DataFrame(dados_csv)
-        df.to_csv(arquivo_saida, index=False, encoding='utf-8')
-
-        logger.info(f"Dados exportados para CSV: {arquivo_saida} ({len(dados_csv)} registros)")
-
-    def exportar_dados_json(self, arquivo_saida: str):
-        """
-        Exporta dados completos em JSON para análises adicionais
-        """
-        logger.info("Exportando dados completos para JSON...")
-
-        # Estatísticas gerais
-        stats = self.mongo_manager.obter_estatisticas_colecao()
-
-        # Top coletores
-        pipeline_top = [
-            {"$sort": {"total_registros": -1}},
-            {"$limit": 100},
-            {
-                "$project": {
-                    "coletor_canonico": 1,
-                    "total_registros": 1,
-                    "confianca_canonicalizacao": 1,
-                    "num_variacoes": {"$size": "$variacoes"}
-                }
-            }
-        ]
-        top_coletores = list(self.mongo_manager.coletores.aggregate(pipeline_top))
-
-        # Casos para revisão
-        casos_revisao = self.mongo_manager.obter_coletores_para_revisao(50)
-
-        # Compila dados
-        dados_completos = {
-            'metadata': {
-                'data_geracao': datetime.now().isoformat(),
-                'banco_dados': MONGODB_CONFIG['database_name'],
-                'colecao': MONGODB_CONFIG['collections']['coletores']
-            },
-            'estatisticas_gerais': stats,
-            'top_coletores': top_coletores,
-            'casos_revisao': [{
-                'coletor_canonico': c['coletor_canonico'],
-                'confianca': c['confianca_canonicalizacao'],
-                'num_variacoes': len(c['variacoes']),
-                'variacoes_amostra': [v['forma_original'] for v in c['variacoes'][:3]]
-            } for c in casos_revisao]
-        }
-
-        # Salva JSON
-        with open(arquivo_saida, 'w', encoding='utf-8') as f:
-            json.dump(dados_completos, f, indent=2, ensure_ascii=False, default=str)
-
-        logger.info(f"Dados completos exportados para JSON: {arquivo_saida}")
 
 
 def main():
@@ -533,7 +422,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description='Gerador de Relatórios de Canonicalização')
-    parser.add_argument('--tipo', choices=['todos', 'estatisticas', 'top', 'qualidade', 'variacoes', 'csv'],
+    parser.add_argument('--tipo', choices=['todos', 'estatisticas', 'top', 'qualidade', 'variacoes'],
                        default='todos', help='Tipo de relatório a gerar')
     parser.add_argument('--saida', type=str, default='../reports',
                        help='Diretório de saída (padrão: ../reports)')
@@ -569,9 +458,6 @@ def main():
             elif args.tipo == 'variacoes':
                 arquivo = os.path.join(args.saida, f"variacoes_{timestamp}.txt")
                 gerador.gerar_relatorio_variacoes(arquivo)
-            elif args.tipo == 'csv':
-                arquivo = os.path.join(args.saida, f"coletores_{timestamp}.csv")
-                gerador.exportar_coletores_csv(arquivo)
 
             print(f"Relatório gerado: {arquivo}")
 
