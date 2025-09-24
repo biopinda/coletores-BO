@@ -26,15 +26,16 @@ Pesquisadores e administradores de banco de dados precisam executar o sistema de
 
 ### Functional Requirements
 - **FR-001**: Sistema DEVE executar analise_coletores.py como primeiro passo obrigatório do pipeline de canonicalização
-- **FR-002**: Sistema DEVE descobrir padrões de separadores, grupos e instituições através da análise exploratória
-- **FR-003**: Sistema DEVE aplicar padrões descobertos na análise para configurar dinamicamente os algoritmos de processamento
-- **FR-004**: Sistema DEVE seguir ordem específica de execução: análise → processamento → relatórios → validação
-- **FR-005**: Sistema DEVE preservar resultados da análise exploratória para uso em etapas subsequentes
-- **FR-006**: Sistema DEVE permitir reexecução de etapas individuais usando resultados de análises anteriores
-- **FR-007**: Sistema DEVE integrar descobertas da análise nos relatórios de qualidade e validação
-- **FR-008**: Sistema DEVE otimizar configurações de similaridade baseando-se na distribuição de dados descoberta
-- **FR-009**: Sistema DEVE detectar automaticamente quando nova análise é necessária (mudanças significativas nos dados)
-- **FR-010**: Sistema DEVE manter histórico de análises para comparação de evolução dos padrões de dados
+- **FR-002**: Script analise_coletores.py DEVE processar TODOS os registros da coleção "ocorrencias" que possuem o atributo "recordedBy" (sem limitação de quantidade)
+- **FR-003**: Sistema DEVE descobrir padrões de separadores, grupos e instituições através da análise exploratória completa do dataset
+- **FR-004**: Sistema DEVE aplicar padrões descobertos na análise para configurar dinamicamente os algoritmos de processamento
+- **FR-005**: Sistema DEVE seguir ordem específica de execução: análise → processamento → relatórios → validação
+- **FR-006**: Sistema DEVE preservar resultados da análise exploratória para uso em etapas subsequentes
+- **FR-007**: Sistema DEVE permitir reexecução de etapas individuais usando resultados de análises anteriores
+- **FR-008**: Sistema DEVE integrar descobertas da análise nos relatórios de qualidade e validação
+- **FR-009**: Sistema DEVE otimizar configurações de similaridade baseando-se na distribuição completa de dados descoberta
+- **FR-010**: Sistema DEVE detectar automaticamente quando nova análise é necessária (mudanças significativas nos dados)
+- **FR-011**: Sistema DEVE manter histórico de análises para comparação de evolução dos padrões de dados
 
 ### Key Entities
 - **Script de Análise**: analise_coletores.py responsável por descoberta de padrões e análise exploratória
@@ -72,15 +73,17 @@ Pesquisadores e administradores de banco de dados precisam executar o sistema de
 
 ### Justificativa para Análise Primeiro
 
-**Descoberta de Padrões Reais**: A análise exploratória revela padrões específicos do dataset atual, permitindo configuração dinâmica dos algoritmos ao invés de usar configurações estáticas.
+**Descoberta de Padrões Reais**: A análise exploratória de TODOS os registros com recordedBy revela padrões específicos do dataset completo, permitindo configuração dinâmica dos algoritmos ao invés de usar configurações estáticas baseadas em amostras.
 
-**Otimização de Similaridade**: Análise da distribuição de nomes permite ajustar thresholds de similaridade para o dataset específico.
+**Otimização de Similaridade**: Análise da distribuição completa de nomes permite ajustar thresholds de similaridade para todo o dataset específico, garantindo máxima precisão.
 
-**Detecção de Anomalias**: Identificação prévia de casos edge permite tratamento especializado durante o processamento.
+**Detecção de Anomalias**: Identificação prévia de casos edge em todo o conjunto de dados permite tratamento especializado durante o processamento.
 
-**Métricas de Qualidade**: Estabelece baseline estatístico para validação posterior da qualidade dos resultados.
+**Métricas de Qualidade**: Estabelece baseline estatístico abrangente para validação posterior da qualidade dos resultados baseado na totalidade dos dados.
 
-**Configuração Adaptativa**: Permite que o sistema se adapte automaticamente a diferentes tipos de dados de biodiversidade.
+**Configuração Adaptativa**: Permite que o sistema se adapte automaticamente a diferentes tipos de dados de biodiversidade usando o conhecimento completo do dataset.
+
+**Cobertura Completa**: Análise de todos os 11M+ registros garante que nenhum padrão importante seja perdido por amostragem limitada.
 
 ## Review & Acceptance Checklist
 

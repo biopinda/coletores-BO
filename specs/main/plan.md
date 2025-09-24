@@ -96,32 +96,33 @@ tests/
 
 ### Mandatory Execution Order
 ```
-1. ANÁLISE EXPLORATÓRIA (analise_coletores.py)
-   → Descoberta de padrões, distribuições, anomalias
-   → Configuração dinâmica de thresholds
-   → Baseline estatístico para validação
+1. ANÁLISE EXPLORATÓRIA COMPLETA (analise_coletores.py)
+   → Processar TODOS os registros da coleção "ocorrencias" com "recordedBy"
+   → Descoberta de padrões, distribuições, anomalias no dataset completo
+   → Configuração dinâmica de thresholds baseada na totalidade dos dados
+   → Baseline estatístico abrangente para validação (11M+ registros)
 
 2. PROCESSAMENTO PRINCIPAL (processar_coletores.py)
-   → Canonicalização usando padrões descobertos
-   → Aplicação de configurações otimizadas
-   → Checkpoint recovery com contexto de análise
+   → Canonicalização usando padrões descobertos na análise completa
+   → Aplicação de configurações otimizadas para o dataset específico
+   → Checkpoint recovery com contexto de análise completa
 
 3. GERAÇÃO DE RELATÓRIOS (gerar_relatorios.py)
-   → Relatórios enriquecidos com insights da análise
-   → Métricas de qualidade baseadas no baseline
-   → Comparação com expectativas descobertas
+   → Relatórios enriquecidos com insights da análise completa
+   → Métricas de qualidade baseadas no baseline de todos os dados
+   → Comparação com expectativas descobertas no dataset completo
 
 4. VALIDAÇÃO DE QUALIDADE (validar_canonicalizacao.py)
-   → Validação baseada em padrões esperados
-   → Detecção de desvios das distribuições normais
-   → Confirmação da qualidade dos agrupamentos
+   → Validação baseada em padrões esperados da análise completa
+   → Detecção de desvios das distribuições normais conhecidas
+   → Confirmação da qualidade dos agrupamentos contra baseline completo
 ```
 
 ### Integration Requirements
-- **Pattern Discovery**: Análise deve exportar padrões descobertos para uso posterior
-- **Dynamic Configuration**: Processamento deve consumir configurações otimizadas da análise
-- **Context Preservation**: Cada etapa deve preservar contexto da análise inicial
-- **Quality Baseline**: Validação deve comparar com métricas estabelecidas na análise
+- **Complete Pattern Discovery**: Análise deve processar todos os registros e exportar padrões descobertos para uso posterior
+- **Full Dataset Configuration**: Processamento deve consumir configurações otimizadas baseadas na análise de todos os dados
+- **Complete Context Preservation**: Cada etapa deve preservar contexto da análise inicial de todo o dataset
+- **Comprehensive Quality Baseline**: Validação deve comparar com métricas estabelecidas na análise completa de 11M+ registros
 
 ## Phase 0: Outline & Research
 1. **Extract unknowns from Technical Context** above:

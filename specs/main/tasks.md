@@ -56,13 +56,13 @@
 - [ ] T007 [P] Contract test for gerar_relatorios.py with analysis insights in tests/contract/test_cli_reports.py
 - [ ] T008 [P] Contract test for validar_canonicalizacao.py quality validation in tests/contract/test_cli_validation.py
 
-### Legacy Script Integration Tests
-- [ ] T009 [P] Integration test for existing analise_coletores.py functionality in tests/integration/test_analysis_script.py
-- [ ] T010 [P] Integration test for existing processar_coletores.py workflow in tests/integration/test_processing_script.py
-- [ ] T011 [P] Integration test for existing gerar_relatorios.py output in tests/integration/test_reports_script.py
-- [ ] T012 [P] Integration test for existing validar_canonicalizacao.py checks in tests/integration/test_validation_script.py
-- [ ] T013 [P] Integration test for pattern discovery and application pipeline in tests/integration/test_pattern_discovery.py
-- [ ] T014 [P] Integration test for complete analysis-first workflow in tests/integration/test_full_analysis_workflow.py
+### Legacy Script Integration Tests (Complete Dataset Focus)
+- [ ] T009 [P] Integration test for existing analise_coletores.py processing ALL records with recordedBy in tests/integration/test_analysis_script.py
+- [ ] T010 [P] Integration test for existing processar_coletores.py workflow using complete dataset patterns in tests/integration/test_processing_script.py
+- [ ] T011 [P] Integration test for existing gerar_relatorios.py output with complete dataset insights in tests/integration/test_reports_script.py
+- [ ] T012 [P] Integration test for existing validar_canonicalizacao.py checks against complete dataset baseline in tests/integration/test_validation_script.py
+- [ ] T013 [P] Integration test for complete dataset pattern discovery and application pipeline in tests/integration/test_pattern_discovery.py
+- [ ] T014 [P] Integration test for complete dataset analysis-first workflow (all 11M+ records) in tests/integration/test_full_analysis_workflow.py
 
 ## Phase 3.3: Core Implementation (ONLY after tests are failing)
 
@@ -76,13 +76,13 @@
 - [ ] T021 [P] CheckpointData model in src/models/checkpoint_data.py
 - [ ] T022 [P] ProcessingBatch model in src/models/processing_batch.py
 
-### Legacy Script Enhancement (Priority: Analysis First)
-- [ ] T023 Enhance existing analise_coletores.py for pattern discovery and export in src/analise_coletores.py
-- [ ] T024 [P] Pattern discovery service for dynamic threshold configuration in src/services/pattern_discovery.py
-- [ ] T025 [P] Analysis results persistence and loading in src/services/analysis_persistence.py
-- [ ] T026 Enhance existing processar_coletores.py to consume analysis patterns in src/processar_coletores.py (depends on T023-T025)
-- [ ] T027 Enhance existing gerar_relatorios.py with analysis insights in src/gerar_relatorios.py (depends on T023)
-- [ ] T028 Enhance existing validar_canonicalizacao.py for quality validation in src/validar_canonicalizacao.py (depends on T023)
+### Legacy Script Enhancement (Priority: Complete Dataset Analysis First)
+- [ ] T023 Enhance existing analise_coletores.py to process ALL records from "ocorrencias" collection with "recordedBy" attribute (no record limit) in src/analise_coletores.py
+- [ ] T024 [P] Pattern discovery service for dynamic threshold configuration based on complete dataset analysis in src/services/pattern_discovery.py
+- [ ] T025 [P] Analysis results persistence and loading for complete dataset insights in src/services/analysis_persistence.py
+- [ ] T026 Enhance existing processar_coletores.py to consume complete analysis patterns in src/processar_coletores.py (depends on T023-T025)
+- [ ] T027 Enhance existing gerar_relatorios.py with complete dataset analysis insights in src/gerar_relatorios.py (depends on T023)
+- [ ] T028 Enhance existing validar_canonicalizacao.py for quality validation against complete dataset baseline in src/validar_canonicalizacao.py (depends on T023)
 
 ### Core Services (Supporting the Script Pipeline)
 - [ ] T029 [P] MongoDB connection manager in src/services/mongodb_manager.py
@@ -123,12 +123,12 @@
 - [ ] T055 [P] Unit tests for CLI orchestration logic in tests/unit/test_cli_orchestration.py
 - [ ] T056 [P] Unit tests for data model validation in tests/unit/test_models.py
 
-### Performance and Quality
-- [ ] T057 Performance tests for analysis phase (pattern discovery speed) in tests/performance/test_analysis_performance.py
-- [ ] T058 Memory efficiency tests for large-scale analysis operations in tests/performance/test_analysis_memory.py
-- [ ] T059 [P] Code quality improvements in existing scripts (remove duplication) in src/
-- [ ] T060 [P] Update documentation with analysis-first execution order in docs/execution-order.md
-- [ ] T061 Execute enhanced quickstart validation tests including analysis phase
+### Performance and Quality (Complete Dataset Focus)
+- [ ] T057 Performance tests for complete dataset analysis phase (11M+ records pattern discovery speed) in tests/performance/test_analysis_performance.py
+- [ ] T058 Memory efficiency tests for complete dataset analysis operations (all records with recordedBy) in tests/performance/test_analysis_memory.py
+- [ ] T059 [P] Code quality improvements in existing scripts optimized for complete dataset processing in src/
+- [ ] T060 [P] Update documentation with complete dataset analysis-first execution order in docs/execution-order.md
+- [ ] T061 Execute enhanced quickstart validation tests including complete dataset analysis phase
 
 ## Dependencies
 
