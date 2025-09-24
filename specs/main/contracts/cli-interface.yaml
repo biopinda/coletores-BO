@@ -1,0 +1,610 @@
+openapi: 3.0.3
+info:
+  title: Sistema de Canonicalização de Coletores Biológicos - CLI Interface
+  description: |
+    Command-line interface contracts for biological collector canonicalization system.
+    Defines input/output schemas for batch processing, configuration, and reporting.
+  version: 1.0.0
+  contact:
+    name: Biodiversidade Online
+    url: https://github.com/biopinda/coletores-BO
+
+paths:
+  /canonicalize:
+    post:
+      summary: Execute collector canonicalization process
+      description: |
+        Main canonicalization command that processes collector records from MongoDB,
+        classifies them into entity types, and groups variations into canonical forms.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CanonicalizationRequest'
+      responses:
+        '200':
+          description: Canonicalization completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CanonicalizationResponse'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Processing error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /classify:
+    post:
+      summary: Classify collector strings
+      description: |
+        Classify collector strings into entity types without canonicalization.
+        Useful for analysis and validation purposes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClassificationRequest'
+      responses:
+        '200':
+          description: Classification completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClassificationResponse'
+
+  /validate:
+    post:
+      summary: Validate canonicalization results
+      description: |
+        Validate existing canonicalization results against quality metrics
+        and generate validation reports.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidationRequest'
+      responses:
+        '200':
+          description: Validation completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResponse'
+
+  /report:
+    post:
+      summary: Generate reports
+      description: |
+        Generate comprehensive reports on canonicalization quality,
+        top collectors, and validation metrics.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportRequest'
+      responses:
+        '200':
+          description: Report generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+
+  /checkpoint:
+    get:
+      summary: Get checkpoint status
+      description: Get current processing checkpoint information
+      responses:
+        '200':
+          description: Checkpoint information retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckpointStatus'
+
+    delete:
+      summary: Clear checkpoint
+      description: Clear existing checkpoint to restart from beginning
+      responses:
+        '200':
+          description: Checkpoint cleared successfully
+
+components:
+  schemas:
+    CanonicalizationRequest:
+      type: object
+      required:
+        - database_config
+      properties:
+        database_config:
+          $ref: '#/components/schemas/DatabaseConfig'
+        processing_options:
+          $ref: '#/components/schemas/ProcessingOptions'
+        similarity_thresholds:
+          $ref: '#/components/schemas/SimilarityThresholds'
+        output_options:
+          $ref: '#/components/schemas/OutputOptions'
+
+    CanonicalizationResponse:
+      type: object
+      required:
+        - status
+        - statistics
+      properties:
+        status:
+          type: string
+          enum: [completed, partial, error]
+          description: Overall processing status
+        statistics:
+          $ref: '#/components/schemas/ProcessingStatistics'
+        checkpoint_info:
+          $ref: '#/components/schemas/CheckpointInfo'
+        output_files:
+          type: array
+          items:
+            type: string
+          description: List of generated output files
+        warnings:
+          type: array
+          items:
+            type: string
+          description: Non-fatal warnings during processing
+
+    ClassificationRequest:
+      type: object
+      required:
+        - collector_strings
+      properties:
+        collector_strings:
+          type: array
+          items:
+            type: string
+          description: List of collector strings to classify
+          maxItems: 10000
+        classification_config:
+          $ref: '#/components/schemas/ClassificationConfig'
+
+    ClassificationResponse:
+      type: object
+      required:
+        - classifications
+      properties:
+        classifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClassificationResult'
+        statistics:
+          type: object
+          properties:
+            total_classified:
+              type: integer
+            by_entity_type:
+              type: object
+              additionalProperties:
+                type: integer
+
+    ValidationRequest:
+      type: object
+      required:
+        - validation_type
+      properties:
+        validation_type:
+          type: string
+          enum: [quality, consistency, completeness, performance]
+        canonical_ids:
+          type: array
+          items:
+            type: string
+          description: Specific canonical IDs to validate (optional)
+        validation_config:
+          $ref: '#/components/schemas/ValidationConfig'
+
+    ValidationResponse:
+      type: object
+      required:
+        - validation_results
+      properties:
+        validation_results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationResult'
+        summary:
+          type: object
+          properties:
+            total_validated:
+              type: integer
+            passed:
+              type: integer
+            failed:
+              type: integer
+            warnings:
+              type: integer
+
+    ReportRequest:
+      type: object
+      required:
+        - report_type
+      properties:
+        report_type:
+          type: string
+          enum: [quality, top_collectors, kingdom_analysis, validation_metrics, processing_summary]
+        output_format:
+          type: string
+          enum: [txt, json, csv]
+          default: txt
+        filters:
+          $ref: '#/components/schemas/ReportFilters'
+
+    ReportResponse:
+      type: object
+      required:
+        - report_file
+        - summary
+      properties:
+        report_file:
+          type: string
+          description: Path to generated report file
+        summary:
+          type: object
+          description: Summary statistics from the report
+        metadata:
+          type: object
+          properties:
+            generation_time:
+              type: string
+              format: date-time
+            record_count:
+              type: integer
+            report_version:
+              type: string
+
+    DatabaseConfig:
+      type: object
+      required:
+        - connection_string
+        - database_name
+      properties:
+        connection_string:
+          type: string
+          format: uri
+          description: MongoDB connection string
+        database_name:
+          type: string
+          description: Database name
+        collections:
+          type: object
+          properties:
+            ocorrencias:
+              type: string
+              default: ocorrencias
+            coletores:
+              type: string
+              default: coletores
+        timeout:
+          type: integer
+          default: 20000
+          description: Connection timeout in milliseconds
+
+    ProcessingOptions:
+      type: object
+      properties:
+        batch_size:
+          type: integer
+          default: 5000
+          minimum: 1000
+          maximum: 10000
+          description: Number of records per batch
+        checkpoint_interval:
+          type: integer
+          default: 25000
+          description: Records processed between checkpoints
+        max_memory_mb:
+          type: integer
+          default: 1000
+          description: Maximum memory usage in MB
+        parallel_processing:
+          type: boolean
+          default: false
+          description: Enable parallel batch processing
+        resume_from_checkpoint:
+          type: boolean
+          default: true
+          description: Resume from existing checkpoint if available
+        stratified_sampling:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+              default: false
+            plantae_count:
+              type: integer
+              default: 3000000
+            animalia_count:
+              type: integer
+              default: 3000000
+
+    SimilarityThresholds:
+      type: object
+      properties:
+        grouping_threshold:
+          type: number
+          default: 0.85
+          minimum: 0.0
+          maximum: 1.0
+          description: Minimum similarity for grouping variations
+        manual_review_threshold:
+          type: number
+          default: 0.5
+          minimum: 0.0
+          maximum: 1.0
+          description: Below this score, flag for manual review
+        surname_weight:
+          type: number
+          default: 0.5
+          description: Weight for surname similarity component
+        initial_weight:
+          type: number
+          default: 0.3
+          description: Weight for initial compatibility component
+        phonetic_weight:
+          type: number
+          default: 0.2
+          description: Weight for phonetic similarity component
+
+    OutputOptions:
+      type: object
+      properties:
+        output_directory:
+          type: string
+          default: "./output"
+          description: Directory for output files
+        generate_reports:
+          type: boolean
+          default: true
+          description: Generate standard reports
+        report_formats:
+          type: array
+          items:
+            type: string
+            enum: [txt, json, csv]
+          default: [txt]
+        include_statistics:
+          type: boolean
+          default: true
+          description: Include processing statistics in output
+
+    ClassificationConfig:
+      type: object
+      properties:
+        confidence_threshold:
+          type: number
+          default: 0.7
+          minimum: 0.0
+          maximum: 1.0
+        enable_institutional_detection:
+          type: boolean
+          default: true
+        enable_multi_person_detection:
+          type: boolean
+          default: true
+        custom_patterns:
+          type: array
+          items:
+            type: object
+            properties:
+              pattern:
+                type: string
+              entity_type:
+                type: string
+              priority:
+                type: integer
+
+    ValidationConfig:
+      type: object
+      properties:
+        strict_mode:
+          type: boolean
+          default: false
+          description: Enable strict validation rules
+        quality_thresholds:
+          type: object
+          properties:
+            min_similarity_score:
+              type: number
+              default: 0.85
+            max_variation_count:
+              type: integer
+              default: 100
+            min_occurrence_frequency:
+              type: integer
+              default: 1
+
+    ReportFilters:
+      type: object
+      properties:
+        kingdom:
+          type: array
+          items:
+            type: string
+            enum: [Plantae, Animalia]
+        entity_types:
+          type: array
+          items:
+            type: string
+            enum: [pessoa, conjunto_pessoas, grupo_pessoas, empresa_instituicao, coletor_indeterminado, representacao_insuficiente]
+        date_range:
+          type: object
+          properties:
+            start_date:
+              type: string
+              format: date
+            end_date:
+              type: string
+              format: date
+        min_occurrences:
+          type: integer
+          default: 1
+
+    ProcessingStatistics:
+      type: object
+      required:
+        - records_processed
+        - processing_time
+      properties:
+        records_processed:
+          type: integer
+          description: Total records processed
+        records_skipped:
+          type: integer
+          description: Records skipped due to errors or filters
+        processing_time:
+          type: number
+          description: Total processing time in seconds
+        memory_usage:
+          type: object
+          properties:
+            peak_mb:
+              type: number
+            average_mb:
+              type: number
+        classification_stats:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Count by entity type
+        canonicalization_stats:
+          type: object
+          properties:
+            canonical_collectors_created:
+              type: integer
+            total_variations:
+              type: integer
+            average_variations_per_canonical:
+              type: number
+        similarity_stats:
+          type: object
+          properties:
+            average_similarity_score:
+              type: number
+            scores_above_threshold:
+              type: integer
+            manual_review_required:
+              type: integer
+
+    CheckpointInfo:
+      type: object
+      properties:
+        checkpoint_id:
+          type: string
+        last_processed_id:
+          type: string
+        records_completed:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        can_resume:
+          type: boolean
+
+    CheckpointStatus:
+      type: object
+      properties:
+        exists:
+          type: boolean
+        checkpoint_info:
+          $ref: '#/components/schemas/CheckpointInfo'
+        processing_status:
+          type: string
+          enum: [idle, running, paused, completed, error]
+
+    ClassificationResult:
+      type: object
+      required:
+        - original_text
+        - entity_type
+        - confidence_score
+      properties:
+        original_text:
+          type: string
+        entity_type:
+          type: string
+          enum: [pessoa, conjunto_pessoas, grupo_pessoas, empresa_instituicao, coletor_indeterminado, representacao_insuficiente]
+        confidence_score:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+        reasoning:
+          type: string
+        detected_patterns:
+          type: array
+          items:
+            type: string
+        requires_manual_review:
+          type: boolean
+
+    ValidationResult:
+      type: object
+      required:
+        - canonical_id
+        - validation_status
+      properties:
+        canonical_id:
+          type: string
+        validation_status:
+          type: string
+          enum: [pass, fail, warning]
+        issues:
+          type: array
+          items:
+            type: object
+            properties:
+              severity:
+                type: string
+                enum: [error, warning, info]
+              message:
+                type: string
+              field:
+                type: string
+        quality_metrics:
+          type: object
+          properties:
+            similarity_consistency:
+              type: number
+            variation_quality:
+              type: number
+            data_completeness:
+              type: number
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details
+        timestamp:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+          description: Unique request identifier for tracking
