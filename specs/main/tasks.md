@@ -42,39 +42,39 @@
 
 ## Phase 3.1: Setup
 
-- [ ] T001 Create project structure with src/ and tests/ directories following single CLI pipeline architecture
-- [ ] T002 Initialize Python 3.11 project with requirements.txt including pymongo, pandas, jellyfish, rapidfuzz, pytest dependencies
-- [ ] T003 [P] Configure linting and formatting tools (black, flake8, isort) in pyproject.toml
+- [x] T001 Create project structure with src/ and tests/ directories following single CLI pipeline architecture
+- [x] T002 Initialize Python 3.11 project with requirements.txt including pymongo, pandas, jellyfish, rapidfuzz, pytest dependencies
+- [x] T003 [P] Configure linting and formatting tools (black, flake8, isort) in pyproject.toml
 
 ## Phase 3.2: Tests First (TDD) ⚠️ MUST COMPLETE BEFORE 3.3
 **CRITICAL: These tests MUST be written and MUST FAIL before ANY implementation**
 
 ### Execution Order Tests (Based on Existing Scripts Structure)
-- [ ] T004 [P] Contract test for execution order: análise → processamento → relatórios → validação in tests/contract/test_execution_order.py
-- [ ] T005 [P] Contract test for analise_coletores.py pattern discovery in tests/contract/test_cli_analysis.py
-- [ ] T006 [P] Contract test for processar_coletores.py using discovered patterns in tests/contract/test_cli_process.py
-- [ ] T007 [P] Contract test for gerar_relatorios.py with analysis insights in tests/contract/test_cli_reports.py
-- [ ] T008 [P] Contract test for validar_canonicalizacao.py quality validation in tests/contract/test_cli_validation.py
+- [x] T004 [P] Contract test for execution order: análise → processamento → relatórios → validação in tests/contract/test_execution_order.py
+- [x] T005 [P] Contract test for analise_coletores.py pattern discovery in tests/contract/test_cli_analysis.py
+- [x] T006 [P] Contract test for processar_coletores.py using discovered patterns in tests/contract/test_cli_process.py
+- [x] T007 [P] Contract test for gerar_relatorios.py with analysis insights in tests/contract/test_cli_reports.py
+- [x] T008 [P] Contract test for validar_canonicalizacao.py quality validation in tests/contract/test_cli_validation.py
 
 ### Legacy Script Integration Tests (Complete Dataset Focus)
-- [ ] T009 [P] Integration test for existing analise_coletores.py processing ALL records with recordedBy in tests/integration/test_analysis_script.py
-- [ ] T010 [P] Integration test for existing processar_coletores.py workflow using complete dataset patterns in tests/integration/test_processing_script.py
-- [ ] T011 [P] Integration test for existing gerar_relatorios.py output with complete dataset insights in tests/integration/test_reports_script.py
-- [ ] T012 [P] Integration test for existing validar_canonicalizacao.py checks against complete dataset baseline in tests/integration/test_validation_script.py
-- [ ] T013 [P] Integration test for complete dataset pattern discovery and application pipeline in tests/integration/test_pattern_discovery.py
-- [ ] T014 [P] Integration test for complete dataset analysis-first workflow (all 11M+ records) in tests/integration/test_full_analysis_workflow.py
+- [x] T009 [P] Integration test for existing analise_coletores.py processing ALL records with recordedBy in tests/integration/test_analysis_script.py
+- [x] T010 [P] Integration test for existing processar_coletores.py workflow using complete dataset patterns in tests/integration/test_processing_script.py
+- [x] T011 [P] Integration test for existing gerar_relatorios.py output with complete dataset insights in tests/integration/test_reports_script.py
+- [x] T012 [P] Integration test for existing validar_canonicalizacao.py checks against complete dataset baseline in tests/integration/test_validation_script.py
+- [x] T013 [P] Integration test for complete dataset pattern discovery and application pipeline in tests/integration/test_pattern_discovery.py
+- [x] T014 [P] Integration test for complete dataset analysis-first workflow (all 11M+ records) in tests/integration/test_full_analysis_workflow.py
 
 ## Phase 3.3: Core Implementation (ONLY after tests are failing)
 
 ### Data Models (Based on data-model.md entities)
-- [ ] T015 [P] CollectorRecord model in src/models/collector_record.py
-- [ ] T016 [P] ClassificationResult model in src/models/classification_result.py
-- [ ] T017 [P] CanonicalCollector model in src/models/canonical_collector.py
-- [ ] T018 [P] CollectorVariation model in src/models/collector_variation.py
-- [ ] T019 [P] SimilarityScore model in src/models/similarity_score.py
-- [ ] T020 [P] KingdomStatistics model in src/models/kingdom_statistics.py
-- [ ] T021 [P] CheckpointData model in src/models/checkpoint_data.py
-- [ ] T022 [P] ProcessingBatch model in src/models/processing_batch.py
+- [x] T015 [P] CollectorRecord model in src/models/collector_record.py
+- [x] T016 [P] ClassificationResult model in src/models/classification_result.py
+- [x] T017 [P] CanonicalCollector model in src/models/canonical_collector.py
+- [x] T018 [P] CollectorVariation model in src/models/collector_variation.py
+- [x] T019 [P] SimilarityScore model in src/models/similarity_score.py
+- [x] T020 [P] KingdomStatistics model in src/models/kingdom_statistics.py
+- [x] T021 [P] CheckpointData model in src/models/checkpoint_data.py
+- [x] T022 [P] ProcessingBatch model in src/models/processing_batch.py
 
 ### Legacy Script Enhancement (Priority: Complete Dataset Analysis First)
 - [ ] T023 Enhance existing analise_coletores.py to process ALL records from "ocorrencias" collection with "recordedBy" attribute (no record limit) in src/analise_coletores.py
