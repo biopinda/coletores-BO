@@ -1,7 +1,7 @@
 # Implementation Plan: Sistema de Canonicalização de Coletores Biológicos
 
-**Branch**: `main` | **Date**: 2025-09-24 | **Spec**: [001-este-projeto-centrado](../001-este-projeto-centrado/spec.md) + [002-outra-categoria-a](../002-outra-categoria-a/spec.md)
-**Input**: Feature specification from `/specs/001-este-projeto-centrado/spec.md` and `/specs/002-outra-categoria-a/spec.md`
+**Branch**: `main` | **Date**: 2025-09-24 | **Spec**: [main](spec.md)
+**Input**: Consolidated feature specification from `/specs/main/spec.md`
 
 ## Execution Flow (/plan command scope)
 ```

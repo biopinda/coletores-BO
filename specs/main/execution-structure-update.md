@@ -2,7 +2,7 @@
 
 **Feature Branch**: `main`
 **Created**: 2025-09-24
-**Status**: Draft
+**Status**: Integrated into [main spec](spec.md)
 **Input**: "a estrutura de execução de ve considerar os scripts existentes em @src\ e a ordem de execução destes scripts. Fundamentar ter um script que inicialmente analisa (analise_coletores.py) para encontrar os padrões e aprender com estes padrões."
 
 ## User Scenarios & Testing
