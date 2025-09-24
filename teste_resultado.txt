@@ -1,0 +1,339 @@
+2025-09-22 13:29:54,885 - INFO - NormalizadorNome inicializado
+2025-09-22 13:29:54,886 - INFO - CanonizadorColetores inicializado (similarity=0.8, confidence=0.7)
+============================================================
+TESTE DE REJEIÇÃO DE PRENOMES ISOLADOS
+============================================================
+Data/Hora: 2025-09-22 13:29:54
+
+TESTANDO PRENOMES ISOLADOS (devem ser rejeitados):
+--------------------------------------------------
+Testando: 'João'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Maria'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'José'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Ana'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Pedro'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Carlos'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Paulo'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Francisco'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Antonio'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Francisca'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Luis'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Adriana'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Gabriel'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Juliana'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'John'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Mary'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'James'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Patricia'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Robert'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Jennifer'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Michael'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Linda'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'William'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Elizabeth'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'David'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Barbara'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Charles'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Marie'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Albert'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Catherine'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Alexander'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Margaret'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'José'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'María'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'João'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'André'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Mônica'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Antônio'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+
+TESTANDO SOBRENOMES ISOLADOS (devem ser rejeitados):
+--------------------------------------------------
+Testando: 'Silva'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Santos'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Oliveira'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Souza'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Rodrigues'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Ferreira'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Alves'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Pereira'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Lima'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Gomes'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Ribeiro'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Carvalho'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Almeida'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Lopes'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Smith'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Johnson'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Williams'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Brown'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Jones'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Garcia'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Miller'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Davis'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Rodriguez'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Martinez'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Anderson'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Wilson'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+Testando: 'Moore'
+  Ação: isolado
+  OK Rejeitado: Nome sem iniciais válidas (necessárias para identificar coletor)
+
+
+TESTANDO NOMES VÁLIDOS (devem ser aceitos):
+--------------------------------------------------
+Testando: 'Silva, J.'
+  Ação: criado
+  OK Aceito como: Silva, J.
+
+Testando: 'Santos, M.'
+  Ação: criado
+  OK Aceito como: Santos, M.
+
+Testando: 'Oliveira, P.'
+  Ação: criado
+  OK Aceito como: Oliveira, P.
+
+Testando: 'João, A.L.'
+  Ação: criado
+  OK Aceito como: João, A.L.
+
+Testando: 'Maria, C.R.'
+  Ação: criado
+  OK Aceito como: Maria, C.R.
+
+Testando: 'Charles, D.'
+  Ação: criado
+  OK Aceito como: Charles, D.
+
+Testando: 'Smith, J.R.'
+  Ação: criado
+  OK Aceito como: Smith, J.R.
+
+Testando: 'Johnson, M.A.'
+  Ação: criado
+  OK Aceito como: Johnson, M.A.
+
+Testando: 'Brown, P.L.'
+  Ação: criado
+  OK Aceito como: Brown, P.L.
+
+Testando: 'Carvalho, J.'
+  Ação: criado
+  OK Aceito como: Carvalho, J.
+
+Testando: 'Pereira, M.A.'
+  Ação: criado
+  OK Aceito como: Pereira, M.A.
+
+Testando: 'Lima, A.C.'
+  Ação: criado
+  OK Aceito como: Lima, A.C.
+
+============================================================
+RESUMO DOS RESULTADOS:
+============================================================
+
+Prenomes isolados rejeitados corretamente: 38/38
+Traceback (most recent call last):
+  File "D:\git\coletoresBO\test_prenomes_isolados.py", line 201, in <module>
+    test_prenomes_isolados()
+    ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "D:\git\coletoresBO\test_prenomes_isolados.py", line 151, in test_prenomes_isolados
+    print("\u2705 Todos os prenomes foram rejeitados corretamente!")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.13_3.13.2032.0_x64__qbz5n2kfra8p0\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2705' in position 0: character maps to <undefined>

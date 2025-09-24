@@ -848,7 +848,140 @@ class NormalizadorNome:
         if componentes['sobrenome']:
             componentes['sobrenome_normalizado'] = self._normalizar_sobrenome(componentes['sobrenome'])
 
+        # Verifica se é um prenome isolado
+        componentes['eh_prenome_isolado'] = self._eh_prenome_isolado(componentes)
+
+        # Verifica se é um sobrenome isolado
+        componentes['eh_sobrenome_isolado'] = self._eh_sobrenome_isolado(componentes)
+
         return componentes
+
+    def _eh_prenome_isolado(self, componentes: Dict[str, any]) -> bool:
+        """
+        Verifica se um nome é apenas um prenome isolado (nome de batismo)
+
+        Critérios:
+        1. Apenas uma palavra
+        2. Sem iniciais
+        3. Corresponde a prenomes comuns brasileiros e internacionais
+
+        Args:
+            componentes: Componentes extraídos do nome
+
+        Returns:
+            True se for um prenome isolado
+        """
+        sobrenome = componentes.get('sobrenome', '').strip()
+        iniciais = componentes.get('iniciais', [])
+
+        # Se tem iniciais, não é prenome isolado
+        if iniciais:
+            return False
+
+        # Se não tem sobrenome identificado, pode ser prenome isolado
+        if not sobrenome:
+            return False
+
+        # Lista de prenomes comuns brasileiros e internacionais
+        # Nota: Esta lista pode ser expandida conforme necessário
+        prenomes_comuns = {
+            # Brasileiros masculinos
+            'joão', 'josé', 'antonio', 'francisco', 'carlos', 'paulo', 'pedro', 'lucas', 'luiz', 'marcos',
+            'luis', 'gabriel', 'rafael', 'daniel', 'marcelo', 'bruno', 'eduardo', 'felipe', 'raimundo',
+            'rodrigo', 'manoel', 'nelson', 'roberto', 'fabio', 'leonardo', 'andré', 'sebastião', 'wilson',
+            'miguel', 'jorge', 'mateus', 'gustavo', 'ricardo', 'fernando', 'diego', 'sergio', 'adriano',
+
+            # Brasileiros femininos
+            'maria', 'ana', 'francisca', 'antonia', 'adriana', 'juliana', 'márcia', 'fernanda', 'patrícia',
+            'aline', 'sandra', 'camila', 'amanda', 'bruna', 'jessica', 'leticia', 'julia', 'luciana',
+            'vanessa', 'mariana', 'gabriela', 'valeria', 'cristina', 'daniela', 'luana', 'carla', 'beatriz',
+            'larissa', 'tânia', 'simone', 'mônica', 'andrea', 'caroline', 'sabrina', 'raquel', 'cristiane',
+
+            # Internacionais comuns
+            'john', 'james', 'robert', 'michael', 'william', 'david', 'richard', 'charles', 'joseph', 'thomas',
+            'christopher', 'daniel', 'paul', 'mark', 'donald', 'george', 'kenneth', 'steven', 'edward', 'brian',
+            'mary', 'patricia', 'jennifer', 'linda', 'elizabeth', 'barbara', 'susan', 'jessica', 'sarah', 'karen',
+            'nancy', 'lisa', 'betty', 'helen', 'sandra', 'donna', 'carol', 'ruth', 'sharon', 'michelle',
+
+            # Nomes científicos comuns
+            'alexander', 'friedrich', 'wilhelm', 'gustav', 'heinrich', 'ludwig', 'rudolf', 'hermann', 'otto',
+            'walter', 'karl', 'franz', 'ernst', 'hans', 'georg', 'adolf', 'albert', 'max', 'paul', 'emil',
+            'anna', 'marie', 'margaret', 'catherine', 'jane', 'grace', 'rose', 'anne', 'claire', 'louise'
+        }
+
+        # Normaliza o nome para comparação (remove acentos e converte para minúsculas)
+        nome_normalizado = sobrenome.lower()
+        nome_normalizado = nome_normalizado.replace('ã', 'a').replace('á', 'a').replace('à', 'a').replace('â', 'a')
+        nome_normalizado = nome_normalizado.replace('é', 'e').replace('ê', 'e').replace('è', 'e')
+        nome_normalizado = nome_normalizado.replace('í', 'i').replace('î', 'i').replace('ì', 'i')
+        nome_normalizado = nome_normalizado.replace('ó', 'o').replace('ô', 'o').replace('ò', 'o').replace('õ', 'o')
+        nome_normalizado = nome_normalizado.replace('ú', 'u').replace('û', 'u').replace('ù', 'u')
+        nome_normalizado = nome_normalizado.replace('ç', 'c')
+
+        return nome_normalizado in prenomes_comuns
+
+    def _eh_sobrenome_isolado(self, componentes: Dict[str, any]) -> bool:
+        """
+        Verifica se um nome é apenas um sobrenome isolado
+
+        Critérios:
+        1. Apenas uma palavra
+        2. Sem iniciais
+        3. Corresponde a sobrenomes comuns brasileiros e internacionais
+        4. NÃO é um prenome (já verificado antes)
+
+        Args:
+            componentes: Componentes extraídos do nome
+
+        Returns:
+            True se for um sobrenome isolado
+        """
+        sobrenome = componentes.get('sobrenome', '').strip()
+        iniciais = componentes.get('iniciais', [])
+
+        # Se tem iniciais, não é sobrenome isolado
+        if iniciais:
+            return False
+
+        # Se não tem sobrenome identificado, não é sobrenome isolado
+        if not sobrenome:
+            return False
+
+        # Se já foi identificado como prenome, não é sobrenome
+        if componentes.get('eh_prenome_isolado', False):
+            return False
+
+        # Lista de sobrenomes comuns brasileiros e internacionais
+        sobrenomes_comuns = {
+            # Brasileiros muito comuns
+            'silva', 'santos', 'oliveira', 'souza', 'rodrigues', 'ferreira', 'alves', 'pereira',
+            'lima', 'gomes', 'ribeiro', 'carvalho', 'almeida', 'lopes', 'soares', 'fernandes',
+            'vieira', 'barbosa', 'rocha', 'dias', 'nunes', 'mendes', 'castro', 'pinto',
+            'cardoso', 'machado', 'costa', 'melo', 'campos', 'cunha', 'martins', 'reis',
+            'araújo', 'cruz', 'correia', 'teixeira', 'morais', 'jesus', 'ramos', 'marques',
+
+            # Internacionais comuns
+            'smith', 'johnson', 'williams', 'brown', 'jones', 'garcia', 'miller', 'davis',
+            'rodriguez', 'martinez', 'hernandez', 'lopez', 'gonzalez', 'wilson', 'anderson',
+            'thomas', 'taylor', 'moore', 'jackson', 'martin', 'lee', 'perez', 'thompson',
+            'white', 'harris', 'sanchez', 'clark', 'ramirez', 'lewis', 'robinson', 'walker',
+
+            # Científicos/acadêmicos comuns
+            'müller', 'schmidt', 'schneider', 'fischer', 'weber', 'meyer', 'wagner', 'becker',
+            'schulz', 'hoffmann', 'schäfer', 'koch', 'bauer', 'richter', 'klein', 'wolf',
+            'schröder', 'neumann', 'schwarz', 'zimmermann', 'braun', 'krüger', 'hofmann', 'hartmann'
+        }
+
+        # Normaliza o nome para comparação
+        nome_normalizado = sobrenome.lower()
+        nome_normalizado = nome_normalizado.replace('ã', 'a').replace('á', 'a').replace('à', 'a').replace('â', 'a')
+        nome_normalizado = nome_normalizado.replace('é', 'e').replace('ê', 'e').replace('è', 'e')
+        nome_normalizado = nome_normalizado.replace('í', 'i').replace('î', 'i').replace('ì', 'i')
+        nome_normalizado = nome_normalizado.replace('ó', 'o').replace('ô', 'o').replace('ò', 'o').replace('õ', 'o')
+        nome_normalizado = nome_normalizado.replace('ú', 'u').replace('û', 'u').replace('ù', 'u')
+        nome_normalizado = nome_normalizado.replace('ç', 'c')
+
+        return nome_normalizado in sobrenomes_comuns
 
     def _normalizar_sobrenome(self, sobrenome: str) -> str:
         """
@@ -887,7 +1020,9 @@ class NormalizadorNome:
             iniciais_str = '.'.join([i.upper() for i in iniciais]) + '.'
             return f"{sobrenome_padronizado}, {iniciais_str}"
         else:
-            return sobrenome_padronizado
+            # IMPORTANTE: Nunca retorna apenas sobrenome como nome canônico
+            # Um coletor sempre deve ter ao menos uma inicial para ser considerado válido
+            return ""
 
     def _padronizar_capitalizacao(self, texto: str) -> str:
         """
@@ -1015,7 +1150,19 @@ class CanonizadorColetores:
         Returns:
             Dicionário com informações de canonicalização
         """
-        if not nome_normalizado['sobrenome_normalizado']:
+        if not nome_normalizado['sobrenome_normalizado'] or not nome_normalizado['nome_normalizado']:
+            return self._criar_resultado_isolado(nome_normalizado)
+
+        # Verifica se tem ao menos uma inicial (obrigatório para coletores válidos)
+        if not nome_normalizado['iniciais'] or len(nome_normalizado['iniciais']) == 0:
+            return self._criar_resultado_isolado(nome_normalizado)
+
+        # Verifica se é um prenome isolado (nome de batismo)
+        if nome_normalizado.get('eh_prenome_isolado', False):
+            return self._criar_resultado_isolado(nome_normalizado)
+
+        # Verifica se é um sobrenome isolado (não identifica pessoa específica)
+        if nome_normalizado.get('eh_sobrenome_isolado', False):
             return self._criar_resultado_isolado(nome_normalizado)
 
         sobrenome_norm = nome_normalizado['sobrenome_normalizado']
@@ -1239,12 +1386,69 @@ class CanonizadorColetores:
             'confianca': 1.0
         }
 
+    def _nome_mais_completo(self, nome1: str, nome2: str) -> bool:
+        """
+        Determina se nome1 é mais completo que nome2
+
+        Critérios:
+        1. Mais iniciais é mais completo
+        2. Em caso de empate, mantém o existente (nome2)
+
+        Args:
+            nome1: Novo nome candidato
+            nome2: Nome canônico atual
+
+        Returns:
+            True se nome1 é mais completo que nome2
+        """
+        if not nome1 or not nome2:
+            return bool(nome1 and not nome2)
+
+        # Extrai iniciais de cada nome
+        iniciais1 = self._extrair_iniciais_do_nome_canonico(nome1)
+        iniciais2 = self._extrair_iniciais_do_nome_canonico(nome2)
+
+        # Conta o número de iniciais
+        num_iniciais1 = len(iniciais1) if iniciais1 else 0
+        num_iniciais2 = len(iniciais2) if iniciais2 else 0
+
+        # Nome1 é mais completo se tem mais iniciais
+        return num_iniciais1 > num_iniciais2
+
+    def _extrair_iniciais_do_nome_canonico(self, nome_canonico: str) -> list:
+        """
+        Extrai as iniciais de um nome no formato "Sobrenome, I.N.I.C.I.A.I.S."
+
+        Args:
+            nome_canonico: Nome no formato "Sobrenome, I.N.I.C.I.A.I.S."
+
+        Returns:
+            Lista das iniciais
+        """
+        if ',' not in nome_canonico:
+            return []
+
+        parte_iniciais = nome_canonico.split(',', 1)[1].strip()
+        if not parte_iniciais:
+            return []
+
+        # Remove pontos e divide por espaços ou pontos
+        iniciais = parte_iniciais.replace('.', ' ').split()
+        return [i for i in iniciais if i and i.isalpha()]
+
     def _agrupar_com_existente(self, nome_normalizado: Dict[str, any], melhor_match: Dict[str, any]) -> Dict[str, any]:
         """
         Agrupa com um coletor existente
         """
-        candidato = melhor_match['candidato']
+        import copy
+
+        # IMPORTANTE: Faz cópia profunda para não modificar o documento original do MongoDB
+        candidato = copy.deepcopy(melhor_match['candidato'])
         score = melhor_match['score']
+
+        # Remove _id para evitar conflitos de chave duplicada no MongoDB
+        if '_id' in candidato:
+            del candidato['_id']
 
         # Atualiza variações
         forma_original = nome_normalizado['nome_original']
@@ -1267,6 +1471,14 @@ class CanonizadorColetores:
                 'primeira_ocorrencia': datetime.now(),
                 'ultima_ocorrencia': datetime.now()
             })
+
+        # Verifica se o novo nome é mais completo e deve se tornar o canônico
+        novo_nome_canonico = nome_normalizado['nome_normalizado']
+        if self._nome_mais_completo(novo_nome_canonico, candidato['coletor_canonico']):
+            candidato['coletor_canonico'] = novo_nome_canonico
+            candidato['sobrenome_normalizado'] = nome_normalizado['sobrenome_normalizado']
+            candidato['iniciais'] = nome_normalizado['iniciais']
+            logger.info(f"Nome canônico atualizado para versão mais completa: {novo_nome_canonico}")
 
         # Atualiza totais
         candidato['total_registros'] += 1
@@ -1298,11 +1510,23 @@ class CanonizadorColetores:
         """
         Cria resultado para nomes que não podem ser processados
         """
+        # Determina o motivo específico do isolamento
+        if not nome_normalizado.get('sobrenome_normalizado'):
+            motivo = 'Nome sem sobrenome identificável'
+        elif nome_normalizado.get('eh_prenome_isolado', False):
+            motivo = 'Prenome isolado (nome de batismo) - deve ser variação de nome completo'
+        elif nome_normalizado.get('eh_sobrenome_isolado', False):
+            motivo = 'Sobrenome isolado - não identifica pessoa específica (necessárias iniciais)'
+        elif not nome_normalizado.get('iniciais') or len(nome_normalizado['iniciais']) == 0:
+            motivo = 'Nome sem iniciais válidas (necessárias para identificar coletor)'
+        else:
+            motivo = 'Nome inválido para canonicalização'
+
         return {
             'acao': 'isolado',
             'coletor_canonico': None,
             'confianca': 0.0,
-            'motivo': 'Nome sem sobrenome identificável'
+            'motivo': motivo
         }
 
     def obter_estatisticas(self) -> Dict[str, any]:
@@ -1659,6 +1883,10 @@ class GerenciadorMongoDB:
                 # Sanitiza dados antes de salvar
                 coletor_canonico_sanitizado = self._sanitizar_dados_mongodb(coletor_canonico)
 
+                # Remove _id se presente para evitar conflitos
+                if '_id' in coletor_canonico_sanitizado:
+                    del coletor_canonico_sanitizado['_id']
+
                 filtro = {"sobrenome_normalizado": coletor_canonico_sanitizado["sobrenome_normalizado"]}
 
                 # Verifica se já existe um coletor com o mesmo sobrenome normalizado
@@ -1696,6 +1924,10 @@ class GerenciadorMongoDB:
                     else:
                         logger.error(f"Falhou após {max_retries} tentativas. Erro: {e}")
                         return False
+                elif "E11000" in str(e) and "duplicate key" in str(e):
+                    # Erro de chave duplicada - documento já existe, consideramos como sucesso
+                    logger.warning(f"Documento já existe no MongoDB (chave duplicada). Ignorando: {e}")
+                    return True
                 else:
                     # Erro não relacionado a timeout, não tenta novamente
                     logger.error(f"Erro não recuperável ao salvar coletor: {e}")
