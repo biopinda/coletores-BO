@@ -1,0 +1,53 @@
+====================================================================================================
+RELATÓRIO DE ANÁLISE COMPLETA DO DATASET - COLETORES BIOLÓGICOS
+====================================================================================================
+Data/Hora: 25/09/2025 11:22:22
+Processamento completo: SIM (todos os registros com recordedBy)
+Tempo total: 30.5 segundos
+Taxa: 0.0 registros/segundo
+
+RESUMO GERAL
+--------------------------------------------------
+Total de registros processados: 0
+Registros válidos: 0
+Registros vazios/inválidos: 0
+Checkpoints criados: 0
+
+DISTRIBUIÇÃO POR REINO BIOLÓGICO
+--------------------------------------------------
+Plantae:
+  Registros: 0 (0.0%)
+  Coletores únicos: 0
+Animalia:
+  Registros: 0 (0.0%)
+  Coletores únicos: 0
+Unknown:
+  Registros: 0 (0.0%)
+  Coletores únicos: 0
+
+CLASSIFICAÇÃO POR TIPO DE ENTIDADE (6 TIPOS)
+--------------------------------------------------
+pessoa: 0 (0.0%)
+conjunto_pessoas: 0 (0.0%)
+grupo_pessoas: 0 (0.0%)
+empresa_instituicao: 0 (0.0%)
+coletor_indeterminado: 0 (0.0%)
+representacao_insuficiente: 0 (0.0%)
+
+PADRÕES DE SEPARADORES DESCOBERTOS
+--------------------------------------------------
+
+THRESHOLDS OTIMIZADOS
+--------------------------------------------------
+
+RECOMENDAÇÕES PARA PROCESSAMENTO
+--------------------------------------------------
+
+====================================================================================================
+ANÁLISE COMPLETA CONCLUÍDA
+Próximos passos:
+1. Revisar padrões descobertos
+2. Executar processamento principal com configurações otimizadas
+3. Gerar relatórios de qualidade
+4. Validar canonicalização
+====================================================================================================
