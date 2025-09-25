@@ -550,30 +550,69 @@ class AnalisadorColetoresCompleto:
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
         # Save patterns
-        patterns_file = f"reports/patterns_discovered_{timestamp}.json"
+        patterns_file = f"reports/patterns_discovered_{timestamp}.txt"
         with open(patterns_file, 'w', encoding='utf-8') as f:
-            json.dump({
-                'separator_patterns': dict(self.stats['separator_patterns_discovered']),
-                'frequency_distribution': self.stats['separator_frequency_distribution'],
-                'discovery_timestamp': timestamp,
-                'total_records_analyzed': self.stats['total_registros']
-            }, f, indent=2, ensure_ascii=False)
+            f.write("=" * 80 + "\n")
+            f.write("PADRÕES DESCOBERTOS NA ANÁLISE COMPLETA\n")
+            f.write("=" * 80 + "\n")
+            f.write(f"Data/Hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
+            f.write(f"Timestamp: {timestamp}\n")
+            f.write(f"Total de registros analisados: {self.stats['total_registros']:,}\n\n")
+
+            f.write("PADRÕES DE SEPARADORES ENCONTRADOS\n")
+            f.write("-" * 50 + "\n")
+            for pattern, count in self.stats['separator_patterns_discovered'].items():
+                f.write(f"'{pattern}': {count:,} ocorrências\n")
+
+            f.write(f"\nDISTRIBUIÇÃO DE FREQUÊNCIA\n")
+            f.write("-" * 50 + "\n")
+            for freq, data in self.stats['separator_frequency_distribution'].items():
+                f.write(f"{freq}: {data}\n")
 
         # Save thresholds
-        thresholds_file = f"reports/optimal_thresholds_{timestamp}.json"
+        thresholds_file = f"reports/optimal_thresholds_{timestamp}.txt"
         with open(thresholds_file, 'w', encoding='utf-8') as f:
-            json.dump({
-                'thresholds': self.stats['threshold_recommendations'],
-                'processing_recommendations': self.stats.get('processing_recommendations', {}),
-                'analysis_timestamp': timestamp
-            }, f, indent=2, ensure_ascii=False)
+            f.write("=" * 80 + "\n")
+            f.write("THRESHOLDS OTIMIZADOS PARA PROCESSAMENTO\n")
+            f.write("=" * 80 + "\n")
+            f.write(f"Data/Hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
+            f.write(f"Timestamp: {timestamp}\n\n")
+
+            f.write("THRESHOLDS RECOMENDADOS\n")
+            f.write("-" * 50 + "\n")
+            for threshold_name, value in self.stats['threshold_recommendations'].items():
+                f.write(f"{threshold_name}: {value}\n")
+
+            if 'processing_recommendations' in self.stats:
+                f.write(f"\nRECOMENDAÇÕES DE PROCESSAMENTO\n")
+                f.write("-" * 50 + "\n")
+                for rec_name, rec_value in self.stats.get('processing_recommendations', {}).items():
+                    f.write(f"{rec_name}: {rec_value}\n")
 
         # Save comprehensive results
-        results_file = f"reports/complete_analysis_results_{timestamp}.json"
+        results_file = f"reports/complete_analysis_results_{timestamp}.txt"
         with open(results_file, 'w', encoding='utf-8') as f:
-            # Convert sets to lists for JSON serialization
-            serializable_stats = self._make_json_serializable(self.stats)
-            json.dump(serializable_stats, f, indent=2, ensure_ascii=False, default=str)
+            f.write("=" * 80 + "\n")
+            f.write("RESULTADOS COMPLETOS DA ANÁLISE\n")
+            f.write("=" * 80 + "\n")
+            f.write(f"Data/Hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
+            f.write(f"Timestamp: {timestamp}\n")
+            f.write(f"Status: PRONTO PARA PROCESSAMENTO\n")
+            f.write(f"Hash de configuração: {self._calculate_config_hash()}\n\n")
+
+            f.write("RESUMO DA ANÁLISE\n")
+            f.write("-" * 50 + "\n")
+            f.write(f"Total de registros processados: {self.stats.get('total_registros', 0):,}\n")
+            f.write(f"Registros válidos: {self.stats.get('registros_validos', 0):,}\n")
+            f.write(f"Tempo de processamento: {self.stats.get('total_processing_time', 0):.1f}s\n")
+            f.write(f"Taxa de processamento: {self.stats.get('records_per_second', 0):.1f} registros/segundo\n")
+
+            # Adicionar informações sobre distribuição por reino
+            if 'kingdom_distribution' in self.stats:
+                f.write(f"\nDISTRIBUIÇÃO POR REINO\n")
+                f.write("-" * 50 + "\n")
+                for kingdom, data in self.stats['kingdom_distribution'].items():
+                    f.write(f"{kingdom}: {data.get('count', 0):,} registros\n")
 
         logger.info(f"Resultados salvos: {patterns_file}, {thresholds_file}, {results_file}")
 
@@ -610,10 +649,18 @@ class AnalisadorColetoresCompleto:
 
     def _save_checkpoint(self, checkpoint: CheckpointData):
         """Save checkpoint to file"""
-        checkpoint_file = f"checkpoints/analysis_checkpoint_{checkpoint.checkpoint_id}.json"
+        checkpoint_file = f"checkpoints/analysis_checkpoint_{checkpoint.checkpoint_id}.txt"
 
         with open(checkpoint_file, 'w', encoding='utf-8') as f:
-            json.dump(checkpoint.to_dict(), f, indent=2, default=str)
+            f.write("=" * 60 + "\n")
+            f.write("CHECKPOINT DE ANÁLISE\n")
+            f.write("=" * 60 + "\n")
+            f.write(f"ID do Checkpoint: {checkpoint.checkpoint_id}\n")
+            f.write(f"Data/Hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
+            f.write(f"Registros processados: {checkpoint.processed_records:,}\n")
+            f.write(f"Registros totais: {checkpoint.total_records:,}\n")
+            f.write(f"Último documento: {checkpoint.last_document_id}\n")
+            f.write(f"Lote atual: {checkpoint.current_batch_number}\n")
 
         logger.info(f"Checkpoint salvo: {checkpoint_file}")
 
@@ -624,7 +671,7 @@ class AnalisadorColetoresCompleto:
             return None
 
         # Find most recent analysis checkpoint
-        checkpoint_files = list(checkpoint_dir.glob('analysis_checkpoint_*.json'))
+        checkpoint_files = list(checkpoint_dir.glob('analysis_checkpoint_*.txt'))
         if not checkpoint_files:
             return None
 
@@ -816,8 +863,8 @@ def main():
 
         # Generate comprehensive report
         arquivo_relatorio = f"reports/analise_completa_{timestamp}.txt"
-        arquivo_patterns = f"reports/patterns_discovered_{timestamp}.json"
-        arquivo_thresholds = f"reports/optimal_thresholds_{timestamp}.json"
+        arquivo_patterns = f"reports/patterns_discovered_{timestamp}.txt"
+        arquivo_thresholds = f"reports/optimal_thresholds_{timestamp}.txt"
 
         relatorio = analisador.gerar_relatorio_completo(arquivo_relatorio)
 

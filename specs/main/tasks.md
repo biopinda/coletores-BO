@@ -89,13 +89,13 @@
 - [x] T030 [P] Phonetic similarity calculator in src/services/phonetic_calculator.py
 - [x] T031 [P] String similarity calculator with Jaro-Winkler in src/services/string_similarity.py
 - [x] T032 [P] Collector classifier with 6 entity types in src/services/entity_classifier.py
-- [ ] T033 Collector canonicalization service in src/services/collector_canonizer.py (depends on T030-T032)
-- [ ] T034 [P] Checkpoint manager with hierarchical recovery in src/services/checkpoint_manager.py
-- [ ] T035 [P] Report generator for canonicalization analysis in src/services/report_generator.py
+- [x] T033 Collector canonicalization service (exists as CanonizadorColetores in canonicalizador_coletores.py)
+- [x] T034 [P] Checkpoint manager with hierarchical recovery in src/services/checkpoint_manager.py
+- [x] T035 [P] Report generator for canonicalization analysis in src/services/report_generator.py
 - [x] T036 Batch processor for 11M+ record handling in src/services/batch_processor.py (depends on T033-T034)
 
 ### CLI Interface Implementation (Orchestrating Existing Scripts)
-- [ ] T037 Main CLI entry point with execution order orchestration in src/cli/__main__.py
+- [x] T037 Main CLI entry point with execution order orchestration in src/cli/__main__.py
 - [ ] T038 Analysis command wrapper for analise_coletores.py in src/cli/commands/analysis.py (depends on T023)
 - [ ] T039 Processing command wrapper for processar_coletores.py in src/cli/commands/process.py (depends on T026)
 - [ ] T040 [P] Reports command wrapper for gerar_relatorios.py in src/cli/commands/reports.py

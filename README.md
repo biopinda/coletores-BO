@@ -8,17 +8,20 @@ Este projeto está associado ao [DarwinCoreJSON](https://github.com/biopinda/Dar
 
 ## Principais Funcionalidades
 
-### 🔬 Análise por Kingdom
-- **Amostragem estratificada**: 3.000.000 registros de Plantae + 3.000.000 de Animalia
+### 🔬 Análise Completa do Dataset
+- **Processamento completo**: TODOS os registros com recordedBy (11M+ registros)
+- **Análise abrangente**: Descobre padrões de toda a base de dados
 - **Especialização detectada**: Identifica coletores especializados em botânica ou zoologia
-- **Análise comparativa**: Estatísticas específicas por reino biológico
+- **Configuração dinâmica**: Thresholds otimizados baseados no dataset completo
 
 ### 🏛️ Sistema de Classificação de Entidades
-- **Quatro categorias inteligentes**:
+- **Seis categorias inteligentes**:
   - `pessoa`: Um único nome próprio de pessoa
   - `conjunto_pessoas`: Múltiplos nomes próprios (para atomização)
   - `grupo_pessoas`: Denominações genéricas sem nomes próprios
   - `empresa_instituicao`: Organizações, empresas, instituições
+  - `coletor_indeterminado`: Coletores não identificados (ex: "?", "Sem coletor")
+  - `representacao_insuficiente`: Apenas nome ou iniciais (ex: "João", "S.A.")
 - **Detecção automática**: Reconhece acrônimos, códigos de herbário, instituições
 - **Índice de confiança**: Score de 0.0 a 1.0 para cada classificação
 - **Padrões avançados**: Detecta "EMBRAPA", "Pesquisas da Biodiversidade", "USP", etc.
@@ -40,32 +43,70 @@ O algoritmo resolve o problema de múltiplas representações do mesmo coletor (
 ## Estrutura do Projeto
 
 ```
-coletores/
+coletores-BO/
 ├── src/                          # Código fonte
 │   ├── canonicalizador_coletores.py  # Classes principais do algoritmo
-│   ├── analise_coletores.py          # Script de análise exploratória
+│   ├── analise_coletores.py          # Script de análise completa (11M+ registros)
 │   ├── processar_coletores.py        # Script de processamento principal
-│   ├── validar_canonicalizacao.py    # Script de validação
-│   └── gerar_relatorios.py           # Script de geração de relatórios
+│   ├── validar_canonicalizacao.py    # Script de validação de qualidade
+│   ├── gerar_relatorios.py           # Script de geração de relatórios
+│   ├── cli/                          # Interface CLI unificada
+│   │   ├── __main__.py              # Entry point principal
+│   │   └── commands/                # Comandos CLI individuais
+│   ├── services/                     # Serviços de apoio
+│   │   ├── checkpoint_manager.py    # Gerenciamento de checkpoints
+│   │   ├── report_generator.py      # Geração de relatórios avançados
+│   │   ├── validation_service.py    # Validação de qualidade
+│   │   └── performance_monitor.py   # Monitoramento de performance
+│   └── models/                       # Modelos de dados
 ├── config/                       # Configurações
 │   └── mongodb_config.py            # Configuração do MongoDB e algoritmo
+├── tests/                        # Testes automatizados
+│   ├── contract/                    # Testes de contrato
+│   ├── integration/                 # Testes de integração
+│   └── unit/                        # Testes unitários
+├── specs/                        # Especificações do projeto
 ├── logs/                         # Arquivos de log
-├── reports/                      # Relatórios gerados
+├── reports/                      # Relatórios gerados (.txt)
 ├── requirements.txt              # Dependências Python
+├── pyproject.toml               # Configuração do projeto Python
 └── README.md                     # Esta documentação
 ```
 
 ## Instalação
 
-1. **Instalar dependências**:
+### Pré-requisitos
+- Python 3.11+
+- MongoDB 4.4+
+- 8GB+ RAM (recomendado para processamento completo)
+
+### Instalação Rápida
+
+1. **Clonar repositório**:
+```bash
+git clone https://github.com/biopinda/coletores-BO.git
+cd coletores-BO
+```
+
+2. **Instalar dependências**:
 ```bash
 pip install -r requirements.txt
 ```
 
-2. **Configurar MongoDB**:
-   - Verificar string de conexão em `config/mongodb_config.py`
-   - Banco: `dwc2json`
-   - Coleções: `ocorrências` (origem) e `coletores` (destino)
+3. **Configurar MongoDB**:
+```bash
+# Criar arquivo .env com string de conexão
+echo "MONGODB_CONNECTION_STRING=mongodb://localhost:27017" > .env
+
+# Ou configurar em config/mongodb_config.py
+# Banco: dwc2json
+# Coleção principal: ocorrencias (com campo recordedBy)
+```
+
+4. **Verificar instalação**:
+```bash
+python -m src.cli status --detailed
+```
 
 ## Uso
 
@@ -109,10 +150,10 @@ flowchart LR
 ```
 
 **Sequência obrigatória**:
-1. **Análise** → Descobre padrões do dataset completo (11M+ registros)
+1. **Análise** → Descobre padrões de TODOS os registros (análise completa)
 2. **Processamento** → Aplica padrões descobertos para canonicalização
-3. **Relatórios** → Gera relatórios com insights da análise
-4. **Validação** → Valida qualidade contra baseline da análise
+3. **Relatórios** → Gera relatórios .txt com insights da análise
+4. **Validação** → Valida qualidade contra baseline da análise completa
 
 #### Execução Pipeline Completo
 
@@ -131,26 +172,27 @@ python -m src.cli pipeline \
 #### Execução Comandos Individuais
 
 ```bash
-# 1. ANÁLISE: Descoberta de padrões (OBRIGATÓRIO PRIMEIRO)
+# 1. ANÁLISE: Descoberta de padrões de TODOS os registros (OBRIGATÓRIO PRIMEIRO)
 python -m src.cli analyze \
+    --full-dataset \
     --save-patterns \
-    --output-path analysis_results.json
+    --output-format txt
 
 # 2. PROCESSAMENTO: Canonicalização com padrões descobertos
 python -m src.cli process \
-    --analysis-results analysis_results.json \
-    --batch-size 1000 \
+    --analysis-results patterns_discovered_*.txt \
+    --batch-size 5000 \
     --enable-checkpoints
 
-# 3. RELATÓRIOS: Geração com insights da análise
+# 3. RELATÓRIOS: Geração em formato .txt com insights da análise
 python -m src.cli reports \
-    --analysis-results analysis_results.json \
+    --analysis-results complete_analysis_results_*.txt \
     --include-analysis \
-    --detailed-stats
+    --format txt
 
-# 4. VALIDAÇÃO: Qualidade contra baseline
+# 4. VALIDAÇÃO: Qualidade contra baseline da análise completa
 python -m src.cli validate \
-    --baseline-analysis analysis_results.json \
+    --baseline-analysis complete_analysis_results_*.txt \
     --quality-threshold 0.85 \
     --generate-report
 ```
@@ -170,27 +212,28 @@ Para usuários avançados ou sistemas automatizados, os scripts individuais cont
 #### Execução Scripts Individuais
 
 ```bash
-# 1. PRIMEIRO: Análise exploratória (OBRIGATÓRIO)
+# 1. PRIMEIRO: Análise completa de TODOS os registros (OBRIGATÓRIO)
 cd src
-python analise_coletores.py --output analysis_results.json
+python analise_coletores.py  # Processa todos os registros, gera relatórios .txt
 
 # 2. SEGUNDO: Processamento principal (requer análise)
-python processar_coletores.py --analysis-results analysis_results.json
+python processar_coletores.py --analysis-results reports/complete_analysis_results_*.txt
 
 # 3. TERCEIRO: Validação da qualidade
-python validar_canonicalizacao.py --baseline-analysis analysis_results.json
+python validar_canonicalizacao.py --baseline-analysis reports/complete_analysis_results_*.txt
 
-# 4. QUARTO: Geração de relatórios
-python gerar_relatorios.py --analysis-results analysis_results.json
+# 4. QUARTO: Geração de relatórios detalhados
+python gerar_relatorios.py --analysis-results reports/complete_analysis_results_*.txt
 ```
 
 ### ⚠️ CRITÍCO: Dependência de Análise
 
 **TODOS os scripts dependem dos resultados da análise completa**:
 
-- ✅ **Análise primeiro**: Processa TODOS os 11M+ registros para descobrir padrões ótimos
+- ✅ **Análise primeiro**: Processa TODOS os registros com recordedBy para descobrir padrões ótimos
 - ✅ **Padrões dinâmicos**: Thresholds e configurações são descobertos automaticamente
 - ✅ **Qualidade superior**: Processamento usa insights do dataset completo
+- ✅ **Relatórios em .txt**: Todos os relatórios gerados em formato texto legível
 - ❌ **Não pular análise**: Sem análise = configurações estáticas = qualidade inferior
 
 ### 🎯 Vantagens da Interface CLI
@@ -220,31 +263,38 @@ python gerar_relatorios.py --analysis-results analysis_results.json
 - **Métricas de qualidade**: Acompanha qualidade ao longo do processo
 - **Exportação de resultados**: Formatos múltiplos (JSON, HTML, CSV)
 
-### 1. Análise Exploratória
+### 1. Análise Completa do Dataset
 
-Primeiro, execute uma análise para entender os padrões dos dados:
+**PRIMEIRO PASSO OBRIGATÓRIO**: Execute uma análise de TODOS os registros:
 
 ```bash
 cd src
-python analise_coletores.py
+python analise_coletores.py  # Processa TODOS os registros com recordedBy
 ```
 
-**Novos recursos**:
-- ✅ Amostragem estratificada: 3M registros de Plantae + 3M de Animalia
-- ✅ Sistema de classificação de entidades com 4 categorias inteligentes
-- ✅ Distinção entre conjunto_pessoas (nomes múltiplos) e grupo_pessoas (denominações genéricas)
-- ✅ Índice de confiança para classificação (0.0-1.0)
-- ✅ Detecção de empresas/instituições (ex: "EMBRAPA", "USP", "RB")
-- ✅ Análise por kingdom especializado
+**Características da análise completa**:
+- ✅ **Processamento integral**: TODOS os registros (11M+) são analisados
+- ✅ **Sistema de classificação com 6 categorias**: pessoa, conjunto_pessoas, grupo_pessoas, empresa_instituicao, coletor_indeterminado, representacao_insuficiente
+- ✅ **Descoberta dinâmica de padrões**: Separadores, thresholds e configurações otimizados
+- ✅ **Índice de confiança**: Score de 0.0 a 1.0 para cada classificação
+- ✅ **Detecção avançada**: Empresas/instituições (ex: "EMBRAPA", "USP", "RB")
+- ✅ **Análise por reino**: Distribuição Plantae/Animalia
+- ✅ **Baseline completo**: Estatísticas para validação posterior
 
-**Saída**: Relatório em `reports/` com:
-- Distribuição por 4 tipos de entidade (pessoa/conjunto_pessoas/grupo_pessoas/empresa_instituicao)
+**Saída**: Relatórios .txt em `reports/` com:
+- `analise_completa_*.txt`: Relatório principal com estatísticas completas
+- `patterns_discovered_*.txt`: Padrões descobertos (separadores, thresholds)
+- `optimal_thresholds_*.txt`: Configurações otimizadas para processamento
+- `complete_analysis_results_*.txt`: Resultados completos para fases seguintes
+
+**Conteúdo dos relatórios**:
+- Distribuição por 6 tipos de entidade
 - Estatísticas de confiança na classificação
-- Distribuição de formatos de nomes por kingdom
-- Separadores mais comuns
+- Distribuição de formatos de nomes por reino
+- Separadores descobertos automaticamente
 - Exemplos classificados por tipo com score de confiança
 - Caracteres especiais identificados
-- Amostras por padrão detectado
+- Thresholds otimizados baseados no dataset completo
 
 ### 2. Processamento Principal
 
@@ -430,18 +480,24 @@ Para uma análise completa dos algoritmos e estratégias utilizadas, consulte:
 
 - `similarity_threshold`: 0.85 (limiar de similaridade para agrupamento)
 - `confidence_threshold`: 0.7 (limiar de confiança automática)
-- `batch_size`: 10000 (registros por lote)
-- `sample_size`: 3000000 (tamanho da amostra para análise - por kingdom)
+- `batch_size`: 5000 (registros por lote - otimizado para análise completa)
+- `checkpoint_interval`: 25000 (checkpoint a cada 25k registros)
+- `analysis_complete`: True (processa TODOS os registros, não amostra)
 
-### Padrões de Separação
+### Descoberta Dinâmica de Padrões
 
-Personalizáveis em `SEPARATOR_PATTERNS`:
-- `&` ou `e`
-- `and`
-- `;`
-- `, + maiúscula`
-- `et al.`
-- `e col.`
+A análise completa identifica automaticamente:
+- **Separadores mais comuns**: Descobertos na análise de todos os registros
+- **Thresholds otimizados**: Baseados na distribuição real do dataset
+- **Padrões específicos**: Instituições, códigos de herbário, acrônimos
+- **Configurações adaptadas**: Ajustadas para o perfil específico dos dados
+
+**Padrões base identificados**:
+- `&`, `e`, `and` (conjunções)
+- `;` (separador formal)
+- `, + maiúscula` (separador com nome)
+- `et al.`, `e col.` (indicadores de grupo)
+- Padrões institucionais (EMBRAPA, USP, RB, etc.)
 
 ## Logs
 
@@ -453,19 +509,61 @@ Todos os scripts geram logs detalhados em `logs/`:
 
 ## Performance
 
-### Estimativas (11M registros)
+### Estimativas (Análise Completa de TODOS os registros)
 
-- **Processamento inicial**: 6-8 horas
-- **Performance**: ~500 registros/segundo
-- **Memória**: ~2GB RAM
-- **Armazenamento**: ~5GB adicional no MongoDB
+- **Análise completa**: 8-12 horas (primeira execução, processa tudo)
+- **Processamento subsequente**: 4-6 horas (usa padrões descobertos)
+- **Performance otimizada**: ~1000+ registros/segundo (após otimizações)
+- **Memória**: ~4-8GB RAM (recomendado para análise completa)
+- **Armazenamento**: ~8-12GB adicional no MongoDB
+- **Relatórios**: Arquivos .txt legíveis (não JSON)
 
-### Otimizações
+### Otimizações da Nova Arquitetura
 
-- Processamento em lotes
-- Índices MongoDB otimizados
-- Cache interno do canonizador
-- Checkpoints para recuperação
+- **Análise completa primeiro**: Evita reprocessamento desnecessário
+- **Processamento em lotes otimizados**: 5k registros/lote
+- **Índices MongoDB especializados**: Criados baseados na análise
+- **Cache inteligente**: Canonização usa padrões descobertos
+- **Checkpoints hierárquicos**: Macro, micro e batch level
+- **Relatórios .txt**: Formato legível e compatível com qualquer editor
+- **Services modulares**: Checkpoint, reporting e validation independentes
+
+## 📄 Relatórios em Formato TXT
+
+### Mudança Importante: Relatórios Legíveis
+
+**TODOS os relatórios agora são gerados em formato .txt** para melhor legibilidade:
+
+#### Tipos de Relatórios Gerados
+
+1. **`analise_completa_YYYYMMDD_HHMMSS.txt`**
+   - Relatório principal da análise completa
+   - Estatísticas detalhadas por reino e categoria
+   - Distribuição de padrões descobertos
+   - Métricas de qualidade e confiança
+
+2. **`patterns_discovered_YYYYMMDD_HHMMSS.txt`**
+   - Padrões de separadores identificados
+   - Frequência de cada padrão
+   - Scores de qualidade dos padrões
+
+3. **`optimal_thresholds_YYYYMMDD_HHMMSS.txt`**
+   - Thresholds otimizados para processamento
+   - Recomendações de configuração
+   - Parâmetros ajustados automaticamente
+
+4. **`complete_analysis_results_YYYYMMDD_HHMMSS.txt`**
+   - Resultados consolidados para próximas fases
+   - Baseline completo para validação
+   - Hash de configuração para controle de versão
+
+### Vantagens dos Relatórios TXT
+
+- ✅ **Legibilidade**: Facilmente abertos em qualquer editor
+- ✅ **Versionamento**: Compatível com git diff
+- ✅ **Auditoria**: Fácil revisão manual dos resultados
+- ✅ **Debugging**: Análise rápida de problemas
+- ✅ **Portabilidade**: Funciona em qualquer sistema
 
 ## Monitoramento
 

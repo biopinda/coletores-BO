@@ -363,18 +363,18 @@ Examples:
 
         # Overall health
         health = status_info['overall_health']
-        status_icon = "✅" if health['status'] == 'healthy' else "❌"
+        status_icon = "[OK]" if health['status'] == 'healthy' else "[ERROR]"
         print(f"Overall Health: {health['status'].upper()} {status_icon}")
 
         if health['issues']:
             print("Issues:")
             for issue in health['issues']:
-                print(f"  ❌ {issue}")
+                print(f"  - {issue}")
 
         if health['warnings']:
             print("Warnings:")
             for warning in health['warnings']:
-                print(f"  ⚠️  {warning}")
+                print(f"  - {warning}")
         print()
 
         # System info
@@ -401,13 +401,13 @@ Examples:
 
         structure = proj_info['structure']
         for name, exists in structure.items():
-            icon = "✅" if exists else "❌"
+            icon = "[OK]" if exists else "[MISSING]"
             print(f"{name}: {icon}")
 
         print("\nKey Files:")
         key_files = proj_info['key_files']
         for name, exists in key_files.items():
-            icon = "✅" if exists else "❌"
+            icon = "[OK]" if exists else "[MISSING]"
             print(f"  {name}: {icon}")
 
         if proj_info['recent_results']:
@@ -422,7 +422,7 @@ Examples:
             print("-" * 30)
             deps = status_info['dependencies']
             for name, info in deps.items():
-                icon = "✅" if info['status'] == 'installed' else "❌"
+                icon = "[OK]" if info['status'] == 'installed' else "[MISSING]"
                 version = f" ({info['version']})" if 'version' in info else ""
                 print(f"{name}: {info['status'].upper()}{version} {icon}")
             print()
@@ -432,7 +432,7 @@ Examples:
             print("DATABASE")
             print("-" * 30)
             db_info = status_info['database']
-            icon = "✅" if db_info['status'] == 'connected' else "❌"
+            icon = "[OK]" if db_info['status'] == 'connected' else "[ERROR]"
             print(f"Status: {db_info['status'].upper()} {icon}")
             if 'error' in db_info:
                 print(f"Error: {db_info['error']}")
