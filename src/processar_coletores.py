@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
 Script principal para processamento e canonicalização de coletores
+
+IMPORTANTE: Este script agora consome padrões descobertos pela análise completa
+do dataset (analise_coletores.py) para otimizar o processamento de canonicalização.
+A análise completa DEVE ser executada primeiro para gerar os padrões e configurações.
 """
 
 import sys
@@ -8,8 +12,10 @@ import os
 import logging
 import time
 import signal
+import json
 from datetime import datetime
-from typing import Dict, List, Optional
+from pathlib import Path
+from typing import Dict, List, Optional, Any
 from tqdm import tqdm
 import traceback
 import pandas as pd
@@ -24,6 +30,8 @@ from src.canonicalizador_coletores import (
     CanonizadorColetores,
     GerenciadorMongoDB
 )
+from src.services.analysis_persistence import AnalysisPersistenceService, PersistenceConfig
+from src.services.pattern_discovery import PatternDiscoveryService, PatternDiscoveryConfig
 
 # Configurar logging
 def configurar_logging():
@@ -67,18 +75,43 @@ logger = configurar_logging()
 
 class ProcessadorColetores:
     """
-    Classe principal para processamento de canonicalização
+    Classe principal para processamento de canonicalização com integração de análise completa
+
+    Esta classe agora consome padrões descobertos pela análise completa do dataset
+    para otimizar o processamento de canonicalização.
     """
 
-    def __init__(self):
+    def __init__(self, analysis_results_path: Optional[str] = None):
         """
-        Inicializa o processador
+        Inicializa o processador com configurações baseadas em análise completa
+
+        Args:
+            analysis_results_path: Caminho para resultados da análise completa (opcional)
         """
-        self.atomizador = AtomizadorNomes(SEPARATOR_PATTERNS, GROUP_PATTERNS, INSTITUTION_PATTERNS)
+        # Services for analysis integration
+        self.analysis_service = AnalysisPersistenceService()
+        self.pattern_service = PatternDiscoveryService()
+
+        # Carrega configurações da análise completa
+        self.analysis_config = self._load_analysis_configuration(analysis_results_path)
+        self.discovered_patterns = self.analysis_config.get('discovered_patterns', [])
+        self.optimized_thresholds = self.analysis_config.get('threshold_recommendations', [])
+
+        # Initialize with enhanced patterns and thresholds
+        enhanced_separators = self._enhance_separator_patterns()
+        enhanced_groups = self._enhance_group_patterns()
+        enhanced_institutions = self._enhance_institution_patterns()
+
+        self.atomizador = AtomizadorNomes(enhanced_separators, enhanced_groups, enhanced_institutions)
         self.normalizador = NormalizadorNome()
+
+        # Use optimized thresholds from complete dataset analysis
+        optimized_similarity = self._get_optimized_threshold('grouping_threshold', ALGORITHM_CONFIG['similarity_threshold'])
+        optimized_confidence = self._get_optimized_threshold('classification_confidence', ALGORITHM_CONFIG['confidence_threshold'])
+
         self.canonizador = CanonizadorColetores(
-            similarity_threshold=ALGORITHM_CONFIG['similarity_threshold'],
-            confidence_threshold=ALGORITHM_CONFIG['confidence_threshold']
+            similarity_threshold=optimized_similarity,
+            confidence_threshold=optimized_confidence
         )
 
         # Estatísticas do processamento
@@ -105,6 +138,147 @@ class ProcessadorColetores:
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
+    def _load_analysis_configuration(self, analysis_results_path: Optional[str]) -> Dict[str, Any]:
+        """
+        Carrega configuração baseada em resultados da análise completa do dataset
+
+        Args:
+            analysis_results_path: Caminho específico para análise (opcional)
+
+        Returns:
+            Dicionário com configurações otimizadas
+        """
+        try:
+            if analysis_results_path and Path(analysis_results_path).exists():
+                # Load specific analysis results
+                logger.info(f"Carregando análise específica: {analysis_results_path}")
+                with open(analysis_results_path, 'r', encoding='utf-8') as f:
+                    analysis_data = json.load(f)
+
+                # Run pattern discovery on the analysis results
+                pattern_results = self.pattern_service.analyze_complete_dataset_results(
+                    Path(analysis_results_path)
+                )
+                return pattern_results
+            else:
+                # Try to load latest analysis results
+                logger.info("Tentando carregar última análise completa disponível...")
+                latest_analysis = self.analysis_service.load_latest_analysis_results()
+
+                if latest_analysis:
+                    logger.info("Análise completa carregada com sucesso")
+
+                    # Save analysis to temp file for pattern discovery
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False, encoding='utf-8') as f:
+                        json.dump(latest_analysis, f, ensure_ascii=False, default=str)
+                        temp_path = f.name
+
+                    try:
+                        pattern_results = self.pattern_service.analyze_complete_dataset_results(
+                            Path(temp_path)
+                        )
+                        return pattern_results
+                    finally:
+                        # Clean up temp file
+                        os.unlink(temp_path)
+                else:
+                    logger.warning("Nenhuma análise completa encontrada. Usando configurações padrão.")
+                    return {}
+
+        except Exception as e:
+            logger.warning(f"Erro ao carregar análise completa: {e}. Usando configurações padrão.")
+            return {}
+
+    def _enhance_separator_patterns(self) -> Dict[str, Any]:
+        """Aplica padrões de separadores descobertos na análise completa"""
+        enhanced_patterns = SEPARATOR_PATTERNS.copy()
+
+        # Add discovered separator patterns
+        separator_patterns = [p for p in self.discovered_patterns if p.get('pattern_type') == 'separator']
+
+        if separator_patterns:
+            logger.info(f"Aplicando {len(separator_patterns)} padrões de separador descobertos")
+
+            for pattern in separator_patterns:
+                # Add high-frequency separators to recognition patterns
+                separator_text = pattern.get('example_matches', [''])[0]
+                if separator_text and separator_text not in enhanced_patterns.get('separators', []):
+                    if 'discovered_separators' not in enhanced_patterns:
+                        enhanced_patterns['discovered_separators'] = []
+                    enhanced_patterns['discovered_separators'].append(separator_text)
+
+        return enhanced_patterns
+
+    def _enhance_group_patterns(self) -> Dict[str, Any]:
+        """Aplica padrões de grupo descobertos na análise completa"""
+        enhanced_patterns = GROUP_PATTERNS.copy()
+
+        # Add discovered group patterns
+        group_patterns = [p for p in self.discovered_patterns if p.get('pattern_type') == 'entity_indicator']
+
+        group_indicators = [p for p in group_patterns if 'grupo_pessoas' in p.get('entity_types', set())]
+
+        if group_indicators:
+            logger.info(f"Aplicando {len(group_indicators)} indicadores de grupo descobertos")
+
+            for pattern in group_indicators:
+                indicator_text = pattern.get('example_matches', [''])[0]
+                if indicator_text:
+                    if 'discovered_indicators' not in enhanced_patterns:
+                        enhanced_patterns['discovered_indicators'] = []
+                    enhanced_patterns['discovered_indicators'].append(indicator_text)
+
+        return enhanced_patterns
+
+    def _enhance_institution_patterns(self) -> Dict[str, Any]:
+        """Aplica padrões institucionais descobertos na análise completa"""
+        enhanced_patterns = INSTITUTION_PATTERNS.copy()
+
+        # Add discovered institutional patterns
+        institutional_patterns = [p for p in self.discovered_patterns if p.get('pattern_type') == 'institutional']
+
+        if institutional_patterns:
+            logger.info(f"Aplicando {len(institutional_patterns)} padrões institucionais descobertos")
+
+            discovered_keywords = []
+            for pattern in institutional_patterns:
+                keyword = pattern.get('example_matches', [''])[0]
+                if keyword and len(keyword) > 2:  # Minimum length filter
+                    discovered_keywords.append(keyword)
+
+            if discovered_keywords:
+                if 'discovered_keywords' not in enhanced_patterns:
+                    enhanced_patterns['discovered_keywords'] = []
+                enhanced_patterns['discovered_keywords'].extend(discovered_keywords[:20])  # Limit to top 20
+
+        return enhanced_patterns
+
+    def _get_optimized_threshold(self, threshold_type: str, default_value: float) -> float:
+        """
+        Obtém threshold otimizado baseado na análise completa
+
+        Args:
+            threshold_type: Tipo do threshold (ex: 'grouping_threshold', 'classification_confidence')
+            default_value: Valor padrão caso não encontre otimização
+
+        Returns:
+            Valor otimizado do threshold
+        """
+        try:
+            for recommendation in self.optimized_thresholds:
+                if recommendation.get('threshold_type') == threshold_type:
+                    optimized_value = recommendation.get('recommended_value', default_value)
+                    logger.info(f"Usando threshold otimizado {threshold_type}: {optimized_value} (padrão: {default_value})")
+                    return optimized_value
+
+            logger.debug(f"Threshold otimizado não encontrado para {threshold_type}, usando padrão: {default_value}")
+            return default_value
+
+        except Exception as e:
+            logger.warning(f"Erro ao obter threshold otimizado {threshold_type}: {e}")
+            return default_value
+
     def _signal_handler(self, signum, frame):
         """
         Handler para sinais de interrupção
@@ -120,7 +294,7 @@ class ProcessadorColetores:
 
     def processar_todos_coletores(self, restart: bool = False) -> Dict:
         """
-        Processa todos os coletores do banco de dados
+        Processa todos os coletores do banco de dados utilizando padrões descobertos
 
         Args:
             restart: Se True, reinicia o processamento do zero
@@ -130,7 +304,11 @@ class ProcessadorColetores:
         """
         print("\n" + "=" * 80)
         print(">> INICIANDO PROCESSAMENTO DE CANONICALIZACAO DE COLETORES")
+        print(">> COM PADRÕES DESCOBERTOS DA ANÁLISE COMPLETA")
         print("=" * 80)
+
+        # Report analysis integration status
+        self._report_analysis_integration_status()
 
         self.stats['inicio_processamento'] = datetime.now()
 
@@ -446,25 +624,75 @@ class ProcessadorColetores:
 
         return coletores_revisao
 
+    def _report_analysis_integration_status(self):
+        """Relatório do status da integração com análise completa"""
+
+        print("\n" + "-" * 60)
+        print(">> STATUS DA INTEGRAÇÃO COM ANÁLISE COMPLETA")
+        print("-" * 60)
+
+        if not self.analysis_config:
+            print("   ⚠️  NENHUMA ANÁLISE COMPLETA ENCONTRADA")
+            print("   → Usando configurações padrão")
+            print("   → Recomendado: Execute analise_coletores.py primeiro")
+        else:
+            # Report discovered patterns
+            num_patterns = len(self.discovered_patterns)
+            num_thresholds = len(self.optimized_thresholds)
+
+            print(f"   ✅ ANÁLISE COMPLETA INTEGRADA")
+            print(f"   → Padrões descobertos: {num_patterns}")
+            print(f"   → Thresholds otimizados: {num_thresholds}")
+
+            # Report specific optimizations
+            if num_thresholds > 0:
+                print("   → Thresholds aplicados:")
+                for rec in self.optimized_thresholds[:3]:  # Show first 3
+                    threshold_type = rec.get('threshold_type', 'unknown')
+                    threshold_value = rec.get('recommended_value', 0.0)
+                    print(f"     • {threshold_type}: {threshold_value:.3f}")
+
+            # Report pattern categories
+            if num_patterns > 0:
+                pattern_types = {}
+                for pattern in self.discovered_patterns:
+                    ptype = pattern.get('pattern_type', 'unknown')
+                    pattern_types[ptype] = pattern_types.get(ptype, 0) + 1
+
+                print("   → Tipos de padrões encontrados:")
+                for ptype, count in pattern_types.items():
+                    print(f"     • {ptype}: {count} padrões")
+
+        print("-" * 60)
+
 
 def main():
     """
-    Função principal
+    Função principal com integração de análise completa
     """
     import argparse
 
-    parser = argparse.ArgumentParser(description='Processador de Canonicalização de Coletores')
+    parser = argparse.ArgumentParser(
+        description='Processador de Canonicalização de Coletores com Análise Completa',
+        epilog='IMPORTANTE: Execute analise_coletores.py primeiro para otimizar este processamento'
+    )
     parser.add_argument('--restart', action='store_true',
                        help='Reinicia o processamento do zero (limpa dados existentes)')
     parser.add_argument('--sample', type=int,
                        help='Processa apenas uma amostra de N registros (para testes)')
     parser.add_argument('--revisao', action='store_true',
                        help='Exibe relatório de coletores que precisam revisão manual')
+    parser.add_argument('--analysis-results', type=str,
+                       help='Caminho para arquivo JSON com resultados da análise completa')
+    parser.add_argument('--no-analysis-integration', action='store_true',
+                       help='Desabilita integração com análise completa (usa configurações padrão)')
 
     args = parser.parse_args()
 
     try:
-        processador = ProcessadorColetores()
+        # Initialize processor with analysis integration
+        analysis_path = args.analysis_results if not args.no_analysis_integration else None
+        processador = ProcessadorColetores(analysis_results_path=analysis_path)
 
         if args.revisao:
             # Apenas exibe relatório de revisão

@@ -77,22 +77,22 @@
 - [x] T022 [P] ProcessingBatch model in src/models/processing_batch.py
 
 ### Legacy Script Enhancement (Priority: Complete Dataset Analysis First)
-- [ ] T023 Enhance existing analise_coletores.py to process ALL records from "ocorrencias" collection with "recordedBy" attribute (no record limit) in src/analise_coletores.py
-- [ ] T024 [P] Pattern discovery service for dynamic threshold configuration based on complete dataset analysis in src/services/pattern_discovery.py
-- [ ] T025 [P] Analysis results persistence and loading for complete dataset insights in src/services/analysis_persistence.py
-- [ ] T026 Enhance existing processar_coletores.py to consume complete analysis patterns in src/processar_coletores.py (depends on T023-T025)
-- [ ] T027 Enhance existing gerar_relatorios.py with complete dataset analysis insights in src/gerar_relatorios.py (depends on T023)
-- [ ] T028 Enhance existing validar_canonicalizacao.py for quality validation against complete dataset baseline in src/validar_canonicalizacao.py (depends on T023)
+- [x] T023 Enhance existing analise_coletores.py to process ALL records from "ocorrencias" collection with "recordedBy" attribute (no record limit) in src/analise_coletores.py
+- [x] T024 [P] Pattern discovery service for dynamic threshold configuration based on complete dataset analysis in src/services/pattern_discovery.py
+- [x] T025 [P] Analysis results persistence and loading for complete dataset insights in src/services/analysis_persistence.py
+- [x] T026 Enhance existing processar_coletores.py to consume complete analysis patterns in src/processar_coletores.py (depends on T023-T025)
+- [x] T027 Enhance existing gerar_relatorios.py with complete dataset analysis insights in src/gerar_relatorios.py (depends on T023)
+- [x] T028 Enhance existing validar_canonicalizacao.py for quality validation against complete dataset baseline in src/validar_canonicalizacao.py (depends on T023)
 
 ### Core Services (Supporting the Script Pipeline)
-- [ ] T029 [P] MongoDB connection manager in src/services/mongodb_manager.py
-- [ ] T030 [P] Phonetic similarity calculator in src/services/phonetic_calculator.py
-- [ ] T031 [P] String similarity calculator with Jaro-Winkler in src/services/string_similarity.py
-- [ ] T032 [P] Collector classifier with 6 entity types in src/services/collector_classifier.py
+- [x] T029 [P] MongoDB connection manager in src/services/mongodb_manager.py
+- [x] T030 [P] Phonetic similarity calculator in src/services/phonetic_calculator.py
+- [x] T031 [P] String similarity calculator with Jaro-Winkler in src/services/string_similarity.py
+- [x] T032 [P] Collector classifier with 6 entity types in src/services/entity_classifier.py
 - [ ] T033 Collector canonicalization service in src/services/collector_canonizer.py (depends on T030-T032)
 - [ ] T034 [P] Checkpoint manager with hierarchical recovery in src/services/checkpoint_manager.py
 - [ ] T035 [P] Report generator for canonicalization analysis in src/services/report_generator.py
-- [ ] T036 Batch processor for 11M+ record handling in src/services/batch_processor.py (depends on T033-T034)
+- [x] T036 Batch processor for 11M+ record handling in src/services/batch_processor.py (depends on T033-T034)
 
 ### CLI Interface Implementation (Orchestrating Existing Scripts)
 - [ ] T037 Main CLI entry point with execution order orchestration in src/cli/__main__.py

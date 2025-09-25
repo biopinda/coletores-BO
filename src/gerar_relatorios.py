@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 """
 Script para geração de relatórios da canonicalização de coletores
+
+IMPORTANTE: Este script agora integra insights da análise completa do dataset
+para gerar relatórios mais informativos e contextualizados com base nos
+padrões descobertos no processamento de todos os registros.
 """
 
 import sys
 import os
 import logging
+import json
 from datetime import datetime, timedelta
-from typing import Dict, List, Tuple, Optional
+from pathlib import Path
+from typing import Dict, List, Tuple, Optional, Any
 from collections import Counter, defaultdict
 import pandas as pd
 
@@ -16,6 +22,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from config.mongodb_config import MONGODB_CONFIG
 from src.canonicalizador_coletores import GerenciadorMongoDB
+from src.services.analysis_persistence import AnalysisPersistenceService
 
 # Configurar logging
 logging.basicConfig(
@@ -31,19 +38,63 @@ logger = logging.getLogger(__name__)
 
 class GeradorRelatorios:
     """
-    Classe para geração de relatórios da canonicalização
+    Classe para geração de relatórios da canonicalização com integração de análise completa
+
+    Esta classe agora integra insights da análise completa do dataset para
+    gerar relatórios enriquecidos com contexto e comparações baseadas nos
+    padrões descobertos no processamento de todos os registros.
     """
 
-    def __init__(self):
+    def __init__(self, analysis_results_path: Optional[str] = None):
         """
-        Inicializa o gerador de relatórios
+        Inicializa o gerador de relatórios com integração de análise completa
+
+        Args:
+            analysis_results_path: Caminho para arquivo de resultados da análise completa
         """
         self.mongo_manager = None
-        logger.info("GeradorRelatorios inicializado")
+        self.analysis_service = AnalysisPersistenceService()
+
+        # Carrega análise completa
+        self.analysis_results = self._load_analysis_results(analysis_results_path)
+        self.has_analysis = bool(self.analysis_results)
+
+        logger.info(f"GeradorRelatorios inicializado - Análise completa: {'✓' if self.has_analysis else '✗'}")
+
+    def _load_analysis_results(self, analysis_results_path: Optional[str]) -> Optional[Dict[str, Any]]:
+        """
+        Carrega resultados da análise completa do dataset
+
+        Args:
+            analysis_results_path: Caminho específico para análise (opcional)
+
+        Returns:
+            Dicionário com resultados da análise ou None
+        """
+        try:
+            if analysis_results_path and Path(analysis_results_path).exists():
+                logger.info(f"Carregando análise específica: {analysis_results_path}")
+                with open(analysis_results_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            else:
+                # Try to load latest analysis
+                logger.info("Tentando carregar última análise completa disponível...")
+                latest_analysis = self.analysis_service.load_latest_analysis_results()
+
+                if latest_analysis:
+                    logger.info("Análise completa carregada com sucesso para relatórios")
+                    return latest_analysis
+                else:
+                    logger.warning("Nenhuma análise completa encontrada. Relatórios terão informação limitada.")
+                    return None
+
+        except Exception as e:
+            logger.warning(f"Erro ao carregar análise completa: {e}. Gerando relatórios sem contexto de análise.")
+            return None
 
     def gerar_todos_relatorios(self, diretorio_saida: str = "../reports") -> Dict[str, str]:
         """
-        Gera todos os relatórios disponíveis
+        Gera todos os relatórios disponíveis com integração de análise completa
 
         Args:
             diretorio_saida: Diretório onde salvar os relatórios
@@ -52,7 +103,7 @@ class GeradorRelatorios:
             Dicionário com caminhos dos arquivos gerados
         """
         logger.info("=" * 80)
-        logger.info("GERANDO RELATÓRIOS DA CANONICALIZAÇÃO")
+        logger.info("GERANDO RELATÓRIOS DA CANONICALIZAÇÃO COM ANÁLISE COMPLETA")
         logger.info("=" * 80)
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -90,6 +141,11 @@ class GeradorRelatorios:
             self.gerar_relatorio_variacoes(arquivo_variacoes)
             arquivos_gerados['variacoes'] = arquivo_variacoes
 
+            # Relatório de análise completa (novo - com insights)
+            if self.has_analysis:
+                arquivo_analise = os.path.join(diretorio_saida, f"relatorio_analise_completa_{timestamp}.txt")
+                self.gerar_relatorio_analise_completa(arquivo_analise)
+                arquivos_gerados['analise_completa'] = arquivo_analise
 
             logger.info("Todos os relatórios gerados com sucesso")
 
@@ -105,18 +161,37 @@ class GeradorRelatorios:
 
     def gerar_relatorio_estatisticas(self, arquivo_saida: str):
         """
-        Gera relatório de estatísticas gerais
+        Gera relatório de estatísticas gerais com contexto de análise completa
         """
-        logger.info("Gerando relatório de estatísticas gerais...")
+        logger.info("Gerando relatório de estatísticas gerais com análise completa...")
 
         stats = self.mongo_manager.obter_estatisticas_colecao()
 
         relatorio = []
         relatorio.append("=" * 80)
         relatorio.append("RELATÓRIO DE ESTATÍSTICAS GERAIS - CANONICALIZAÇÃO DE COLETORES")
+        if self.has_analysis:
+            relatorio.append("COM CONTEXTO DA ANÁLISE COMPLETA DO DATASET")
         relatorio.append("=" * 80)
         relatorio.append(f"Data/Hora: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         relatorio.append("")
+
+        # Adiciona status de integração com análise
+        if self.has_analysis:
+            relatorio.append("🔍 STATUS DA ANÁLISE COMPLETA")
+            relatorio.append("-" * 40)
+            total_records_analyzed = self.analysis_results.get('total_records', 0)
+            relatorio.append(f"✅ Análise completa disponível")
+            relatorio.append(f"📊 Registros analisados: {total_records_analyzed:,}")
+            relatorio.append(f"📈 Contexto de padrões: Integrado")
+            relatorio.append("")
+        else:
+            relatorio.append("⚠️  STATUS DA ANÁLISE COMPLETA")
+            relatorio.append("-" * 40)
+            relatorio.append("❌ Análise completa não encontrada")
+            relatorio.append("📊 Relatório baseado apenas em dados processados")
+            relatorio.append("💡 Recomendação: Execute analise_coletores.py primeiro")
+            relatorio.append("")
 
         if not stats:
             relatorio.append("ERRO: Nenhuma estatística encontrada no banco de dados")
@@ -211,6 +286,10 @@ class GeradorRelatorios:
             relatorio.append(f"{categoria}: {count:,} coletores ({percentual:.1f}%)")
 
         relatorio.append("")
+
+        # Adiciona comparação com baseline da análise completa se disponível
+        if self.has_analysis:
+            relatorio.extend(self._generate_analysis_comparison(stats))
 
         # Salva relatório
         with open(arquivo_saida, 'w', encoding='utf-8') as f:
@@ -412,29 +491,254 @@ class GeradorRelatorios:
 
         logger.info(f"Relatório de variações salvo: {arquivo_saida}")
 
+    def _generate_analysis_comparison(self, current_stats: Dict[str, Any]) -> List[str]:
+        """
+        Gera comparação entre resultados atuais e baseline da análise completa
 
+        Args:
+            current_stats: Estatísticas atuais do MongoDB
+
+        Returns:
+            Lista de linhas do relatório de comparação
+        """
+        comparison = []
+        comparison.append("📊 COMPARAÇÃO COM BASELINE DA ANÁLISE COMPLETA")
+        comparison.append("=" * 60)
+
+        try:
+            # Extrai métricas da análise completa
+            analysis_total = self.analysis_results.get('total_records', 0)
+            collector_analysis = self.analysis_results.get('collector_analysis', {})
+            pattern_analysis = self.analysis_results.get('pattern_analysis', {})
+
+            # Análise de cobertura
+            current_processed = current_stats.get('total_registros', 0)
+            if analysis_total > 0:
+                coverage_pct = (current_processed / analysis_total) * 100
+                comparison.append(f"📈 COBERTURA DO PROCESSAMENTO")
+                comparison.append(f"   Registros na análise completa: {analysis_total:,}")
+                comparison.append(f"   Registros processados agora: {current_processed:,}")
+                comparison.append(f"   Cobertura: {coverage_pct:.1f}%")
+                comparison.append("")
+
+            # Análise de eficiência de canonicalização
+            expected_unique = collector_analysis.get('unique_collectors_estimate', 0)
+            current_unique = current_stats.get('total_coletores', 0)
+
+            if expected_unique > 0:
+                comparison.append(f"🎯 EFICIÊNCIA DE CANONICALIZAÇÃO")
+                comparison.append(f"   Coletores únicos esperados (análise): {expected_unique:,}")
+                comparison.append(f"   Coletores canônicos criados: {current_unique:,}")
+
+                efficiency = (current_unique / expected_unique) * 100
+                if efficiency <= 110:  # Within reasonable range
+                    comparison.append(f"   Eficiência: {efficiency:.1f}% ✅")
+                else:
+                    comparison.append(f"   Eficiência: {efficiency:.1f}% ⚠️ (pode indicar sub-canonicalização)")
+                comparison.append("")
+
+            # Análise de qualidade baseada em padrões descobertos
+            quality_metrics = self.analysis_results.get('quality_metrics', {})
+            if quality_metrics:
+                comparison.append(f"🔍 QUALIDADE VS. EXPECTATIVAS DA ANÁLISE")
+
+                expected_completeness = quality_metrics.get('completeness_score', 0) * 100
+                expected_consistency = quality_metrics.get('consistency_score', 0) * 100
+
+                current_confidence = current_stats.get('confianca_media', 0) * 100
+
+                comparison.append(f"   Completude esperada: {expected_completeness:.1f}%")
+                comparison.append(f"   Consistência esperada: {expected_consistency:.1f}%")
+                comparison.append(f"   Confiança média atual: {current_confidence:.1f}%")
+
+                if current_confidence >= expected_consistency * 0.9:
+                    comparison.append(f"   Status qualidade: ✅ Dentro do esperado")
+                else:
+                    comparison.append(f"   Status qualidade: ⚠️ Abaixo do esperado")
+                comparison.append("")
+
+        except Exception as e:
+            comparison.append(f"❌ Erro na comparação: {e}")
+            comparison.append("")
+
+        return comparison
+
+    def gerar_relatorio_analise_completa(self, arquivo_saida: str):
+        """
+        Gera relatório abrangente com insights da análise completa do dataset
+        """
+        if not self.has_analysis:
+            logger.warning("Análise completa não disponível para relatório detalhado")
+            return
+
+        logger.info("Gerando relatório de análise completa com insights do dataset...")
+
+        relatorio = []
+        relatorio.append("=" * 90)
+        relatorio.append("RELATÓRIO COMPLETO: INSIGHTS DA ANÁLISE DO DATASET INTEGRAL")
+        relatorio.append("=" * 90)
+        relatorio.append(f"Data/Hora: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        relatorio.append("")
+
+        try:
+            # Seção 1: Visão Geral da Análise
+            relatorio.append("📋 VISÃO GERAL DA ANÁLISE COMPLETA")
+            relatorio.append("-" * 50)
+
+            total_analyzed = self.analysis_results.get('total_records', 0)
+            relatorio.append(f"Total de registros analisados: {total_analyzed:,}")
+
+            kingdom_dist = self.analysis_results.get('kingdom_distribution', {})
+            for kingdom, count in kingdom_dist.items():
+                pct = (count / total_analyzed * 100) if total_analyzed > 0 else 0
+                relatorio.append(f"  {kingdom}: {count:,} ({pct:.1f}%)")
+
+            relatorio.append("")
+
+            # Seção 2: Padrões Descobertos
+            pattern_analysis = self.analysis_results.get('pattern_analysis', {})
+            if pattern_analysis:
+                relatorio.append("🔍 PADRÕES DESCOBERTOS NO DATASET")
+                relatorio.append("-" * 50)
+
+                # Padrões de entidade
+                entity_dist = pattern_analysis.get('entity_type_distribution', {})
+                if entity_dist:
+                    relatorio.append("Distribuição por tipo de entidade:")
+                    for entity_type, count in entity_dist.items():
+                        pct = (count / total_analyzed * 100) if total_analyzed > 0 else 0
+                        relatorio.append(f"  {entity_type}: {count:,} ({pct:.1f}%)")
+
+                # Padrões de separadores
+                separator_analysis = pattern_analysis.get('separator_analysis', {})
+                if separator_analysis:
+                    relatorio.append("")
+                    relatorio.append("Separadores mais comuns:")
+                    common_seps = separator_analysis.get('common_separators', {})
+                    for sep, count in list(common_seps.items())[:10]:
+                        relatorio.append(f"  '{sep}': {count:,} ocorrências")
+
+                relatorio.append("")
+
+            # Seção 3: Análise de Coletores
+            collector_analysis = self.analysis_results.get('collector_analysis', {})
+            if collector_analysis:
+                relatorio.append("👥 ANÁLISE DE COLETORES")
+                relatorio.append("-" * 50)
+
+                unique_estimate = collector_analysis.get('unique_collectors_estimate', 0)
+                relatorio.append(f"Estimativa de coletores únicos: {unique_estimate:,}")
+
+                # Nomes de coletores mais frequentes
+                name_stats = collector_analysis.get('name_statistics', {})
+                if name_stats:
+                    avg_length = name_stats.get('average_length', 0)
+                    relatorio.append(f"Comprimento médio dos nomes: {avg_length:.1f} caracteres")
+
+                # Top sobrenomes
+                surname_freq = collector_analysis.get('surname_frequency', {})
+                if surname_freq:
+                    relatorio.append("")
+                    relatorio.append("Top 15 sobrenomes mais frequentes:")
+                    sorted_surnames = sorted(surname_freq.items(), key=lambda x: x[1], reverse=True)
+                    for i, (surname, count) in enumerate(sorted_surnames[:15], 1):
+                        pct = (count / total_analyzed * 100) if total_analyzed > 0 else 0
+                        relatorio.append(f"  {i:2d}. {surname}: {count:,} ({pct:.2f}%)")
+
+                relatorio.append("")
+
+            # Seção 4: Métricas de Qualidade
+            quality_metrics = self.analysis_results.get('quality_metrics', {})
+            if quality_metrics:
+                relatorio.append("✅ MÉTRICAS DE QUALIDADE DO DATASET")
+                relatorio.append("-" * 50)
+
+                completeness = quality_metrics.get('completeness_score', 0) * 100
+                consistency = quality_metrics.get('consistency_score', 0) * 100
+                anomalies = quality_metrics.get('anomaly_indicators', [])
+
+                relatorio.append(f"Score de completude: {completeness:.1f}%")
+                relatorio.append(f"Score de consistência: {consistency:.1f}%")
+                relatorio.append(f"Anomalias detectadas: {len(anomalies)}")
+
+                if anomalies:
+                    relatorio.append("")
+                    relatorio.append("Principais indicadores de anomalia:")
+                    for anomaly in anomalies[:10]:
+                        relatorio.append(f"  • {anomaly}")
+
+                relatorio.append("")
+
+            # Seção 5: Recomendações Baseadas na Análise
+            relatorio.append("💡 RECOMENDAÇÕES BASEADAS NA ANÁLISE")
+            relatorio.append("-" * 50)
+
+            relatorio.append("Com base na análise completa do dataset:")
+            relatorio.append("")
+
+            # Recomendações específicas baseadas nos dados
+            if kingdom_dist.get('Plantae', 0) > kingdom_dist.get('Animalia', 0):
+                relatorio.append("• Dataset com predominância de dados botânicos - configurações")
+                relatorio.append("  de canonicalização podem ser otimizadas para este contexto")
+            else:
+                relatorio.append("• Dataset balanceado ou com predominância zoológica")
+
+            if entity_dist.get('pessoa', 0) > total_analyzed * 0.6:
+                relatorio.append("• Alta proporção de coletores individuais - algoritmos de")
+                relatorio.append("  similaridade de nomes podem ser priorizados")
+
+            if len(anomalies) > total_analyzed * 0.05:
+                relatorio.append("• Alta taxa de anomalias detectada - recomenda-se revisão")
+                relatorio.append("  manual dos casos mais críticos")
+
+            relatorio.append("")
+            relatorio.append("🔧 Para otimizar o processamento:")
+            relatorio.append("• Use os thresholds descobertos na análise")
+            relatorio.append("• Priorize revisão manual dos casos de baixa confiança")
+            relatorio.append("• Monitore a eficiência de canonicalização vs. expectativas")
+
+        except Exception as e:
+            relatorio.append(f"❌ Erro ao processar análise completa: {e}")
+
+        relatorio.append("")
+        relatorio.append("=" * 90)
+
+        # Salva relatório
+        with open(arquivo_saida, 'w', encoding='utf-8') as f:
+            f.write("\n".join(relatorio))
+
+        logger.info(f"Relatório de análise completa salvo: {arquivo_saida}")
 
 
 def main():
     """
-    Função principal
+    Função principal com integração de análise completa
     """
     import argparse
 
-    parser = argparse.ArgumentParser(description='Gerador de Relatórios de Canonicalização')
-    parser.add_argument('--tipo', choices=['todos', 'estatisticas', 'top', 'qualidade', 'variacoes'],
+    parser = argparse.ArgumentParser(
+        description='Gerador de Relatórios de Canonicalização com Análise Completa',
+        epilog='IMPORTANTE: Para relatórios enriquecidos, execute analise_coletores.py primeiro'
+    )
+    parser.add_argument('--tipo', choices=['todos', 'estatisticas', 'top', 'qualidade', 'variacoes', 'analise_completa'],
                        default='todos', help='Tipo de relatório a gerar')
     parser.add_argument('--saida', type=str, default='../reports',
                        help='Diretório de saída (padrão: ../reports)')
     parser.add_argument('--top-n', type=int, default=100,
                        help='Número de top coletores no relatório (padrão: 100)')
+    parser.add_argument('--analysis-results', type=str,
+                       help='Caminho para arquivo JSON com resultados da análise completa')
+    parser.add_argument('--no-analysis-integration', action='store_true',
+                       help='Desabilita integração com análise completa')
 
     args = parser.parse_args()
 
     try:
-        print("Iniciando geração de relatórios...")
+        print("Iniciando geração de relatórios com análise completa...")
 
-        gerador = GeradorRelatorios()
+        # Initialize with analysis integration
+        analysis_path = args.analysis_results if not args.no_analysis_integration else None
+        gerador = GeradorRelatorios(analysis_results_path=analysis_path)
 
         if args.tipo == 'todos':
             arquivos = gerador.gerar_todos_relatorios(args.saida)
@@ -458,6 +762,9 @@ def main():
             elif args.tipo == 'variacoes':
                 arquivo = os.path.join(args.saida, f"variacoes_{timestamp}.txt")
                 gerador.gerar_relatorio_variacoes(arquivo)
+            elif args.tipo == 'analise_completa':
+                arquivo = os.path.join(args.saida, f"analise_completa_{timestamp}.txt")
+                gerador.gerar_relatorio_analise_completa(arquivo)
 
             print(f"Relatório gerado: {arquivo}")
 

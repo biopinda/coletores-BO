@@ -69,9 +69,95 @@ pip install -r requirements.txt
 
 ## Uso
 
-### Scripts Disponíveis
+### Sistema de Execução
 
-O sistema é composto por quatro scripts principais e um módulo central:
+O sistema oferece **duas formas de execução**: através da **Interface CLI Unificada** (recomendada) ou dos **Scripts Individuais** (tradicional).
+
+### 🚀 INTERFACE CLI UNIFICADA (RECOMENDADA)
+
+A nova interface CLI oferece execução orquestrada, monitoramento de performance, validação de dependências e execução em ordem correta automaticamente.
+
+#### Comandos Disponíveis
+
+```bash
+# Verificar status do sistema
+python -m src.cli status --detailed
+
+# Executar pipeline completo (RECOMENDADO)
+python -m src.cli pipeline --full-process
+
+# Executar comandos individuais
+python -m src.cli analyze --save-patterns
+python -m src.cli process --analysis-results analysis.json
+python -m src.cli reports --include-analysis
+python -m src.cli validate --baseline-analysis analysis.json
+
+# Ajuda para qualquer comando
+python -m src.cli --help
+python -m src.cli [comando] --help
+```
+
+#### ⚠️ ORDEM CORRETA DE EXECUÇÃO (AUTOMATIZADA)
+
+**CRÍTICO**: A ordem de execução é **OBRIGATÓRIA** e é automaticamente validada pela CLI:
+
+```mermaid
+flowchart LR
+    A[análise] --> B[processamento]
+    B --> C[relatórios]
+    B --> D[validação]
+```
+
+**Sequência obrigatória**:
+1. **Análise** → Descobre padrões do dataset completo (11M+ registros)
+2. **Processamento** → Aplica padrões descobertos para canonicalização
+3. **Relatórios** → Gera relatórios com insights da análise
+4. **Validação** → Valida qualidade contra baseline da análise
+
+#### Execução Pipeline Completo
+
+```bash
+# Pipeline completo com monitoramento de performance
+python -m src.cli pipeline --full-process --performance-monitoring
+
+# Pipeline com configurações personalizadas
+python -m src.cli pipeline \
+    --batch-size 2000 \
+    --quality-threshold 0.90 \
+    --output-dir final_results \
+    --generate-final-report
+```
+
+#### Execução Comandos Individuais
+
+```bash
+# 1. ANÁLISE: Descoberta de padrões (OBRIGATÓRIO PRIMEIRO)
+python -m src.cli analyze \
+    --save-patterns \
+    --output-path analysis_results.json
+
+# 2. PROCESSAMENTO: Canonicalização com padrões descobertos
+python -m src.cli process \
+    --analysis-results analysis_results.json \
+    --batch-size 1000 \
+    --enable-checkpoints
+
+# 3. RELATÓRIOS: Geração com insights da análise
+python -m src.cli reports \
+    --analysis-results analysis_results.json \
+    --include-analysis \
+    --detailed-stats
+
+# 4. VALIDAÇÃO: Qualidade contra baseline
+python -m src.cli validate \
+    --baseline-analysis analysis_results.json \
+    --quality-threshold 0.85 \
+    --generate-report
+```
+
+### 📜 SCRIPTS INDIVIDUAIS (TRADICIONAL)
+
+Para usuários avançados ou sistemas automatizados, os scripts individuais continuam disponíveis:
 
 | Script | Descrição | Documentação |
 |--------|-----------|--------------|
@@ -81,31 +167,58 @@ O sistema é composto por quatro scripts principais e um módulo central:
 | `validar_canonicalizacao.py` | Validação de qualidade dos resultados | [📖 Documentação](docs/validar_canonicalizacao.md) |
 | `gerar_relatorios.py` | Geração de relatórios detalhados | [📖 Documentação](docs/gerar_relatorios.md) |
 
-### ⚠️ ORDEM CORRETA DE EXECUÇÃO
-
-**IMPORTANTE**: O `canonicalizador_coletores.py` é um **módulo de classes**, não um script executável. Ele contém as classes `AtomizadorNomes`, `NormalizadorNome` e `CanonizadorColetores` que são importadas pelos outros scripts.
-
-**Sequência recomendada**:
-
-1. **Análise Exploratória** (opcional, mas recomendado)
-2. **Processamento Principal** (obrigatório)
-3. **Validação** (recomendado)
-4. **Relatórios** (opcional)
+#### Execução Scripts Individuais
 
 ```bash
-# 1. PRIMEIRO: Análise exploratória (recomendado)
+# 1. PRIMEIRO: Análise exploratória (OBRIGATÓRIO)
 cd src
-python analise_coletores.py
+python analise_coletores.py --output analysis_results.json
 
-# 2. SEGUNDO: Processamento principal (OBRIGATÓRIO)
-python processar_coletores.py
+# 2. SEGUNDO: Processamento principal (requer análise)
+python processar_coletores.py --analysis-results analysis_results.json
 
-# 3. TERCEIRO: Validação da qualidade (recomendado)
-python validar_canonicalizacao.py
+# 3. TERCEIRO: Validação da qualidade
+python validar_canonicalizacao.py --baseline-analysis analysis_results.json
 
-# 4. QUARTO: Geração de relatórios (opcional)
-python gerar_relatorios.py
+# 4. QUARTO: Geração de relatórios
+python gerar_relatorios.py --analysis-results analysis_results.json
 ```
+
+### ⚠️ CRITÍCO: Dependência de Análise
+
+**TODOS os scripts dependem dos resultados da análise completa**:
+
+- ✅ **Análise primeiro**: Processa TODOS os 11M+ registros para descobrir padrões ótimos
+- ✅ **Padrões dinâmicos**: Thresholds e configurações são descobertos automaticamente
+- ✅ **Qualidade superior**: Processamento usa insights do dataset completo
+- ❌ **Não pular análise**: Sem análise = configurações estáticas = qualidade inferior
+
+### 🎯 Vantagens da Interface CLI
+
+#### ✅ Orquestração Automatizada
+- **Ordem de execução validada**: Impede execução fora de ordem
+- **Dependências verificadas**: Automaticamente verifica arquivos de análise
+- **Pipeline completo**: Um comando executa toda a sequência
+
+#### ✅ Monitoramento Avançado
+- **Performance em tempo real**: CPU, memória, I/O durante execução
+- **Progress tracking**: Acompanha progresso de cada etapa
+- **Logs unificados**: Centraliza logs de todas as etapas
+
+#### ✅ Gerenciamento de Configuração
+- **Configuração centralizada**: Um arquivo controla todo o sistema
+- **Validação de settings**: Verifica parâmetros antes da execução
+- **Environment variables**: Suporte a variáveis de ambiente
+
+#### ✅ Tratamento de Erros
+- **Recuperação inteligente**: Detecta e sugere correções para erros
+- **Checkpoints automáticos**: Permite retomar execuções interrompidas
+- **Validação pré-execução**: Verifica sistema antes de iniciar processamento
+
+#### ✅ Relatórios Integrados
+- **Sumário de pipeline**: Relatório unificado de toda execução
+- **Métricas de qualidade**: Acompanha qualidade ao longo do processo
+- **Exportação de resultados**: Formatos múltiplos (JSON, HTML, CSV)
 
 ### 1. Análise Exploratória
 
