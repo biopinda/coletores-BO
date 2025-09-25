@@ -472,7 +472,7 @@ class AnalisadorColetoresCompleto:
             self.stats['separator_patterns_discovered'][sep] += 1
 
         # Collect examples for each type (enhanced)
-        if len(self.stats['exemplos_por_tipo'][entity_type]) < 20:  # More examples for better patterns
+        if len(self.stats['exemplos_por_tipo'][entity_type]) < 1000:  # Collect many examples for comprehensive reports
             self.stats['exemplos_por_tipo'][entity_type].append({
                 'texto': recorded_by,
                 'confianca': confidence,
@@ -656,6 +656,66 @@ class AnalisadorColetoresCompleto:
         config_json = json.dumps(config_data, sort_keys=True, default=str)
         return hashlib.sha256(config_json.encode()).hexdigest()[:16]
 
+    def _save_category_examples(self, timestamp: str):
+        """Save examples for each entity category in separate files"""
+        categories = [
+            'pessoa',
+            'conjunto_pessoas',
+            'grupo_pessoas',
+            'empresa_instituicao',
+            'coletor_indeterminado',
+            'representacao_insuficiente'
+        ]
+
+        for category in categories:
+            category_file = f"reports/categoria_{category}_{timestamp}.txt"
+            examples = self.stats.get('exemplos_por_tipo', {}).get(category, [])
+
+            with open(category_file, 'w', encoding='utf-8') as f:
+                f.write("=" * 80 + "\n")
+                f.write(f"CATEGORIA: {category.upper().replace('_', ' ')}\n")
+                f.write("=" * 80 + "\n")
+                f.write(f"Data/Hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
+                f.write(f"Timestamp: {timestamp}\n")
+                f.write(f"Total de exemplos encontrados: {len(examples):,}\n")
+                f.write(f"Total na categoria: {self.stats.get('entidades_por_tipo', {}).get(category, 0):,}\n\n")
+
+                if examples:
+                    f.write("EXEMPLOS ENCONTRADOS\n")
+                    f.write("-" * 50 + "\n")
+
+                    # Handle examples as dictionaries or strings
+                    processed_examples = []
+                    for example in examples:
+                        if isinstance(example, dict):
+                            texto = example.get('texto', str(example))
+                            confianca = example.get('confianca', 0.0)
+                            kingdom = example.get('kingdom', 'Unknown')
+                            processed_examples.append({
+                                'texto': texto,
+                                'confianca': confianca,
+                                'kingdom': kingdom
+                            })
+                        else:
+                            processed_examples.append({
+                                'texto': str(example),
+                                'confianca': 1.0,
+                                'kingdom': 'Unknown'
+                            })
+
+                    # Sort by confidence (highest first)
+                    sorted_examples = sorted(processed_examples, key=lambda x: x['confianca'], reverse=True)
+
+                    for i, example in enumerate(sorted_examples, 1):
+                        f.write(f"{i:4d}. {example['texto']}\n")
+                        f.write(f"      Confiança: {example['confianca']:.3f} | Kingdom: {example['kingdom']}\n\n")
+                else:
+                    f.write("Nenhum exemplo coletado para esta categoria.\n")
+
+                f.write(f"\n" + "=" * 80 + "\n")
+
+            print(f"[CATEGORIA] {category}: {len(examples):,} exemplos salvos em {category_file}")
+
     def _save_analysis_results(self):
         """Save analysis results for processing phase consumption"""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -679,6 +739,9 @@ class AnalisadorColetoresCompleto:
             f.write("-" * 50 + "\n")
             for freq, data in self.stats['separator_frequency_distribution'].items():
                 f.write(f"{freq}: {data}\n")
+
+        # Save category examples in separate files
+        self._save_category_examples(timestamp)
 
         # Save thresholds
         thresholds_file = f"reports/optimal_thresholds_{timestamp}.txt"
