@@ -89,9 +89,14 @@ Examples:
             # Execute the analysis script
             self.logger.info(f"Executing: {' '.join(cmd_args)}")
 
+            # Run with real-time output for progress monitoring
+            print(f"\n[INICIANDO] Análise completa do dataset de 10.5M+ registros")
+            print(f"[INFO] Comando: {' '.join(cmd_args)}")
+            print(f"[AVISO] Esta operação pode demorar 1-3 horas")
+            print(f"{'='*80}")
+
             result = subprocess.run(
                 cmd_args,
-                capture_output=True,
                 text=True,
                 cwd=Path.cwd()
             )
@@ -100,14 +105,19 @@ Examples:
             if result.returncode == 0:
                 self.logger.info("Analysis completed successfully")
 
-                # Parse output for summary information
-                summary = self._parse_analysis_output(result.stdout)
+                print(f"\n{'='*80}")
+                print(f"[SUCESSO] Análise completa concluída!")
+                print(f"{'='*80}")
+                print(f"Próximos passos disponíveis:")
+                print(f"  1. python -m src.cli process  # Canonicalizar coletores")
+                print(f"  2. python -m src.cli reports  # Gerar relatórios")
+                print(f"  3. python -m src.cli validate # Validar resultados")
+                print(f"{'='*80}")
 
                 return {
                     'success': True,
                     'exit_code': 0,
-                    'summary': summary,
-                    'stdout': result.stdout,
+                    'summary': {'message': 'Analysis completed successfully'},
                     'next_steps': [
                         "Analysis complete! Now you can:",
                         "1. Run 'python -m src.cli process' to canonicalize collectors",
@@ -117,13 +127,16 @@ Examples:
                 }
             else:
                 self.logger.error(f"Analysis failed with exit code {result.returncode}")
-                self.logger.error(f"Error output: {result.stderr}")
+
+                print(f"\n{'='*80}")
+                print(f"[ERRO] Análise falhou com código de saída {result.returncode}")
+                print(f"[DICA] Verifique os logs em logs/analise_completa.log")
+                print(f"{'='*80}")
 
                 return {
                     'success': False,
                     'exit_code': result.returncode,
-                    'error': result.stderr,
-                    'stdout': result.stdout
+                    'error': f'Analysis failed with exit code {result.returncode}'
                 }
 
         except FileNotFoundError:

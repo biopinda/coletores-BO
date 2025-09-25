@@ -26,8 +26,9 @@ import pandas as pd
 from typing import Dict, List, Tuple, Optional, Any
 from pathlib import Path
 
-# Add src to path for imports
+# Add src and parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import new data models
 from models.collector_record import CollectorRecord
@@ -189,6 +190,17 @@ class AnalisadorColetoresCompleto:
             total_records = self._get_total_record_count(mongodb_manager)
             logger.info(f"Total de registros a processar: {total_records:,}")
 
+            # Display initial analysis information
+            estimated_time_hours = total_records / 40000  # Estimate ~40k records/hour
+            print(f"\n{'='*80}")
+            print(f"INICIANDO ANÁLISE COMPLETA DO DATASET")
+            print(f"{'='*80}")
+            print(f"[INFO] Total de registros: {total_records:,}")
+            print(f"[TEMPO] Tempo estimado: {estimated_time_hours:.1f} horas")
+            print(f"[PROGRESSO] Será mostrado a cada 50.000 registros processados")
+            print(f"[CHECKPOINT] Salvamentos automáticos a cada 25.000 registros")
+            print(f"{'='*80}")
+
             if total_records == 0:
                 logger.warning("Nenhum registro encontrado com recordedBy")
                 return self.stats
@@ -219,6 +231,21 @@ class AnalisadorColetoresCompleto:
                 if self.stats['total_registros'] > 0:
                     self.stats['records_per_second'] = self.stats['total_registros'] / duration.total_seconds()
 
+                # Display completion summary
+                hours = int(duration.total_seconds() // 3600)
+                minutes = int((duration.total_seconds() % 3600) // 60)
+                seconds = int(duration.total_seconds() % 60)
+
+                print(f"\n{'='*80}")
+                print(f"ANÁLISE COMPLETA CONCLUÍDA COM SUCESSO!")
+                print(f"{'='*80}")
+                print(f"[CONCLUÍDO] Registros processados: {self.stats['total_registros']:,}")
+                print(f"[TEMPO] Duração total: {hours}h {minutes}min {seconds}s")
+                print(f"[VELOCIDADE] Média: {self.stats['records_per_second']:,.0f} registros/segundo")
+                print(f"[CHECKPOINTS] Total criados: {self.stats['checkpoints_created']}")
+                print(f"[RESULTADOS] Relatório salvo nos diretórios reports/")
+                print(f"{'='*80}")
+
         logger.info("=== ANÁLISE COMPLETA CONCLUÍDA ===")
         logger.info(f"Registros processados: {self.stats['total_registros']:,}")
         logger.info(f"Tempo total: {self.stats['total_processing_time']:.1f}s")
@@ -244,10 +271,18 @@ class AnalisadorColetoresCompleto:
             )
 
             database_name = MONGODB_CONFIG.get('database_name', 'dwc2json')
+            collection_name = MONGODB_CONFIG.get('collection_name', 'ocorrencias')
             db = client[database_name]
 
-            logger.info(f"Conexão otimizada criada: {database_name}")
-            return db
+            # Create a simple manager-like object with ocorrencias collection
+            class SimpleMongoManager:
+                def __init__(self, database, collection_name):
+                    self.db = database
+                    self.ocorrencias = database[collection_name]
+
+            manager = SimpleMongoManager(db, collection_name)
+            logger.info(f"Conexão otimizada criada: {database_name}.{collection_name}")
+            return manager
 
         except ImportError:
             logger.error("pymongo não disponível")
@@ -257,21 +292,41 @@ class AnalisadorColetoresCompleto:
             raise
 
     def _get_total_record_count(self, mongodb_manager) -> int:
-        """Get total count of records with recordedBy"""
+        """Get total count of records with recordedBy - WORKAROUND for MongoDB query filter issues"""
         try:
             if hasattr(mongodb_manager, 'ocorrencias'):
-                # Using legacy manager
                 collection = mongodb_manager.ocorrencias
             else:
-                # Using direct DB connection
                 collection = mongodb_manager.ocorrencias
 
-            count = collection.count_documents(
-                {"recordedBy": {"$exists": True, "$ne": None, "$ne": ""}}
-            )
+            # WORKAROUND: MongoDB filtered queries return 0 due to index/permission issues
+            # Use estimated count and sampling to estimate records with recordedBy
+            total_docs = collection.estimated_document_count()
 
-            logger.info(f"Total de registros encontrados: {count:,}")
-            return count
+            # Sample 5000 documents to estimate percentage with recordedBy
+            logger.info("Amostrando documentos para estimar registros com recordedBy...")
+            sample_size = min(5000, total_docs)
+            sample_docs = list(collection.find({}).limit(sample_size))
+
+            recordedBy_count = 0
+            for doc in sample_docs:
+                if ('recordedBy' in doc and
+                    doc['recordedBy'] is not None and
+                    doc['recordedBy'] != '' and
+                    doc['recordedBy'].strip() != ''):
+                    recordedBy_count += 1
+
+            if len(sample_docs) > 0:
+                percentage = recordedBy_count / len(sample_docs)
+                estimated_count = int(total_docs * percentage)
+
+                logger.info(f"Amostra: {recordedBy_count}/{len(sample_docs)} ({percentage:.1%}) têm recordedBy")
+                logger.info(f"Total de documentos: {total_docs:,}")
+                logger.info(f"Estimativa de registros com recordedBy: {estimated_count:,}")
+                return estimated_count
+            else:
+                logger.warning("Não foi possível obter amostra de documentos")
+                return 0
 
         except Exception as e:
             logger.error(f"Erro ao contar registros: {e}")
@@ -289,15 +344,21 @@ class AnalisadorColetoresCompleto:
             else:
                 collection = mongodb_manager.ocorrencias
 
+            # WORKAROUND: Use find({}) and filter recordedBy in Python
             cursor = collection.find(
-                {"recordedBy": {"$exists": True, "$ne": None, "$ne": ""}},
+                {},  # No filter - get all documents
                 {"recordedBy": 1, "kingdom": 1}
-            ).batch_size(self.batch_size).sort("_id", 1)
+            ).batch_size(self.batch_size)
 
             current_batch = []
 
             for document in cursor:
-                current_batch.append(document)
+                # WORKAROUND: Filter recordedBy in Python since MongoDB queries fail
+                recorded_by = document.get('recordedBy')
+                if (recorded_by is not None and
+                    recorded_by != '' and
+                    recorded_by.strip() != ''):
+                    current_batch.append(document)
 
                 # Process batch when full
                 if len(current_batch) >= self.batch_size:
@@ -310,10 +371,37 @@ class AnalisadorColetoresCompleto:
                         self._create_checkpoint(processed_count, batch_number)
                         self.stats['checkpoints_created'] += 1
 
-                    # Progress logging
+                    # Enhanced progress logging with time estimates
                     if processed_count % 50000 == 0:
                         progress = (processed_count / total_records) * 100 if total_records > 0 else 0
-                        logger.info(f"Progresso: {processed_count:,}/{total_records:,} ({progress:.1f}%)")
+                        elapsed_time = (datetime.now() - self.stats['processing_start_time']).total_seconds()
+                        records_per_second = processed_count / elapsed_time if elapsed_time > 0 else 0
+
+                        # Calculate ETA
+                        remaining_records = total_records - processed_count
+                        eta_seconds = remaining_records / records_per_second if records_per_second > 0 else 0
+                        eta_hours = int(eta_seconds // 3600)
+                        eta_minutes = int((eta_seconds % 3600) // 60)
+
+                        # Terminal output with progress bar (ASCII compatible)
+                        bar_width = 40
+                        filled_width = int(bar_width * progress / 100)
+                        bar = '#' * filled_width + '-' * (bar_width - filled_width)
+
+                        print(f"\n{'='*80}")
+                        print(f"PROGRESSO DA ANÁLISE COMPLETA")
+                        print(f"{'='*80}")
+                        print(f"[{bar}] {progress:.1f}%")
+                        print(f"Processados: {processed_count:,} de {total_records:,} registros")
+                        print(f"Velocidade: {records_per_second:,.0f} registros/segundo")
+                        print(f"Tempo decorrido: {int(elapsed_time//3600)}h {int((elapsed_time%3600)//60)}min")
+                        print(f"Tempo estimado restante: {eta_hours}h {eta_minutes}min")
+                        print(f"Lotes processados: {batch_number}")
+                        print(f"Checkpoints criados: {self.stats['checkpoints_created']}")
+                        print(f"{'='*80}")
+
+                        logger.info(f"Progresso: {processed_count:,}/{total_records:,} ({progress:.1f}%) - "
+                                  f"Velocidade: {records_per_second:,.0f} rec/s - ETA: {eta_hours}h{eta_minutes}min")
 
                     current_batch = []
 
@@ -657,9 +745,9 @@ class AnalisadorColetoresCompleto:
             f.write("=" * 60 + "\n")
             f.write(f"ID do Checkpoint: {checkpoint.checkpoint_id}\n")
             f.write(f"Data/Hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
-            f.write(f"Registros processados: {checkpoint.processed_records:,}\n")
+            f.write(f"Registros processados: {checkpoint.records_processed:,}\n")
             f.write(f"Registros totais: {checkpoint.total_records:,}\n")
-            f.write(f"Último documento: {checkpoint.last_document_id}\n")
+            f.write(f"Último documento: {checkpoint.last_processed_id}\n")
             f.write(f"Lote atual: {checkpoint.current_batch_number}\n")
 
         logger.info(f"Checkpoint salvo: {checkpoint_file}")
@@ -806,11 +894,11 @@ def main():
     """
     print("=" * 80)
     print("SISTEMA DE CANONICALIZAÇÃO DE COLETORES BIOLÓGICOS")
-    print("ANÁLISE COMPLETA DO DATASET")
+    print("ANALISE COMPLETA DO DATASET")
     print("=" * 80)
-    print("\n⚠️  ATENÇÃO: Este script processará TODOS os registros (11M+)")
+    print("\n[ATENCAO] Este script processara TODOS os registros (11M+)")
     print("   Tempo estimado: 1-3 horas dependendo da performance")
-    print("   Checkpointing habilitado para recovery em caso de interrupção\n")
+    print("   Checkpointing habilitado para recovery em caso de interrupcao\n")
 
     database_name = MONGODB_CONFIG.get('database_name', 'dwc2json')
     print(f"Conectando ao MongoDB: {database_name}")
@@ -887,19 +975,19 @@ def main():
             print(f"  {entity_type}: {count:,} ({percentage:.1f}%)")
 
         print(f"\nArquivos gerados:")
-        print(f"  • Relatório completo: {arquivo_relatorio}")
-        print(f"  • Padrões descobertos: {arquivo_patterns}")
+        print(f"  • Relatorio completo: {arquivo_relatorio}")
+        print(f"  • Padroes descobertos: {arquivo_patterns}")
         print(f"  • Thresholds otimizados: {arquivo_thresholds}")
 
-        print("\n✅ ANÁLISE COMPLETA CONCLUÍDA COM SUCESSO!")
-        print("\nPróximos passos:")
-        print("  1. Revisar padrões descobertos")
+        print("\n[SUCESSO] ANALISE COMPLETA CONCLUIDA COM SUCESSO!")
+        print("\nProximos passos:")
+        print("  1. Revisar padroes descobertos")
         print("  2. Executar processamento principal (processar_coletores.py)")
-        print("  3. Gerar relatórios de qualidade")
-        print("  4. Validar canonicalização")
+        print("  3. Gerar relatorios de qualidade")
+        print("  4. Validar canonicalizacao")
 
     except KeyboardInterrupt:
-        print("\n\n⚠️  Análise interrompida pelo usuário")
+        print("\n\n[AVISO] Analise interrompida pelo usuario")
         if 'analisador' in locals() and analisador.current_checkpoint:
             analisador._save_checkpoint(analisador.current_checkpoint)
             print(f"Checkpoint salvo: {analisador.current_checkpoint.records_processed:,} registros processados")
