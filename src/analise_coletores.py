@@ -633,6 +633,29 @@ class AnalisadorColetoresCompleto:
 
         self.stats['processing_recommendations'] = recommendations
 
+    def _calculate_config_hash(self) -> str:
+        """Calculate configuration hash for reproducibility"""
+        import json
+
+        config_data = {
+            'mongodb_config': {
+                'database_name': MONGODB_CONFIG.get('database_name'),
+                'collection_name': MONGODB_CONFIG.get('collections', {}).get('ocorrencias', 'ocorrencias')
+            },
+            'algorithm_config': {
+                'batch_size': self.batch_size,
+                'checkpoint_interval': self.checkpoint_interval,
+                'enable_checkpointing': self.enable_checkpointing
+            },
+            'processing_parameters': {
+                'total_records': self.stats.get('total_registros', 0),
+                'process_all_records': self.process_all_records
+            }
+        }
+
+        config_json = json.dumps(config_data, sort_keys=True, default=str)
+        return hashlib.sha256(config_json.encode()).hexdigest()[:16]
+
     def _save_analysis_results(self):
         """Save analysis results for processing phase consumption"""
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
