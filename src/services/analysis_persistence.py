@@ -28,7 +28,7 @@ from pymongo import MongoClient
 from pymongo.collection import Collection
 from bson import ObjectId
 
-from ..models.checkpoint_data import CheckpointData
+# CheckpointData import removed: checkpointing disabled
 from .pattern_discovery import DatasetInsights, DiscoveredPattern, ThresholdRecommendation
 
 

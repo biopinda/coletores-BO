@@ -1,0 +1,68 @@
+{
+  "total_records": 9667356,
+  "valid_records": 9667356,
+  "patterns": {
+    ", +maiuscula": 5534686,
+    ";": 2997600,
+    "et al.": 469495,
+    " e ": 97844,
+    "&": 443428,
+    "e col.": 2535,
+    " com ": 12,
+    " and ": 593,
+    " with ": 135
+  },
+  "thresholds": {
+    "canonical_grouping": 0.85,
+    "manual_review": 0.5,
+    "high_confidence": 0.9,
+    "uncertainty_range": [
+      0.7,
+      0.9
+    ]
+  },
+  "recommendations": {
+    "batch_size": 5000,
+    "checkpoint_interval": 25000,
+    "expected_processing_time_hours": 96.67356,
+    "memory_efficient_processing": true,
+    "dominant_kingdoms": [
+      "Plantae",
+      "Animalia",
+      "Unknown"
+    ],
+    "common_separators": [
+      [
+        ", +maiuscula",
+        5534686
+      ],
+      [
+        ";",
+        2997600
+      ],
+      [
+        "et al.",
+        469495
+      ],
+      [
+        "&",
+        443428
+      ],
+      [
+        " e ",
+        97844
+      ]
+    ],
+    "entity_distribution": {
+      "pessoa": 5620901,
+      "conjunto_pessoas": 3305347,
+      "grupo_pessoas": 82452,
+      "empresa_instituicao": 79771,
+      "coletor_indeterminado": 12595,
+      "representacao_insuficiente": 566290
+    }
+  },
+  "kingdom_distribution": {
+    "Plantae": {
+      "count": 4547529,
+      "unique_collectors": 

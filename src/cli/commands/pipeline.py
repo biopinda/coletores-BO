@@ -244,7 +244,7 @@ Examples:
             'database_config': args.database_config,
             'batch_size': args.batch_size,
             'force_refresh': False,
-            'enable_checkpoints': True
+            'enable_checkpoints': False
         })()
 
         stage_start = time.time()

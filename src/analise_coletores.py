@@ -33,7 +33,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # Import new data models
 from models.collector_record import CollectorRecord
 from models.classification_result import ClassificationResult
-from models.checkpoint_data import CheckpointData
+# CheckpointData import removed: checkpointing disabled
 from models.processing_batch import ProcessingBatch
 
 # Enhanced logging configuration
@@ -58,7 +58,6 @@ logger = logging.getLogger(__name__)
 # Ensure directories exist
 os.makedirs('logs', exist_ok=True)
 os.makedirs('reports', exist_ok=True)
-os.makedirs('checkpoints', exist_ok=True)
 
 # Import legacy modules if available
 try:
@@ -86,7 +85,7 @@ class AnalisadorColetoresCompleto:
     automaticamente para configuração dinâmica do sistema.
     """
 
-    def __init__(self, enable_checkpointing: bool = True, checkpoint_interval: int = 25000):
+    def __init__(self, enable_checkpointing: bool = False, checkpoint_interval: int = 25000):
         """
         Inicializa o analisador para processamento completo
 
@@ -97,7 +96,7 @@ class AnalisadorColetoresCompleto:
         # Enhanced configuration for complete dataset processing
         self.enable_checkpointing = enable_checkpointing
         self.checkpoint_interval = checkpoint_interval
-        self.current_checkpoint: Optional[CheckpointData] = None
+        self.current_checkpoint = None
 
         # MongoDB connection with research-optimized settings
         self.mongodb_connection = None
@@ -164,8 +163,6 @@ class AnalisadorColetoresCompleto:
         }
 
         logger.info(f"AnalisadorColetoresCompleto inicializado - processamento completo: {self.process_all_records}")
-        logger.info(f"Checkpointing habilitado: {self.enable_checkpointing}, intervalo: {self.checkpoint_interval}")
-
     def analisar_dataset_completo(self, mongodb_manager=None) -> Dict:
         """
         Analisa TODOS os registros da coleção com recordedBy
@@ -198,7 +195,8 @@ class AnalisadorColetoresCompleto:
             print(f"[INFO] Total de registros: {total_records:,}")
             print(f"[TEMPO] Tempo estimado: {estimated_time_hours:.1f} horas")
             print(f"[PROGRESSO] Será mostrado a cada 50.000 registros processados")
-            print(f"[CHECKPOINT] Salvamentos automáticos a cada 25.000 registros")
+            # Checkpointing disabled — do not inform about automatic saves
+            pass
             print(f"{'='*80}")
 
             if total_records == 0:
@@ -225,11 +223,14 @@ class AnalisadorColetoresCompleto:
             raise
         finally:
             self.stats['processing_end_time'] = datetime.now()
-            if self.stats['processing_start_time']:
+            if self.stats.get('processing_start_time'):
                 duration = self.stats['processing_end_time'] - self.stats['processing_start_time']
                 self.stats['total_processing_time'] = duration.total_seconds()
-                if self.stats['total_registros'] > 0:
-                    self.stats['records_per_second'] = self.stats['total_registros'] / duration.total_seconds()
+                total_registros = self.stats.get('total_registros', 0) or 0
+                if total_registros > 0:
+                    self.stats['records_per_second'] = total_registros / duration.total_seconds()
+                else:
+                    self.stats['records_per_second'] = 0.0
 
                 # Display completion summary
                 hours = int(duration.total_seconds() // 3600)
@@ -239,17 +240,17 @@ class AnalisadorColetoresCompleto:
                 print(f"\n{'='*80}")
                 print(f"ANÁLISE COMPLETA CONCLUÍDA COM SUCESSO!")
                 print(f"{'='*80}")
-                print(f"[CONCLUÍDO] Registros processados: {self.stats['total_registros']:,}")
+                print(f"[CONCLUÍDO] Registros processados: {total_registros:,}")
                 print(f"[TEMPO] Duração total: {hours}h {minutes}min {seconds}s")
                 print(f"[VELOCIDADE] Média: {self.stats['records_per_second']:,.0f} registros/segundo")
-                print(f"[CHECKPOINTS] Total criados: {self.stats['checkpoints_created']}")
                 print(f"[RESULTADOS] Relatório salvo nos diretórios reports/")
                 print(f"{'='*80}")
 
         logger.info("=== ANÁLISE COMPLETA CONCLUÍDA ===")
-        logger.info(f"Registros processados: {self.stats['total_registros']:,}")
-        logger.info(f"Tempo total: {self.stats['total_processing_time']:.1f}s")
-        logger.info(f"Taxa: {self.stats['records_per_second']:.1f} registros/segundo")
+        total_registros = self.stats.get('total_registros', 0) or 0
+        logger.info(f"Registros processados: {total_registros:,}")
+        logger.info(f"Tempo total: {self.stats.get('total_processing_time', 0):.1f}s")
+        logger.info(f"Taxa: {self.stats.get('records_per_second', 0):.1f} registros/segundo")
 
         return self.stats
 
@@ -369,7 +370,6 @@ class AnalisadorColetoresCompleto:
                     # Create checkpoint if needed
                     if self.enable_checkpointing and processed_count % self.checkpoint_interval == 0:
                         self._create_checkpoint(processed_count, batch_number)
-                        self.stats['checkpoints_created'] += 1
 
                     # Enhanced progress logging with time estimates
                     if processed_count % 50000 == 0:
@@ -397,7 +397,6 @@ class AnalisadorColetoresCompleto:
                         print(f"Tempo decorrido: {int(elapsed_time//3600)}h {int((elapsed_time%3600)//60)}min")
                         print(f"Tempo estimado restante: {eta_hours}h {eta_minutes}min")
                         print(f"Lotes processados: {batch_number}")
-                        print(f"Checkpoints criados: {self.stats['checkpoints_created']}")
                         print(f"{'='*80}")
 
                         logger.info(f"Progresso: {processed_count:,}/{total_records:,} ({progress:.1f}%) - "
@@ -616,19 +615,25 @@ class AnalisadorColetoresCompleto:
         """Generate recommendations for processing phase"""
         logger.info("Gerando recomendações para processamento...")
 
+        # Ensure separator_patterns_discovered is not None
+        if self.stats.get('separator_patterns_discovered') is None:
+            self.stats['separator_patterns_discovered'] = Counter()
+
         recommendations = {
             'batch_size': self.batch_size,
             'checkpoint_interval': self.checkpoint_interval,
-            'expected_processing_time_hours': self.stats['total_registros'] / 100000,  # Rough estimate
+            'expected_processing_time_hours': (self.stats.get('total_registros', 0) or 0) / 100000,  # Rough estimate
             'memory_efficient_processing': True,
             'dominant_kingdoms': [],
             'common_separators': list(self.stats['separator_patterns_discovered'].most_common(5)),
-            'entity_distribution': self.stats['entidades_por_tipo']
+            'entity_distribution': self.stats.get('entidades_por_tipo', {})
         }
 
         # Identify dominant kingdoms
-        for kingdom, data in self.stats['kingdom_distribution'].items():
-            if data['count'] > self.stats['total_registros'] * 0.1:  # > 10% of total
+        kingdom_dist = self.stats.get('kingdom_distribution', {})
+        total_registros = self.stats.get('total_registros', 0) or 0
+        for kingdom, data in kingdom_dist.items():
+            if isinstance(data, dict) and (data.get('count', 0) or 0) > total_registros * 0.1:  # > 10% of total
                 recommendations['dominant_kingdoms'].append(kingdom)
 
         self.stats['processing_recommendations'] = recommendations
@@ -728,7 +733,7 @@ class AnalisadorColetoresCompleto:
             f.write("=" * 80 + "\n")
             f.write(f"Data/Hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
             f.write(f"Timestamp: {timestamp}\n")
-            f.write(f"Total de registros analisados: {self.stats['total_registros']:,}\n\n")
+            f.write(f"Total de registros analisados: {self.stats.get('total_registros', 0) or 0:,}\n\n")
 
             f.write("PADRÕES DE SEPARADORES ENCONTRADOS\n")
             f.write("-" * 50 + "\n")
@@ -777,9 +782,9 @@ class AnalisadorColetoresCompleto:
             f.write("RESUMO DA ANÁLISE\n")
             f.write("-" * 50 + "\n")
             f.write(f"Total de registros processados: {self.stats.get('total_registros', 0):,}\n")
-            f.write(f"Registros válidos: {self.stats.get('registros_validos', 0):,}\n")
-            f.write(f"Tempo de processamento: {self.stats.get('total_processing_time', 0):.1f}s\n")
-            f.write(f"Taxa de processamento: {self.stats.get('records_per_second', 0):.1f} registros/segundo\n")
+            f.write(f"Registros válidos: {self.stats.get('registros_validos', 0) or 0:,}\n")
+            f.write(f"Tempo de processamento: {self.stats.get('total_processing_time', 0) or 0:.1f}s\n")
+            f.write(f"Taxa de processamento: {self.stats.get('records_per_second', 0) or 0:.1f} registros/segundo\n")
 
             # Adicionar informações sobre distribuição por reino
             if 'kingdom_distribution' in self.stats:
@@ -788,7 +793,27 @@ class AnalisadorColetoresCompleto:
                 for kingdom, data in self.stats['kingdom_distribution'].items():
                     f.write(f"{kingdom}: {data.get('count', 0):,} registros\n")
 
-        logger.info(f"Resultados salvos: {patterns_file}, {thresholds_file}, {results_file}")
+        # Save analysis results in JSON format for processing
+        analysis_results = {
+            'total_records': self.stats.get('total_registros', 0),
+            'valid_records': self.stats.get('registros_validos', 0),
+            'patterns': dict(self.stats.get('separator_patterns_discovered', {})),
+            'thresholds': self.stats.get('threshold_recommendations', {}),
+            'recommendations': self.stats.get('processing_recommendations', {}),
+            'kingdom_distribution': self._make_json_serializable(self.stats.get('kingdom_distribution', {})),
+            'entity_distribution': self.stats.get('entidades_por_tipo', {}),
+            'processing_time': self.stats.get('total_processing_time', 0),
+            'records_per_second': self.stats.get('records_per_second', 0),
+            'timestamp': datetime.now().isoformat()
+        }
+
+        # Ensure all data is JSON serializable
+        serializable_results = self._make_json_serializable(analysis_results)
+
+        with open('analysis.json', 'w', encoding='utf-8') as f:
+            json.dump(serializable_results, f, indent=2, ensure_ascii=False)
+
+        logger.info(f"Resultados salvos: {patterns_file}, {thresholds_file}, {results_file}, analysis.json")
 
     def _make_json_serializable(self, obj):
         """Convert object to JSON-serializable format"""
@@ -800,71 +825,31 @@ class AnalisadorColetoresCompleto:
             return list(obj)
         elif isinstance(obj, (datetime, timedelta)):
             return str(obj)
+        elif isinstance(obj, Counter):
+            return dict(obj)
         elif hasattr(obj, '__dict__'):
             return self._make_json_serializable(obj.__dict__)
         else:
-            return obj
+            # For any other object, try to convert to string
+            try:
+                json.dumps(obj)
+                return obj
+            except (TypeError, ValueError):
+                return str(obj)
 
+    # Checkpointing removed: compatibility stubs exist in services.checkpoint_manager
     def _create_checkpoint(self, records_processed: int, batch_number: int):
-        """Create processing checkpoint"""
-        self.current_checkpoint = CheckpointData(
-            checkpoint_id=f"analysis_complete_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-            checkpoint_type="macro",
-            process_name="analise_coletores_completo",
-            records_processed=records_processed,
-            current_batch_number=batch_number,
-            total_records=self.stats.get('total_registros', 0),
-            processing_state={
-                'stats': self._make_json_serializable(self.stats),
-                'batch_size': self.batch_size
-            }
-        )
-        self._save_checkpoint(self.current_checkpoint)
+        """Checkpoint creation is disabled; this is a no-op for compatibility."""
+        logger.debug("_create_checkpoint called but checkpointing is disabled.")
 
-    def _save_checkpoint(self, checkpoint: CheckpointData):
-        """Save checkpoint to file"""
-        checkpoint_file = f"checkpoints/analysis_checkpoint_{checkpoint.checkpoint_id}.txt"
+    def _save_checkpoint(self, checkpoint):
+        """Checkpoint saving disabled: no-op."""
+        logger.debug("_save_checkpoint called but checkpointing is disabled.")
 
-        with open(checkpoint_file, 'w', encoding='utf-8') as f:
-            f.write("=" * 60 + "\n")
-            f.write("CHECKPOINT DE ANÁLISE\n")
-            f.write("=" * 60 + "\n")
-            f.write(f"ID do Checkpoint: {checkpoint.checkpoint_id}\n")
-            f.write(f"Data/Hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}\n")
-            f.write(f"Registros processados: {checkpoint.records_processed:,}\n")
-            f.write(f"Registros totais: {checkpoint.total_records:,}\n")
-            f.write(f"Último documento: {checkpoint.last_processed_id}\n")
-            f.write(f"Lote atual: {checkpoint.current_batch_number}\n")
-
-        logger.info(f"Checkpoint salvo: {checkpoint_file}")
-
-    def _load_existing_checkpoint(self) -> Optional[CheckpointData]:
-        """Load existing checkpoint if available"""
-        checkpoint_dir = Path('checkpoints')
-        if not checkpoint_dir.exists():
-            return None
-
-        # Find most recent analysis checkpoint
-        checkpoint_files = list(checkpoint_dir.glob('analysis_checkpoint_*.txt'))
-        if not checkpoint_files:
-            return None
-
-        latest_file = max(checkpoint_files, key=lambda f: f.stat().st_mtime)
-
-        try:
-            with open(latest_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                # Create a basic checkpoint object from the data
-                checkpoint = CheckpointData(
-                    checkpoint_id=data.get('checkpoint_id', ''),
-                    checkpoint_type=data.get('checkpoint_type', 'macro'),
-                    process_name=data.get('process_name', 'analise_coletores_completo')
-                )
-                checkpoint.records_processed = data.get('records_processed', 0)
-                return checkpoint
-        except Exception as e:
-            logger.warning(f"Erro ao carregar checkpoint: {e}")
-            return None
+    def _load_existing_checkpoint(self):
+        """Checkpoint loading disabled: always return None."""
+        logger.debug("_load_existing_checkpoint called but checkpointing is disabled.")
+        return None
 
     def gerar_relatorio_completo(self, arquivo_saida: str = None) -> str:
         """Generate comprehensive report for complete dataset analysis"""
@@ -876,15 +861,15 @@ class AnalisadorColetoresCompleto:
             "=" * 100,
             f"Data/Hora: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
             f"Processamento completo: SIM (todos os registros com recordedBy)",
-            f"Tempo total: {self.stats.get('total_processing_time', 0):.1f} segundos",
-            f"Taxa: {self.stats.get('records_per_second', 0):.1f} registros/segundo",
+            f"Tempo total: {self.stats.get('total_processing_time', 0) or 0:.1f} segundos",
+            f"Taxa: {self.stats.get('records_per_second', 0) or 0:.1f} registros/segundo",
             "",
             "RESUMO GERAL",
             "-" * 50,
             f"Total de registros processados: {self.stats['total_registros']:,}",
             f"Registros válidos: {self.stats['registros_validos']:,}",
             f"Registros vazios/inválidos: {self.stats['registros_vazios']:,}",
-            f"Checkpoints criados: {self.stats.get('checkpoints_created', 0)}",
+            f"Checkpoints criados: 0 (checkpointing desabilitado)",
             "",
             "DISTRIBUIÇÃO POR REINO BIOLÓGICO",
             "-" * 50
@@ -992,18 +977,9 @@ def main():
     try:
         # Create enhanced analyzer
         analisador = AnalisadorColetoresCompleto(
-            enable_checkpointing=True,
+            enable_checkpointing=False,  # Disabled checkpointing for analysis
             checkpoint_interval=25000  # Checkpoint every 25k records
         )
-
-        # Check for existing checkpoint
-        checkpoint = analisador._load_existing_checkpoint()
-        if checkpoint:
-            print(f"\nℹ️  Checkpoint encontrado: {checkpoint.records_processed:,} registros já processados")
-            response = input("Continuar do checkpoint? (s/n): ")
-            if response.lower() != 's':
-                print("Iniciando análise do zero...")
-                checkpoint = None
 
         # Execute complete analysis
         print("\nIniciando análise completa do dataset...")
@@ -1045,19 +1021,26 @@ def main():
         print("\n" + "=" * 80)
         print("RESUMO DA ANÁLISE COMPLETA")
         print("=" * 80)
-        print(f"Registros processados: {resultados['total_registros']:,}")
-        print(f"Registros válidos: {resultados['registros_validos']:,}")
-        print(f"Tempo total: {resultados.get('total_processing_time', 0):.1f} segundos")
-        print(f"Taxa de processamento: {resultados.get('records_per_second', 0):.1f} registros/segundo")
-        print(f"Checkpoints criados: {resultados.get('checkpoints_created', 0)}")
+        total_registros = resultados.get('total_registros', 0) or 0
+        registros_validos = resultados.get('registros_validos', 0) or 0
+        print(f"Registros processados: {total_registros:,}")
+        print(f"Registros válidos: {registros_validos:,}")
+        print(f"Tempo total: {resultados.get('total_processing_time', 0) or 0:.1f} segundos")
+        print(f"Taxa de processamento: {resultados.get('records_per_second', 0) or 0:.1f} registros/segundo")
 
         print("\nDistribuição por Reino:")
-        for kingdom, data in resultados['kingdom_distribution'].items():
-            print(f"  {kingdom}: {data['count']:,} registros ({len(data['unique_collectors'])} coletores únicos)")
+        kingdom_dist = resultados.get('kingdom_distribution', {})
+        for kingdom, data in kingdom_dist.items():
+            if isinstance(data, dict):
+                count = data.get('count', 0) or 0
+                unique_collectors = len(data.get('unique_collectors', []))
+                print(f"  {kingdom}: {count:,} registros ({unique_collectors} coletores únicos)")
 
         print("\nDistribuição por Tipo de Entidade:")
-        for entity_type, count in resultados['entidades_por_tipo'].items():
-            percentage = (count / resultados['registros_validos']) * 100 if resultados['registros_validos'] > 0 else 0
+        entity_dist = resultados.get('entidades_por_tipo', {})
+        for entity_type, count in entity_dist.items():
+            count = count or 0
+            percentage = (count / registros_validos) * 100 if registros_validos > 0 else 0
             print(f"  {entity_type}: {count:,} ({percentage:.1f}%)")
 
         print(f"\nArquivos gerados:")
@@ -1074,10 +1057,7 @@ def main():
 
     except KeyboardInterrupt:
         print("\n\n[AVISO] Analise interrompida pelo usuario")
-        if 'analisador' in locals() and analisador.current_checkpoint:
-            analisador._save_checkpoint(analisador.current_checkpoint)
-            print(f"Checkpoint salvo: {analisador.current_checkpoint.records_processed:,} registros processados")
-        return 1
+        print("Análise interrompida - nenhum checkpoint foi criado")
     except Exception as e:
         logger.error(f"Erro durante a análise: {e}")
         print(f"\n❌ ERRO: {e}")

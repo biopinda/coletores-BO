@@ -43,13 +43,9 @@ class BatchProgress:
     estimated_completion_time: Optional[datetime] = None
 
 
-@dataclass
-class CheckpointData:
-    """Checkpoint data for resuming processing"""
-    batch_number: int
-    processed_count: int
-    timestamp: datetime
-    processor_state: Dict[str, Any] = field(default_factory=dict)
+# CheckpointData model removed: checkpointing permanently disabled and storage of
+# checkpoint objects removed from the codebase. Keep no-op compatibility in
+# methods that previously used it.
 
 
 class BatchProcessor:
@@ -60,8 +56,8 @@ class BatchProcessor:
     def __init__(self, config: BatchConfig, checkpoint_dir: Optional[Path] = None):
         self.config = config
         self.logger = logging.getLogger(__name__)
+        # Checkpointing disabled: keep attribute for compatibility but do not create files
         self.checkpoint_dir = checkpoint_dir or Path("./checkpoints")
-        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
         self.progress = BatchProgress()
         self._stop_requested = False
@@ -98,12 +94,9 @@ class BatchProcessor:
 
         # Try to resume from checkpoint
         start_batch = 0
+        # Checkpointing disabled: do not attempt to resume
         if resume_from_checkpoint:
-            checkpoint = self._load_checkpoint(checkpoint_name)
-            if checkpoint:
-                start_batch = checkpoint.batch_number
-                self.progress.processed_items = checkpoint.processed_count
-                self.logger.info(f"Resuming from batch {start_batch}")
+            self.logger.debug("resume_from_checkpoint requested but checkpointing is disabled; starting from 0")
 
         try:
             # Process batches
@@ -130,9 +123,7 @@ class BatchProcessor:
                         self.progress.successful_items += batch_result.get('successful', 0)
                         self.progress.failed_items += batch_result.get('failed', 0)
 
-                    # Save checkpoint if needed
-                    if batch_count % self.config.checkpoint_interval == 0:
-                        self._save_checkpoint(checkpoint_name, batch_count)
+                    # Checkpointing disabled: skip saving checkpoints
 
                     # Update time estimates
                     self._update_time_estimates()
@@ -151,9 +142,7 @@ class BatchProcessor:
                     self.progress.successful_items += batch_result.get('successful', 0)
                     self.progress.failed_items += batch_result.get('failed', 0)
 
-            # Final checkpoint
-            if not self._stop_requested:
-                self._save_checkpoint(checkpoint_name, batch_count)
+            # Checkpointing disabled: skip final checkpoint
 
             # Generate summary
             summary = self._generate_summary()
@@ -228,53 +217,18 @@ class BatchProcessor:
         return results
 
     def _save_checkpoint(self, checkpoint_name: str, batch_number: int):
-        """Save processing checkpoint"""
+        """Checkpoint saving disabled: no-op for compatibility."""
+        self.logger.debug("_save_checkpoint called but checkpointing is disabled.")
 
-        checkpoint = CheckpointData(
-            batch_number=batch_number,
-            processed_count=self.progress.processed_items,
-            timestamp=datetime.now()
-        )
+    def _load_checkpoint(self, checkpoint_name: str) -> Optional[dict]:
+        """Checkpoint loading disabled: always return None.
 
-        checkpoint_file = self.checkpoint_dir / f"{checkpoint_name}.json"
-
-        try:
-            with open(checkpoint_file, 'w', encoding='utf-8') as f:
-                json.dump({
-                    'batch_number': checkpoint.batch_number,
-                    'processed_count': checkpoint.processed_count,
-                    'timestamp': checkpoint.timestamp.isoformat(),
-                    'processor_state': checkpoint.processor_state
-                }, f, indent=2)
-
-            self.progress.last_checkpoint_time = datetime.now()
-            self.logger.debug(f"Checkpoint saved: batch {batch_number}")
-
-        except Exception as e:
-            self.logger.error(f"Failed to save checkpoint: {e}")
-
-    def _load_checkpoint(self, checkpoint_name: str) -> Optional[CheckpointData]:
-        """Load processing checkpoint"""
-
-        checkpoint_file = self.checkpoint_dir / f"{checkpoint_name}.json"
-
-        if not checkpoint_file.exists():
-            return None
-
-        try:
-            with open(checkpoint_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-
-            return CheckpointData(
-                batch_number=data['batch_number'],
-                processed_count=data['processed_count'],
-                timestamp=datetime.fromisoformat(data['timestamp']),
-                processor_state=data.get('processor_state', {})
-            )
-
-        except Exception as e:
-            self.logger.error(f"Failed to load checkpoint: {e}")
-            return None
+        Kept for compatibility with previous API but returns None / empty dicts
+        instead of CheckpointData objects so the project no longer depends on
+        the removed model.
+        """
+        self.logger.debug("_load_checkpoint called but checkpointing is disabled.")
+        return None
 
     def _update_time_estimates(self):
         """Update processing time estimates"""
@@ -321,13 +275,4 @@ class BatchProcessor:
 
     def cleanup_checkpoints(self, older_than_days: int = 7):
         """Clean up old checkpoint files"""
-
-        cutoff_date = datetime.now() - timedelta(days=older_than_days)
-
-        for checkpoint_file in self.checkpoint_dir.glob("*.json"):
-            try:
-                if checkpoint_file.stat().st_mtime < cutoff_date.timestamp():
-                    checkpoint_file.unlink()
-                    self.logger.debug(f"Removed old checkpoint: {checkpoint_file}")
-            except Exception as e:
-                self.logger.error(f"Error cleaning up checkpoint {checkpoint_file}: {e}")
+        self.logger.debug("cleanup_checkpoints called but checkpointing is disabled; no files removed.")

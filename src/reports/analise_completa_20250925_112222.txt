@@ -1,23 +1,4 @@
-====================================================================================================
-RELATÓRIO DE ANÁLISE COMPLETA DO DATASET - COLETORES BIOLÓGICOS
-====================================================================================================
-Data/Hora: 25/09/2025 11:22:22
-Processamento completo: SIM (todos os registros com recordedBy)
-Tempo total: 30.5 segundos
-Taxa: 0.0 registros/segundo
-
-RESUMO GERAL
---------------------------------------------------
-Total de registros processados: 0
-Registros válidos: 0
-Registros vazios/inválidos: 0
-Checkpoints criados: 0
-
-DISTRIBUIÇÃO POR REINO BIOLÓGICO
---------------------------------------------------
-Plantae:
-  Registros: 0 (0.0%)
-  Coletores únicos: 0
+REMOVED: Este relatório foi removido por solicitação do usuário. Entradas relacionadas a checkpoints foram apagadas.
 Animalia:
   Registros: 0 (0.0%)
   Coletores únicos: 0

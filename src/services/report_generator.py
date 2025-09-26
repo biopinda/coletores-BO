@@ -420,7 +420,7 @@ class ReportGenerator:
 
         try:
             # Database collection statistics
-            for collection_name in ["coletores", "ocorrencias", "checkpoints"]:
+            for collection_name in ["coletores", "ocorrencias"]:
                 if hasattr(self.mongo_manager, collection_name):
                     collection = getattr(self.mongo_manager, collection_name)
                     metrics["database_statistics"][collection_name] = {
@@ -428,21 +428,8 @@ class ReportGenerator:
                         "estimated_size": collection.estimated_document_count()
                     }
 
-            # Checkpoint statistics
-            if hasattr(self.mongo_manager, "checkpoints"):
-                checkpoint_stats = list(self.mongo_manager.checkpoints.aggregate([
-                    {"$group": {
-                        "_id": "$checkpoint_type",
-                        "count": {"$sum": 1},
-                        "latest": {"$max": "$created_at"}
-                    }}
-                ]))
-
-                for stat in checkpoint_stats:
-                    metrics["checkpoint_statistics"][stat["_id"]] = {
-                        "count": stat["count"],
-                        "latest": stat["latest"]
-                    }
+            # Checkpoint statistics: checkpointing disabled, leave empty
+            metrics["checkpoint_statistics"] = {}
 
             return metrics
 

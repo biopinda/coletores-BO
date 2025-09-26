@@ -33,7 +33,7 @@ class ProcessingConfig:
     checkpoint_interval: int = 10
     max_retries: int = 3
     retry_delay_seconds: float = 1.0
-    enable_checkpoints: bool = True
+    enable_checkpoints: bool = False
 
 
 @dataclass

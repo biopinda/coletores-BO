@@ -117,21 +117,18 @@ Analysis results are required for processing. Please run analysis first:
                 '--analysis-results', args.analysis_results
             ]
 
-            # Add optional arguments
-            if args.output_path:
-                cmd_args.extend(['--output', args.output_path])
+            # Add optional arguments that the script supports
+            if hasattr(args, 'sample') and args.sample:
+                cmd_args.extend(['--sample', str(args.sample)])
 
-            if args.database_config:
-                cmd_args.extend(['--config', args.database_config])
+            if hasattr(args, 'restart') and args.restart:
+                cmd_args.append('--restart')
 
-            if args.batch_size:
-                cmd_args.extend(['--batch-size', str(args.batch_size)])
+            if hasattr(args, 'revisao') and args.revisao:
+                cmd_args.append('--revisao')
 
-            if args.force_refresh:
-                cmd_args.append('--force-refresh')
-
-            if args.enable_checkpoints:
-                cmd_args.append('--enable-checkpoints')
+            if hasattr(args, 'no_analysis_integration') and args.no_analysis_integration:
+                cmd_args.append('--no-analysis-integration')
 
             # Execute the processing script
             self.logger.info(f"Executing: {' '.join(cmd_args)}")

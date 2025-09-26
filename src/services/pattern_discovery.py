@@ -20,7 +20,7 @@ import pandas as pd
 import numpy as np
 from scipy import stats
 
-from ..models.checkpoint_data import CheckpointData
+# CheckpointData import removed: checkpointing disabled
 from ..models.processing_batch import ProcessingBatch
 
 

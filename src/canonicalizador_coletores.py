@@ -2130,20 +2130,12 @@ class GerenciadorMongoDB:
         Returns:
             True se salvou com sucesso
         """
+        # Checkpointing disabled: do not persist to database
         try:
-            checkpoint_data['timestamp'] = datetime.now()
-
-            self.db.checkpoints.replace_one(
-                {"tipo": "canonicalizacao"},
-                checkpoint_data,
-                upsert=True
-            )
-
-            logger.info("Checkpoint salvo com sucesso")
+            logger.debug("salvar_checkpoint called but checkpointing is disabled; skipping DB write")
             return True
-
         except Exception as e:
-            logger.error(f"Erro ao salvar checkpoint: {e}")
+            logger.error(f"Erro ao tentar simular salvar checkpoint: {e}")
             return False
 
     def carregar_checkpoint(self) -> Optional[Dict[str, any]]:
@@ -2153,15 +2145,9 @@ class GerenciadorMongoDB:
         Returns:
             Dados do checkpoint ou None
         """
-        try:
-            resultado = self.db.checkpoints.find_one({"tipo": "canonicalizacao"})
-            if resultado:
-                logger.info("Checkpoint carregado com sucesso")
-            return resultado
-
-        except Exception as e:
-            logger.error(f"Erro ao carregar checkpoint: {e}")
-            return None
+        # Checkpointing disabled: always return None
+        logger.debug("carregar_checkpoint called but checkpointing is disabled; returning None")
+        return None
 
     def limpar_checkpoint(self) -> bool:
         """
@@ -2170,14 +2156,9 @@ class GerenciadorMongoDB:
         Returns:
             True se removeu com sucesso
         """
-        try:
-            resultado = self.db.checkpoints.delete_many({"tipo": "canonicalizacao"})
-            logger.info(f"Checkpoints removidos: {resultado.deleted_count} documentos")
-            return True
-
-        except Exception as e:
-            logger.error(f"Erro ao limpar checkpoint: {e}")
-            return False
+        # Checkpointing disabled: nothing to clean
+        logger.debug("limpar_checkpoint called but checkpointing is disabled; nothing to remove")
+        return True
 
     def limpar_colecao_coletores(self) -> bool:
         """

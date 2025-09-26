@@ -195,8 +195,7 @@ class ScriptOrchestrator:
                 command.extend(['--analysis-results', args['analysis_results']])
             if args.get('batch_size'):
                 command.extend(['--batch-size', str(args['batch_size'])])
-            if args.get('enable_checkpoints'):
-                command.append('--enable-checkpoints')
+            # Checkpointing globally disabled; do not add enable_checkpoints flag
 
         elif script_name == 'gerar_relatorios.py':
             if args.get('analysis_results'):

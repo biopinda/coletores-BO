@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 # Import new data models
 from models.collector_record import CollectorRecord
 from models.classification_result import ClassificationResult
-from models.checkpoint_data import CheckpointData
+# CheckpointData import removed: checkpointing disabled
 from models.processing_batch import ProcessingBatch
 
 # Enhanced logging configuration
@@ -57,7 +57,7 @@ logger = logging.getLogger(__name__)
 # Ensure directories exist
 os.makedirs('logs', exist_ok=True)
 os.makedirs('reports', exist_ok=True)
-os.makedirs('checkpoints', exist_ok=True)
+# Checkpoint directory creation removed: checkpointing disabled
 
 # Import legacy modules if available
 try:
@@ -85,7 +85,7 @@ class AnalisadorColetoresCompleto:
     automaticamente para configuração dinâmica do sistema.
     """
 
-    def __init__(self, enable_checkpointing: bool = True, checkpoint_interval: int = 25000):
+    def __init__(self, enable_checkpointing: bool = False, checkpoint_interval: int = 25000):
         """
         Inicializa o analisador para processamento completo
 
@@ -94,9 +94,9 @@ class AnalisadorColetoresCompleto:
             checkpoint_interval: Intervalo em registros para criar checkpoints
         """
         # Enhanced configuration for complete dataset processing
-        self.enable_checkpointing = enable_checkpointing
+        self.enable_checkpointing = False
         self.checkpoint_interval = checkpoint_interval
-        self.current_checkpoint: Optional[CheckpointData] = None
+        self.current_checkpoint = None
 
         # MongoDB connection with research-optimized settings
         self.mongodb_connection = None
@@ -142,7 +142,7 @@ class AnalisadorColetoresCompleto:
             'processing_end_time': None,
             'total_processing_time': None,
             'records_per_second': 0.0,
-            'checkpoints_created': 0,
+            # checkpoints_created removed (checkpointing disabled)
 
             # Quality metrics
             'confiancas_classificacao': [],
@@ -163,7 +163,7 @@ class AnalisadorColetoresCompleto:
         }
 
         logger.info(f"AnalisadorColetoresCompleto inicializado - processamento completo: {self.process_all_records}")
-        logger.info(f"Checkpointing habilitado: {self.enable_checkpointing}, intervalo: {self.checkpoint_interval}")
+    logger.info(f"Checkpointing desabilitado por configuração do projeto")
 
     def analisar_dataset_completo(self, mongodb_manager=None) -> Dict:
         """
@@ -308,7 +308,7 @@ class AnalisadorColetoresCompleto:
                     # Create checkpoint if needed
                     if self.enable_checkpointing and processed_count % self.checkpoint_interval == 0:
                         self._create_checkpoint(processed_count, batch_number)
-                        self.stats['checkpoints_created'] += 1
+                        # Checkpointing disabled: do not increment checkpoints_created
 
                     # Progress logging
                     if processed_count % 50000 == 0:
@@ -593,57 +593,18 @@ class AnalisadorColetoresCompleto:
             return obj
 
     def _create_checkpoint(self, records_processed: int, batch_number: int):
-        """Create processing checkpoint"""
-        self.current_checkpoint = CheckpointData(
-            checkpoint_id=f"analysis_complete_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-            checkpoint_type="macro",
-            process_name="analise_coletores_completo",
-            records_processed=records_processed,
-            current_batch_number=batch_number,
-            total_records=self.stats.get('total_registros', 0),
-            processing_state={
-                'stats': self._make_json_serializable(self.stats),
-                'batch_size': self.batch_size
-            }
-        )
-        self._save_checkpoint(self.current_checkpoint)
+        """Checkpointing disabled: no-op"""
+        logger.debug("_create_checkpoint called but checkpointing is disabled")
+        self.current_checkpoint = None
 
-    def _save_checkpoint(self, checkpoint: CheckpointData):
-        """Save checkpoint to file"""
-        checkpoint_file = f"checkpoints/analysis_checkpoint_{checkpoint.checkpoint_id}.json"
+    def _save_checkpoint(self, checkpoint):
+        """Checkpointing disabled: no-op"""
+        logger.debug("_save_checkpoint called but checkpointing is disabled")
 
-        with open(checkpoint_file, 'w', encoding='utf-8') as f:
-            json.dump(checkpoint.to_dict(), f, indent=2, default=str)
-
-        logger.info(f"Checkpoint salvo: {checkpoint_file}")
-
-    def _load_existing_checkpoint(self) -> Optional[CheckpointData]:
-        """Load existing checkpoint if available"""
-        checkpoint_dir = Path('checkpoints')
-        if not checkpoint_dir.exists():
-            return None
-
-        # Find most recent analysis checkpoint
-        checkpoint_files = list(checkpoint_dir.glob('analysis_checkpoint_*.json'))
-        if not checkpoint_files:
-            return None
-
-        latest_file = max(checkpoint_files, key=lambda f: f.stat().st_mtime)
-
-        try:
-            with open(latest_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                # Create a basic checkpoint object from the data
-                checkpoint = CheckpointData(
-                    checkpoint_id=data.get('checkpoint_id', ''),
-                    checkpoint_type=data.get('checkpoint_type', 'macro'),
-                    process_name=data.get('process_name', 'analise_coletores_completo')
-                )
-                checkpoint.records_processed = data.get('records_processed', 0)
-                return checkpoint
-        except Exception as e:
-            logger.warning(f"Erro ao carregar checkpoint: {e}")
-            return None
+    def _load_existing_checkpoint(self):
+        """Checkpointing disabled: no checkpoint will be loaded"""
+        logger.debug("_load_existing_checkpoint called but checkpointing is disabled")
+        return None
 
     def gerar_relatorio_completo(self, arquivo_saida: str = None) -> str:
         """Generate comprehensive report for complete dataset analysis"""
@@ -663,7 +624,7 @@ class AnalisadorColetoresCompleto:
             f"Total de registros processados: {self.stats['total_registros']:,}",
             f"Registros válidos: {self.stats['registros_validos']:,}",
             f"Registros vazios/inválidos: {self.stats['registros_vazios']:,}",
-            f"Checkpoints criados: {self.stats.get('checkpoints_created', 0)}",
+            f"Checkpoints criados: 0 (checkpointing desabilitado)",
             "",
             "DISTRIBUIÇÃO POR REINO BIOLÓGICO",
             "-" * 50
@@ -763,7 +724,7 @@ def main():
     print("=" * 80)
     print("\n⚠️  ATENÇÃO: Este script processará TODOS os registros (11M+)")
     print("   Tempo estimado: 1-3 horas dependendo da performance")
-    print("   Checkpointing habilitado para recovery em caso de interrupção\n")
+    print("   Checkpointing está desabilitado conforme configuração do projeto\n")
 
     database_name = MONGODB_CONFIG.get('database_name', 'dwc2json')
     print(f"Conectando ao MongoDB: {database_name}")
@@ -771,18 +732,12 @@ def main():
     try:
         # Create enhanced analyzer
         analisador = AnalisadorColetoresCompleto(
-            enable_checkpointing=True,
-            checkpoint_interval=25000  # Checkpoint every 25k records
+            enable_checkpointing=False
         )
 
         # Check for existing checkpoint
-        checkpoint = analisador._load_existing_checkpoint()
-        if checkpoint:
-            print(f"\nℹ️  Checkpoint encontrado: {checkpoint.records_processed:,} registros já processados")
-            response = input("Continuar do checkpoint? (s/n): ")
-            if response.lower() != 's':
-                print("Iniciando análise do zero...")
-                checkpoint = None
+        # Checkpointing disabled: do not attempt to load or resume from checkpoints
+        checkpoint = None
 
         # Execute complete analysis
         print("\nIniciando análise completa do dataset...")
@@ -804,10 +759,7 @@ def main():
             logger.error(f"Erro durante processamento: {e}")
             print(f"\n❌ ERRO durante processamento: {e}")
 
-            # Save checkpoint on error
-            if analisador.current_checkpoint:
-                analisador._save_checkpoint(analisador.current_checkpoint)
-                print(f"Checkpoint salvo para recovery: {analisador.current_checkpoint.records_processed:,} registros")
+            # Checkpointing disabled: no checkpoint will be saved on error
 
             return 1
 
@@ -828,7 +780,7 @@ def main():
         print(f"Registros válidos: {resultados['registros_validos']:,}")
         print(f"Tempo total: {resultados.get('total_processing_time', 0):.1f} segundos")
         print(f"Taxa de processamento: {resultados.get('records_per_second', 0):.1f} registros/segundo")
-        print(f"Checkpoints criados: {resultados.get('checkpoints_created', 0)}")
+        print(f"Checkpoints criados: 0 (checkpointing desabilitado)")
 
         print("\nDistribuição por Reino:")
         for kingdom, data in resultados['kingdom_distribution'].items():
@@ -853,9 +805,7 @@ def main():
 
     except KeyboardInterrupt:
         print("\n\n⚠️  Análise interrompida pelo usuário")
-        if 'analisador' in locals() and analisador.current_checkpoint:
-            analisador._save_checkpoint(analisador.current_checkpoint)
-            print(f"Checkpoint salvo: {analisador.current_checkpoint.records_processed:,} registros processados")
+        # Checkpointing disabled: nothing to save on interrupt
         return 1
     except Exception as e:
         logger.error(f"Erro durante a análise: {e}")

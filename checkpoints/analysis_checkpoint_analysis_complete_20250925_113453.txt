@@ -1,9 +1,0 @@
-============================================================
-CHECKPOINT DE ANÁLISE
-============================================================
-ID do Checkpoint: analysis_complete_20250925_113453
-Data/Hora: 25/09/2025 11:34:53
-Registros processados: 975,000
-Registros totais: 0
-Último documento: None
-Lote atual: 195

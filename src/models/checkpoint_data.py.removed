@@ -1,0 +1,3 @@
+REMOVED: CheckpointData model file removed by user request. The original was deleted from the project to disable all checkpointing behavior.
+
+If you need to restore it, retrieve it from version control history.

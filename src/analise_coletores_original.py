@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 # Import new data models
 from models.collector_record import CollectorRecord
 from models.classification_result import ClassificationResult
-from models.checkpoint_data import CheckpointData
+# CheckpointData import removed: checkpointing disabled
 from models.processing_batch import ProcessingBatch
 
 # Import legacy modules (to be replaced gradually)
