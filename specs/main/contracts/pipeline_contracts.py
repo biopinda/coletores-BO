@@ -294,7 +294,7 @@ class LocalDatabaseProtocol(Protocol):
         ...
 
     def export_to_csv(self, output_path: str) -> None:
-        """Export entities to CSV format (3 columns: canonical_name, variations, counts)"""
+        """Export entities to CSV format (4 columns: canonical_name, entity_type, variations, occurrence_counts)"""
         ...
 
 

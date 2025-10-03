@@ -189,8 +189,8 @@ class LocalDatabase:
 
         df = pd.DataFrame(data)
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-        # Ensure UTF-8 encoding in CSV export
-        df.to_csv(output_path, index=False, encoding='utf-8')
+        # Ensure UTF-8 encoding in CSV export with TAB separator
+        df.to_csv(output_path, index=False, encoding='utf-8', sep='\t')
 
     def close(self) -> None:
         """Close database connection"""

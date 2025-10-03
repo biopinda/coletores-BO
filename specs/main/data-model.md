@@ -317,17 +317,24 @@ class CanonicalEntity(BaseModel):
 
 ### Output Format (canonical_report.csv)
 
-| canonical_name | variations | occurrence_counts |
-|---------------|-----------|-------------------|
-| Forzza, R.C. | "Forzza, R.C.;R.C. Forzza;Rafaela C. Forzza" | "1523;847;234" |
-| Silva, J. | "Silva, J.;J. Silva" | "2891;1205" |
+| canonical_name | entity_type | variations | occurrence_counts |
+|---------------|-------------|-----------|-------------------|
+| Forzza, R.C. | Pessoa | "Forzza, R.C.;R.C. Forzza;Rafaela C. Forzza" | "1523;847;234" |
+| Silva, J. | Pessoa | "Silva, J.;J. Silva" | "2891;1205" |
+| EMBRAPA | Empresa | "EMBRAPA" | "45" |
 
 **Column Specifications**:
-1. `canonical_name`: str - Canonical entity name
-2. `variations`: str - Semicolon-separated list of variation texts
-3. `occurrence_counts`: str - Semicolon-separated counts (aligned with variations)
 
-**Note**: Confidence scores NOT included in CSV (per spec FR-025)
+1. `canonical_name`: str - Canonical entity name
+2. `entity_type`: str - Entity classification type (Pessoa/GrupoPessoas/Empresa/NaoDeterminado)
+3. `variations`: str - Semicolon-separated list of variation texts
+4. `occurrence_counts`: str - Semicolon-separated counts (aligned with variations)
+
+**Format Details**:
+
+- **Separator**: TAB (tabulation character)
+- **Encoding**: UTF-8
+- **Confidence scores**: NOT included in CSV (per spec FR-025)
 
 ---
 
@@ -338,6 +345,6 @@ class CanonicalEntity(BaseModel):
 - ✅ Relationships clearly defined (ClassificationResult → AtomizedName → NormalizedName → CanonicalEntity)
 - ✅ Storage schema supports dynamic updates with JSON variations
 - ✅ Pydantic models provide type safety and runtime validation
-- ✅ CSV export format matches spec requirements (3 columns, no confidence scores)
+- ✅ CSV export format matches spec requirements (4 columns, no confidence scores)
 
 **Ready for**: Contract generation and test scenario creation.
