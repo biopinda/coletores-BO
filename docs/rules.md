@@ -9,26 +9,26 @@
 
 ### Pattern Hierarchy (checked in order):
 
-#### 1. Não Determinado (Confidence: 1.0)
+#### 1. NÃ£o Determinado (Confidence: 1.0)
 **Exact matches**:
 - `?`
 - `sem coletor`
-- `não identificado`
+- `nÃ£o identificado`
 - `desconhecido`
 
 **Pattern**: Exact string match (case-insensitive)
 
 ---
 
-#### 2. Empresa/Instituição (Confidence: 0.85-0.90)
+#### 2. Empresa/InstituiÃ§Ã£o (Confidence: 0.85-0.90)
 **All-caps acronyms** (Confidence: 0.90):
 - Pattern: `^[A-Z]{2,}$`
 - Examples: `EMBRAPA`, `USP`, `UNICAMP`
 
 **Institution keywords** (Confidence: 0.85):
 - `embrapa`, `usp`, `unicamp`, `ufrj`, `ufmg`, `inpa`, `jbrj`
-- `herbário`, `herbario`
-- `jardim botânico`, `jardim botanico`
+- `herbÃ¡rio`, `herbario`
+- `jardim botÃ¢nico`, `jardim botanico`
 - `instituto`, `universidade`, `faculdade`
 
 ---
@@ -44,8 +44,8 @@
 - Initials pattern: `\b[A-Z]\.[A-Z]\.?\b`
 
 **Examples**:
-- `Silva, J. & R.C. Forzza` ’ ConjuntoPessoas (0.95)
-- `Santos, M.; Oliveira, P.` ’ ConjuntoPessoas (0.95)
+- `Silva, J. & R.C. Forzza` Â’ ConjuntoPessoas (0.95)
+- `Santos, M.; Oliveira, P.` Â’ ConjuntoPessoas (0.95)
 
 ---
 
@@ -55,21 +55,21 @@
 - Initials detected (Confidence: 0.85)
 
 **Examples**:
-- `Forzza, R.C.` ’ Pessoa (0.90)
-- `J. Silva` ’ Pessoa (0.85)
+- `Forzza, R.C.` Â’ Pessoa (0.90)
+- `J. Silva` Â’ Pessoa (0.85)
 
 ---
 
 #### 5. Grupo de Pessoas (Confidence: 0.75)
 **Generic group terms**:
 - `pesquisas`, `equipe`, `grupo`, `projeto`
-- `expedição`, `expedicao`
+- `expediÃ§Ã£o`, `expedicao`
 - `levantamento`
 
 **No proper name patterns** (otherwise would be Pessoa or ConjuntoPessoas)
 
 **Example**:
-- `Pesquisas da Biodiversidade` ’ GrupoPessoas (0.75)
+- `Pesquisas da Biodiversidade` Â’ GrupoPessoas (0.75)
 
 ---
 
@@ -78,9 +78,9 @@
 Only applied when category is **ConjuntoPessoas**.
 
 ### Separator Priority:
-1. `et al.` (et al pattern) ’ `SeparatorType.ET_AL`
-2. `;` (semicolon) ’ `SeparatorType.SEMICOLON`
-3. `&` (ampersand) ’ `SeparatorType.AMPERSAND`
+1. `et al.` (et al pattern) Â’ `SeparatorType.ET_AL`
+2. `;` (semicolon) Â’ `SeparatorType.SEMICOLON`
+3. `&` (ampersand) Â’ `SeparatorType.AMPERSAND`
 
 ### Processing Rules:
 - Preserve original formatting
@@ -110,7 +110,7 @@ Applied to **all names** for case-insensitive matching.
 
 ### Rule 2: Standardize Punctuation Spacing
 - Ensure punctuation marks (`,`, `;`, `.`, `&`) are followed by a space
-- Regex: `r'\s*([,;.&])\s*'` ’ `r'\1 '`
+- Regex: `r'\s*([,;.&])\s*'` Â’ `r'\1 '`
 
 ### Rule 3: Uppercase Conversion
 - Convert all text to uppercase for comparison
@@ -118,9 +118,9 @@ Applied to **all names** for case-insensitive matching.
 
 **Examples**:
 ```
-"  Silva,J.C. " ’ "SILVA, J.C."
-"R.C.  Forzza" ’ "R.C. FORZZA"
-"silva, j." ’ "SILVA, J."
+"  Silva,J.C. " Â’ "SILVA, J.C."
+"R.C.  Forzza" Â’ "R.C. FORZZA"
+"silva, j." Â’ "SILVA, J."
 ```
 
 ---
@@ -143,7 +143,7 @@ Used for grouping name variations under canonical entities.
 
 ### Combined Score Formula:
 ```
-similarity_score = (Levenshtein × 0.4) + (Jaro-Winkler × 0.4) + (Phonetic × 0.2)
+similarity_score = (Levenshtein Ã— 0.4) + (Jaro-Winkler Ã— 0.4) + (Phonetic Ã— 0.2)
 ```
 
 ### Component Algorithms:
