@@ -6,7 +6,7 @@ mongodb:
 
 local_db:
   type: "duckdb"
-  path: "./data/canonical_entities.db"
+  path: "./data/canonical_entities_v2.db"
 
 processing:
   batch_size: 10000

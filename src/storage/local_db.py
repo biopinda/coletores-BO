@@ -168,7 +168,7 @@ class LocalDatabase:
         )
 
     def export_to_csv(self, output_path: str) -> None:
-        """Export entities to CSV format (3 columns: canonical_name, variations, counts)"""
+        """Export entities to CSV format (4 columns: canonical_name, entity_type, variations, counts)"""
         entities = self.get_all_entities()
 
         data = []
@@ -179,6 +179,7 @@ class LocalDatabase:
             data.append(
                 {
                     "canonical_name": entity.canonical_name,
+                    "entity_type": entity.entity_type.value,
                     "variations": variations_text,
                     "occurrence_counts": occurrence_counts,
                 }

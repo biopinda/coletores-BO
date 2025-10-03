@@ -30,7 +30,10 @@
       "Bash(git log:*)",
       "Bash(pip install:*)",
       "Bash(python -m pytest --version)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(Forzza, R.C.)",
+      "Bash(Pessoa)",
+      "Bash(Silva, J.)"
     ],
     "deny": [],
     "ask": []
