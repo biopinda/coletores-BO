@@ -49,7 +49,7 @@ class LocalDatabase:
 
     def upsert_entity(self, entity: CanonicalEntity) -> CanonicalEntity:
         """Insert new or update existing canonical entity"""
-        # Serialize variations to JSON
+        # Serialize variations to JSON with UTF-8 encoding
         variations_json = json.dumps(
             [
                 {
@@ -60,7 +60,8 @@ class LocalDatabase:
                     "last_seen": v.last_seen.isoformat(),
                 }
                 for v in entity.variations
-            ]
+            ],
+            ensure_ascii=False  # Preserve UTF-8 characters
         )
 
         if entity.id is None:
@@ -187,7 +188,8 @@ class LocalDatabase:
 
         df = pd.DataFrame(data)
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(output_path, index=False)
+        # Ensure UTF-8 encoding in CSV export
+        df.to_csv(output_path, index=False, encoding='utf-8')
 
     def close(self) -> None:
         """Close database connection"""

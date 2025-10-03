@@ -11,7 +11,7 @@ class MongoDBSource:
 
     def __init__(self, uri: str, database: str, collection: str, filter_query: Dict[str, Any]):
         """
-        Initialize MongoDB connection.
+        Initialize MongoDB connection with UTF-8 encoding.
 
         Args:
             uri: MongoDB connection URI
@@ -19,7 +19,8 @@ class MongoDBSource:
             collection: Collection name
             filter_query: Filter criteria (e.g., {"kingdom": "Plantae"})
         """
-        self.client = MongoClient(uri)
+        # Connect with UTF-8 encoding support
+        self.client = MongoClient(uri, unicode_decode_error_handler='strict')
         self.db = self.client[database]
         self.collection: Collection = self.db[collection]
         self.filter_query = filter_query
