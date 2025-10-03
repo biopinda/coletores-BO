@@ -1,0 +1,24 @@
+mongodb:
+  uri: "mongodb://localhost:27017"
+  database: "plant_samples"
+  collection: "specimens"
+  filter: { kingdom: "Plantae" }
+
+local_db:
+  type: "duckdb"
+  path: "./data/canonical_entities.db"
+
+processing:
+  batch_size: 10000
+  workers: 8
+  confidence_threshold: 0.70
+
+algorithms:
+  similarity_weights:
+    levenshtein: 0.4
+    jaro_winkler: 0.4
+    phonetic: 0.2
+
+output:
+  csv_path: "./output/canonical_report.csv"
+  rules_doc: "./docs/rules.md"
