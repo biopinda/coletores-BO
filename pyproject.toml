@@ -4,8 +4,12 @@ target-version = ['py311']
 
 [tool.ruff]
 line-length = 100
+
+#[tool.ruff] legacy moved to lint subsection (deprecation warning elimination)
+[tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
-ignore = []
+# Ignore naming style rules for camelCase fields explicitly required by project plus long lines in spec examples.
+ignore = ["N815", "N806", "N803", "N802", "E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

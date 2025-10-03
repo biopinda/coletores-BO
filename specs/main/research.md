@@ -83,8 +83,8 @@ def similarity_score(str1: str, str2: str) -> float:
 ```sql
 CREATE TABLE canonical_entities (
     id INTEGER PRIMARY KEY,
-    canonical_name TEXT NOT NULL,
-    entity_type TEXT NOT NULL, -- Pessoa|Grupo|Instituição|NãoDeterminado
+  canonicalName TEXT NOT NULL,
+  entityType TEXT NOT NULL, -- Pessoa|Grupo|Instituição|NãoDeterminado
     classification_confidence REAL NOT NULL,
     grouping_confidence REAL NOT NULL,
     variations JSON NOT NULL, -- [{"text": "...", "count": N, "confidence": 0.0-1.0}]
@@ -92,8 +92,8 @@ CREATE TABLE canonical_entities (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_canonical_name ON canonical_entities(canonical_name);
-CREATE INDEX idx_entity_type ON canonical_entities(entity_type);
+CREATE INDEX idx_canonicalName ON canonical_entities(canonicalName);
+CREATE INDEX idx_entityType ON canonical_entities(entityType);
 ```
 
 **Storage Technology**:

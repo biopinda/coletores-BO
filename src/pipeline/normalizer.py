@@ -30,12 +30,24 @@ class Normalizer:
         # Start with the original text
         normalized = original
 
-        # Rule 1: Remove extra whitespace
+        # Rule 1: Trim obvious leading separator characters (ex: leading ';', ',', '&')
+        stripped_initial = re.sub(r'^[;,&\s]+', '', normalized)
+        if stripped_initial != normalized:
+            normalized = stripped_initial
+            rules_applied.append("remove_leading_separators")
+
+        # Rule 2: Remove trailing separator clutter
+        stripped_trailing = re.sub(r'[;,&\s]+$', '', normalized)
+        if stripped_trailing != normalized:
+            normalized = stripped_trailing
+            rules_applied.append("remove_trailing_separators")
+
+        # Rule 3: Remove extra whitespace
         if "  " in normalized or normalized != normalized.strip():
             normalized = " ".join(normalized.split())
             rules_applied.append("remove_extra_spaces")
 
-        # Rule 2: Standardize punctuation spacing
+        # Rule 4: Standardize punctuation spacing
         # Ensure punctuation marks are followed by a space
         before_punctuation = normalized
         normalized = re.sub(r"\s*([,;.&])\s*", r"\1 ", normalized)
@@ -44,10 +56,21 @@ class Normalizer:
         if before_punctuation != normalized:
             rules_applied.append("standardize_punctuation")
 
-        # Rule 3: Uppercase for comparison
+        # Rule 5: Uppercase for comparison
         if normalized != normalized.upper():
             normalized = normalized.upper()
             rules_applied.append("uppercase")
+
+        # Rule 6: Remover novamente separadores iniciais residuais pós transformações
+        cleaned = re.sub(r'^[;\s]+', '', normalized)
+        if cleaned != normalized:
+            normalized = cleaned
+            rules_applied.append("strip_leading_separators_post")
+
+        # Rule 7: Se nome começa com 'E ' (português 'e' conjuntivo errante no início) remover
+        if normalized.startswith('E '):
+            normalized = normalized[2:]
+            rules_applied.append("remove_leading_conjunction_e")
 
         return NormalizationOutput(
             original=original, normalized=normalized, rules_applied=rules_applied

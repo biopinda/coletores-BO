@@ -60,7 +60,7 @@ class CanonicalizationInput(BaseModel):
     """Input contract for canonicalization stage"""
 
     normalized_name: str
-    entity_type: EntityType
+    entityType: EntityType
     classification_confidence: float = Field(ge=0.70, le=1.0)
 
 
@@ -81,4 +81,4 @@ class CSVReportRow(BaseModel):
 
     canonicalName: str
     variations: str = Field(description="Semicolon-separated variation texts")
-    occurrence_counts: str = Field(description="Semicolon-separated counts aligned with variations")
+    occurrenceCounts: str = Field(description="Semicolon-separated counts aligned with variations")

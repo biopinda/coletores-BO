@@ -135,7 +135,7 @@ class CanonicalEntity(BaseModel):
     """Canonical entity with variations (FR-013, FR-014, FR-015, FR-016)"""
     id: int | None = None
     canonicalName: str = Field(description="Standardized 'Sobrenome, Iniciais' format for Pessoa")
-    entity_type: EntityType
+    entityType: EntityType
     classification_confidence: float = Field(ge=0.70, le=1.0)
     grouping_confidence: float = Field(ge=0.70, le=1.0, description="Confidence of variation grouping")
     variations: List[CanonicalVariation] = Field(min_length=1)
@@ -147,7 +147,7 @@ class CanonicalEntity(BaseModel):
             "example": {
                 "id": 1,
                 "canonicalName": "Forzza, R.C.",
-                "entity_type": "Pessoa",
+                "entityType": "Pessoa",
                 "classification_confidence": 0.92,
                 "grouping_confidence": 0.88,
                 "variations": [
@@ -168,7 +168,7 @@ class CanonicalEntity(BaseModel):
 class CanonicalizationInput(BaseModel):
     """Input contract for canonicalization stage"""
     normalized_name: str
-    entity_type: EntityType
+    entityType: EntityType
     classification_confidence: float = Field(ge=0.70, le=1.0)
 
 
@@ -181,16 +181,16 @@ class CanonicalizationOutput(BaseModel):
 
 class CSVReportRow(BaseModel):
     """CSV export row format (FR-025)"""
-    canonical_name: str
+    canonicalName: str
     variations: str = Field(description="Semicolon-separated variation texts")
-    occurrence_counts: str = Field(description="Semicolon-separated counts aligned with variations")
+    occurrenceCounts: str = Field(description="Semicolon-separated counts aligned with variations")
 
     class Config:
         json_schema_extra = {
             "example": {
-                "canonical_name": "Forzza, R.C.",
+                "canonicalName": "Forzza, R.C.",
                 "variations": "Forzza, R.C.;R.C. Forzza;Rafaela C. Forzza",
-                "occurrence_counts": "1523;847;234"
+                "occurrenceCounts": "1523;847;234"
             }
         }
 
@@ -283,7 +283,7 @@ class LocalDatabaseProtocol(Protocol):
     def find_similar_entities(
         self,
         normalized_name: str,
-        entity_type: EntityType,
+    entityType: EntityType,
         threshold: float = 0.70
     ) -> List[tuple[CanonicalEntity, float]]:
         """Find entities with similarity >= threshold, return with scores"""
@@ -294,7 +294,7 @@ class LocalDatabaseProtocol(Protocol):
         ...
 
     def export_to_csv(self, output_path: str) -> None:
-        """Export entities to CSV format (4 columns: canonicalName, entity_type, variations, occurrence_counts)"""
+    """Export entities to CSV format (4 columns: canonicalName, entityType, variations, occurrenceCounts)"""
         ...
 
 

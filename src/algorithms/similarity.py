@@ -1,5 +1,6 @@
 """Similarity algorithms for name matching (Levenshtein + Jaro-Winkler)"""
 
+import re
 import Levenshtein
 import jellyfish
 
@@ -44,6 +45,21 @@ def jaro_winkler_score(s1: str, s2: str) -> float:
     return jellyfish.jaro_winkler_similarity(s1, s2)
 
 
+def _prep(s: str) -> str:
+    """Pré-processar string para comparação:
+    - Remover pontos isolados após iniciais ("C." -> "C")
+    - Colapsar múltiplos espaços
+    - Strip
+    """
+    if not s:
+        return ""
+    # Remover pontos após letras únicas (iniciais)
+    s = re.sub(r"\b([A-Z])\.\b", r"\1", s)
+    # Colapsar espaços
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
 def similarity_score(
     s1: str, s2: str, lev_weight: float = 0.4, jw_weight: float = 0.4, phonetic_weight: float = 0.2
 ) -> float:
@@ -62,8 +78,10 @@ def similarity_score(
     """
     from src.algorithms.phonetic import phonetic_match
 
-    lev = levenshtein_score(s1, s2)
-    jw = jaro_winkler_score(s1, s2)
-    phonetic = 1.0 if phonetic_match(s1, s2) else 0.0
+    p1 = _prep(s1)
+    p2 = _prep(s2)
+    lev = levenshtein_score(p1, p2)
+    jw = jaro_winkler_score(p1, p2)
+    phonetic = 1.0 if phonetic_match(p1, p2) else 0.0
 
     return (lev * lev_weight) + (jw * jw_weight) + (phonetic * phonetic_weight)

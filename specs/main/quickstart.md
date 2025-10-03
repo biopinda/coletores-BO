@@ -107,11 +107,11 @@ for variation in variations:
     # Canonicalize
     canon_input = CanonicalizationInput(
         normalized_name=normalized.normalized,
-        entity_type=EntityType.PESSOA,
+    entityType=EntityType.PESSOA,
         classification_confidence=0.90
     )
     result = canonicalizer.canonicalize(canon_input)
-    canonical_entities.append(result.entity.canonical_name)
+    canonical_entities.append(result.entity.canonicalName)
 
 # All should map to same canonical name
 unique_canonical = set(canonical_entities)
@@ -189,7 +189,7 @@ print(f"✅ Scenario 6 - Dynamic Updates: Database grew from {initial_count} to 
 
 ### Scenario 7: CSV Report Generation
 **Given**: Processing complete
-**Expected**: CSV with canonical_name, variations, occurrence_counts (3 columns, NO confidence scores)
+**Expected**: TSV with canonicalName, variations, occurrenceCounts (3 columns, NO confidence scores, TAB-separated)
 
 ```python
 import pandas as pd
@@ -201,7 +201,7 @@ db.export_to_csv("output/canonical_report.csv")
 df = pd.read_csv("output/canonical_report.csv")
 
 # Check columns
-expected_columns = ["canonical_name", "variations", "occurrence_counts"]
+expected_columns = ["canonicalName", "variations", "occurrenceCounts"]
 assert list(df.columns) == expected_columns, f"Expected columns {expected_columns}, got {list(df.columns)}"
 
 # Check no confidence columns exist
@@ -210,15 +210,15 @@ assert "confidence" not in df.columns, "CSV should NOT include confidence scores
 # Validate data format
 sample_row = df.iloc[0]
 assert ";" in sample_row["variations"], "Variations should be semicolon-separated"
-assert ";" in sample_row["occurrence_counts"], "Counts should be semicolon-separated"
+assert ";" in sample_row["occurrenceCounts"], "Counts should be semicolon-separated"
 
 # Verify counts align with variations
 variations_count = len(sample_row["variations"].split(";"))
-counts_count = len(sample_row["occurrence_counts"].split(";"))
+counts_count = len(sample_row["occurrenceCounts"].split(";"))
 assert variations_count == counts_count, f"Variation count ({variations_count}) must match counts ({counts_count})"
 
 print(f"✅ Scenario 7 - CSV Export: Valid format with {len(df)} canonical entities")
-print(f"   Sample row: {sample_row['canonical_name']} → {variations_count} variations")
+print(f"   Sample row: {sample_row['canonicalName']} → {variations_count} variations")
 ```
 
 ---

@@ -107,8 +107,8 @@ CanonicalEntity ←→ NameVariation[]
 
 **Attributes**:
 - `id`: int - Primary key (auto-increment)
-- `canonical_name`: str - Standardized "Sobrenome, Iniciais" format
-- `entity_type`: Enum[Pessoa, GrupoPessoas, Empresa, NaoDeterminado]
+- `canonicalName`: str - Standardized "Sobrenome, Iniciais" format
+- `entityType`: Enum[Pessoa, GrupoPessoas, Empresa, NaoDeterminado]
 - `classification_confidence`: float - Original classification confidence
 - `grouping_confidence`: float - Confidence of variation grouping (≥0.70)
 - `variations`: List[NameVariation] - All identified variations
@@ -116,13 +116,13 @@ CanonicalEntity ←→ NameVariation[]
 - `updated_at`: datetime
 
 **Validation Rules**:
-- canonical_name follows "Sobrenome, Iniciais" format for Pessoa type
+- canonicalName follows "Sobrenome, Iniciais" format for Pessoa type
 - grouping_confidence MUST be ≥ 0.70
 - variations list MUST contain at least 1 entry
-- entity_type matches original classification category
+- entityType matches original classification category
 
 **Uniqueness**:
-- canonical_name is unique per entity_type (same name can exist as Pessoa and Empresa)
+- canonicalName is unique per entityType (same name can exist as Pessoa and Empresa)
 
 **Relationships**:
 - 1 CanonicalEntity → 1..N NameVariation
@@ -189,8 +189,8 @@ CanonicalEntity ←→ NameVariation[]
 ```sql
 CREATE TABLE canonical_entities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    canonical_name TEXT NOT NULL,
-    entity_type TEXT NOT NULL CHECK(entity_type IN ('Pessoa', 'GrupoPessoas', 'Empresa', 'NaoDeterminado')),
+    canonicalName TEXT NOT NULL,
+    entityType TEXT NOT NULL CHECK(entityType IN ('Pessoa', 'GrupoPessoas', 'Empresa', 'NaoDeterminado')),
     classification_confidence REAL NOT NULL CHECK(classification_confidence >= 0.70 AND classification_confidence <= 1.0),
     grouping_confidence REAL NOT NULL CHECK(grouping_confidence >= 0.70 AND grouping_confidence <= 1.0),
     variations JSON NOT NULL, -- Array of {variation_text, occurrence_count, association_confidence, first_seen, last_seen}
@@ -198,8 +198,8 @@ CREATE TABLE canonical_entities (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX idx_canonical_name_type ON canonical_entities(canonical_name, entity_type);
-CREATE INDEX idx_entity_type ON canonical_entities(entity_type);
+CREATE UNIQUE INDEX idx_canonicalName_type ON canonical_entities(canonicalName, entityType);
+CREATE INDEX idx_entityType ON canonical_entities(entityType);
 CREATE INDEX idx_updated_at ON canonical_entities(updated_at);
 ```
 
@@ -240,7 +240,7 @@ CREATE INDEX idx_updated_at ON canonical_entities(updated_at);
 4. Timestamps always populated (created_at, updated_at, first_seen, last_seen)
 
 ### Performance Constraints
-- Indexed lookups on canonical_name + entity_type (O(log n))
+- Indexed lookups on canonicalName + entityType (O(log n))
 - JSON variations stored inline (no JOIN overhead)
 - Batch updates to minimize DB writes during 6-hour processing
 
@@ -302,8 +302,8 @@ class NameVariation(BaseModel):
 
 class CanonicalEntity(BaseModel):
     id: int | None = None
-    canonical_name: str
-    entity_type: EntityType
+    canonicalName: str
+    entityType: EntityType
     classification_confidence: float = Field(ge=0.70, le=1.0)
     grouping_confidence: float = Field(ge=0.70, le=1.0)
     variations: List[NameVariation] = Field(min_length=1)
@@ -317,7 +317,7 @@ class CanonicalEntity(BaseModel):
 
 ### Output Format (canonical_report.csv)
 
-| canonicalName | entity_type | variations | occurrence_counts |
+| canonicalName | entityType | variations | occurrenceCounts |
 |---------------|-------------|-----------|-------------------|
 | Forzza, R.C. | Pessoa | Forzza, R.C.;R.C. Forzza;Rafaela C. Forzza | 1523;847;234 |
 | Silva, J. | Pessoa | Silva, J.;J. Silva | 2891;1205 |
@@ -326,9 +326,9 @@ class CanonicalEntity(BaseModel):
 **Column Specifications**:
 
 1. `canonicalName`: str - Canonical entity name
-2. `entity_type`: str - Entity classification type (Pessoa/GrupoPessoas/Empresa/NaoDeterminado)
+2. `entityType`: str - Entity classification type (Pessoa/GrupoPessoas/Empresa/NaoDeterminado)
 3. `variations`: str - Semicolon-separated list of variation texts
-4. `occurrence_counts`: str - Semicolon-separated counts (aligned with variations)
+4. `occurrenceCounts`: str - Semicolon-separated counts (aligned with variations)
 
 **Format Details**:
 

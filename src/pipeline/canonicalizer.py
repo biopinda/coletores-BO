@@ -16,82 +16,66 @@ class Canonicalizer:
         self.database = database
 
     def canonicalize(self, input_data: CanonicalizationInput) -> CanonicalizationOutput:
+        """Find or create canonical entity, group similar variations.
+
+        Raises ValueError se score < 0.70.
         """
-        Find or create canonical entity, group similar variations.
-
-        Args:
-            input_data: CanonicalizationInput with normalized name and metadata
-
-        Returns:
-            CanonicalizationOutput with entity and creation/update flag
-
-        Raises:
-            ValueError: If grouping confidence < 0.70 (below threshold)
-        """
+        # normalized_name já vem em uppercase (normalizer)
         normalized_name = input_data.normalized_name
-        entity_type = input_data.entity_type
+        entityType = input_data.entityType
         classification_confidence = input_data.classification_confidence
 
-        # Find similar entities
         similar_entities = self.database.find_similar_entities(
-            normalized_name, entity_type.value, threshold=0.70
+            normalized_name, entityType.value, threshold=0.70
         )
 
         if similar_entities:
-            # Use the most similar entity
             best_entity, best_score = similar_entities[0]
-
-            # Check if grouping confidence meets threshold
             if best_score < 0.70:
                 raise ValueError(
                     f"Grouping confidence {best_score:.2f} below threshold (0.70)"
                 )
-
-            # Update existing entity with new variation
             now = datetime.now()
-
-            # Check if this variation already exists
-            existing_variation = None
-            for var in best_entity.variations:
-                if var.variation_text == normalized_name:
-                    existing_variation = var
-                    break
-
+            existing_variation = next(
+                (
+                    v
+                    for v in best_entity.variations
+                    if v.variation_text.upper() == normalized_name.upper()
+                ),
+                None,
+            )
             if existing_variation:
-                # Update existing variation
                 existing_variation.occurrence_count += 1
                 existing_variation.last_seen = now
             else:
-                # Add new variation
-                new_variation = NameVariation(
-                    variation_text=normalized_name,
-                    occurrence_count=1,
-                    association_confidence=best_score,
-                    first_seen=now,
-                    last_seen=now,
+                best_entity.variations.append(
+                    NameVariation(
+                        variation_text=normalized_name,  # Mantém uppercase padronizado das variações
+                        occurrence_count=1,
+                        association_confidence=best_score,
+                        first_seen=now,
+                        last_seen=now,
+                    )
                 )
-                best_entity.variations.append(new_variation)
-
-            # Update entity timestamp
+            # Possível melhoria do canonicalName: se pessoa e nova variação tem mais tokens que o canonical atual
+            if entityType == EntityType.PESSOA:
+                current_tokens = best_entity.canonicalName.split()
+                new_tokens = normalized_name.split()
+                if len(new_tokens) > len(current_tokens):
+                    best_entity.canonicalName = self._format_canonicalName(normalized_name, entityType)
             best_entity.updated_at = now
-
-            # Upsert to database
             updated_entity = self.database.upsert_entity(best_entity)
-
             return CanonicalizationOutput(
                 entity=updated_entity, is_new_entity=False, similarity_score=best_score
             )
-
         else:
-            # Create new canonical entity
-            canonical_name = self._format_canonical_name(normalized_name, entity_type)
+            canonicalName = self._format_canonicalName(normalized_name, entityType)
             now = datetime.now()
-
             new_entity = CanonicalEntity(
-                canonical_name=canonical_name,
-                entity_type=entity_type,
+                canonicalName=canonicalName,
+                entityType=entityType,
                 classification_confidence=classification_confidence,
-                grouping_confidence=1.0,  # New entity, perfect match with itself
+                grouping_confidence=1.0,
                 variations=[
                     NameVariation(
                         variation_text=normalized_name,
@@ -104,37 +88,27 @@ class Canonicalizer:
                 created_at=now,
                 updated_at=now,
             )
-
-            # Insert to database
             created_entity = self.database.upsert_entity(new_entity)
-
             return CanonicalizationOutput(
                 entity=created_entity, is_new_entity=True, similarity_score=None
             )
 
-    def _format_canonical_name(self, normalized_name: str, entity_type: EntityType) -> str:
+    def _format_canonicalName(self, normalized_name: str, entityType: EntityType) -> str:
+        """Gerar canonicalName com capitalização padronizada.
+
+        Regras para Pessoa:
+        - Se formato "SOBRENOME, X. Y." (uppercase) -> converter para "Sobrenome, X. Y."
+        - Caso geral: Title Case preservando pontos e vírgulas.
+        Outros tipos: manter como veio (uppercase) por enquanto.
         """
-        Format canonical name according to entity type.
+        if entityType == EntityType.PESSOA:
+            # Ex: "FERREIRA JUNIOR, C. A." -> "Ferreira Junior, C. A."
+            parts = normalized_name.split(",")
+            if len(parts) == 2:
+                last_name = parts[0].title().strip()
+                rest = parts[1].strip()
+                # Mantém iniciais como estão (já uppercase com pontos)
+                return f"{last_name}, {rest}"
+            return normalized_name.title()
+        return normalized_name.title()
 
-        For Pessoa: "Sobrenome, Iniciais" format with proper capitalization
-        For others: Use normalized name as-is
-
-        Args:
-            normalized_name: Normalized name string
-            entity_type: Entity type
-
-        Returns:
-            Formatted canonical name
-        """
-        if entity_type == EntityType.PESSOA:
-            # Try to extract "Sobrenome, Iniciais" format
-            # If already in that format, use as-is
-            if "," in normalized_name:
-                # Apply proper capitalization (Title Case)
-                return normalized_name.title()
-            else:
-                # Best effort: use as-is with proper capitalization
-                return normalized_name.title()
-        else:
-            # For non-Pessoa types, use normalized name as canonical
-            return normalized_name

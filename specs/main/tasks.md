@@ -210,8 +210,8 @@ output:
 ```sql
 CREATE TABLE IF NOT EXISTS canonical_entities (
     id INTEGER PRIMARY KEY,
-    canonical_name TEXT NOT NULL,
-    entity_type TEXT NOT NULL CHECK(entity_type IN ('Pessoa', 'GrupoPessoas', 'Empresa', 'NaoDeterminado')),
+  canonicalName TEXT NOT NULL,
+  entityType TEXT NOT NULL CHECK(entityType IN ('Pessoa', 'GrupoPessoas', 'Empresa', 'NaoDeterminado')),
     classification_confidence REAL NOT NULL CHECK(classification_confidence >= 0.70 AND classification_confidence <= 1.0),
     grouping_confidence REAL NOT NULL CHECK(grouping_confidence >= 0.70 AND grouping_confidence <= 1.0),
     variations JSON NOT NULL,
@@ -219,8 +219,8 @@ CREATE TABLE IF NOT EXISTS canonical_entities (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_canonical_name_type ON canonical_entities(canonical_name, entity_type);
-CREATE INDEX IF NOT EXISTS idx_entity_type ON canonical_entities(entity_type);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_canonicalName_type ON canonical_entities(canonicalName, entityType);
+CREATE INDEX IF NOT EXISTS idx_entityType ON canonical_entities(entityType);
 ```
 Implement schema creation method only (no CRUD yet).
 **Dependencies**: T002 (duckdb installed), T004 (config ready)
@@ -270,7 +270,7 @@ Use Pydantic validation, pytest parametrize for test cases.
 ### T009 [P]: Contract test - Canonicalization schema
 **File**: `tests/contract/test_canonicalization_schema.py`
 **Description**: Test CanonicalizationInput/Output from pipeline_contracts.py:
-- Valid input: normalized_name, entity_type, classification_confidence ≥0.70
+- Valid input: normalized_name, entityType, classification_confidence ≥0.70
 - Valid output: CanonicalEntity with grouping_confidence ≥0.70, variations min_length=1
 - Invalid: grouping_confidence < 0.70 → raises ValueError
 **Dependencies**: T002
@@ -292,8 +292,8 @@ Use Pydantic validation, pytest parametrize for test cases.
 ### T011 [P]: Contract test - CSV export schema
 **File**: `tests/contract/test_csv_schema.py`
 **Description**: Test CSVReportRow from pipeline_contracts.py:
-- Valid row: canonical_name, semicolon-separated variations, semicolon-separated counts
-- Count alignment: len(variations.split(';')) == len(occurrence_counts.split(';'))
+- Valid row: canonicalName, semicolon-separated variations, semicolon-separated counts
+- Count alignment: len(variations.split(';')) == len(occurrenceCounts.split(';'))
 - No confidence fields in CSV (per FR-025)
 **Dependencies**: T002
 **Acceptance**: Test runs, assertions FAIL
@@ -351,7 +351,7 @@ Use LocalDatabase.get_all_entities() (not yet implemented).
 **File**: `tests/integration/test_scenarios.py::test_scenario_7_csv_export`
 **Description**: From quickstart.md Scenario 7:
 - Export to CSV using LocalDatabase.export_to_csv()
-- Assert: 3 columns (canonical_name, variations, occurrence_counts)
+- Assert: 3 columns (canonicalName, variations, occurrenceCounts)
 - Assert: No confidence columns
 - Assert: Semicolon-separated values, counts align with variations
 **Dependencies**: T002, T005
@@ -463,9 +463,9 @@ Use pytest-benchmark for timing.
 **Description**: From spec FR-013 to FR-016 and research.md Section 2:
 - Implement CanonicalizerProtocol from pipeline_contracts.py
 - `canonicalize(CanonicalizationInput) -> CanonicalizationOutput`
-- Use LocalDatabase.find_similar_entities(normalized_name, entity_type, threshold=0.70)
+- Use LocalDatabase.find_similar_entities(normalized_name, entityType, threshold=0.70)
 - If similar entity found (similarity ≥0.70): update variations, return is_new_entity=False
-- Else: create new CanonicalEntity with canonical_name in "Sobrenome, Iniciais" format (for Pessoa)
+- Else: create new CanonicalEntity with canonicalName in "Sobrenome, Iniciais" format (for Pessoa)
 - Calculate grouping_confidence using similarity_score from algorithms
 - Raise ValueError if grouping_confidence < 0.70
 **Dependencies**: T013 (integration test failing), T019 (models), T020 (similarity algorithms), T025 (LocalDatabase)
@@ -491,7 +491,7 @@ Use pytest-benchmark for timing.
 - Implement LocalDatabaseProtocol from pipeline_contracts.py
 - `upsert_entity(CanonicalEntity) -> CanonicalEntity`: Insert new or update existing
   - Update: increment variation occurrence_count, update last_seen timestamp
-- `find_similar_entities(normalized_name, entity_type, threshold=0.70) -> List[tuple[CanonicalEntity, float]]`:
+- `find_similar_entities(normalized_name, entityType, threshold=0.70) -> List[tuple[CanonicalEntity, float]]`:
   - Load all entities of same type, calculate similarity scores, return those ≥threshold
 - `get_all_entities() -> List[CanonicalEntity]`: Retrieve all for CSV export
 - JSON handling: serialize/deserialize variations array
@@ -505,9 +505,9 @@ Use pytest-benchmark for timing.
 **Description**: From spec FR-025:
 - Implement `export_to_csv(output_path: str) -> None`
 - Retrieve all entities, format as CSVReportRow:
-  - canonical_name: entity.canonical_name
+  - canonicalName: entity.canonicalName
   - variations: ";".join([v.variation_text for v in entity.variations])
-  - occurrence_counts: ";".join([str(v.occurrence_count) for v in entity.variations])
+  - occurrenceCounts: ";".join([str(v.occurrence_count) for v in entity.variations])
 - Write to CSV with pandas (3 columns, NO confidence scores)
 **Dependencies**: T026 (CRUD ready), T002 (pandas installed)
 **Acceptance**: T016 Scenario 7 PASSES (CSV format valid, no confidence columns)
@@ -656,7 +656,7 @@ Use pytest-benchmark for timing.
 - Usage: `python src/cli.py --config config.yaml --workers 8`
 - Testing: `pytest tests/`
 - Performance: Expected 213 rec/sec, 6-hour processing for 4.6M records
-- Output: CSV format (canonical_name, variations, counts), local DB location
+- Output: CSV format (canonicalName, variations, counts), local DB location
 **Dependencies**: T028 (CLI ready)
 **Acceptance**: README complete, clear usage instructions
 

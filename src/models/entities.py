@@ -91,7 +91,7 @@ class CanonicalEntity(BaseModel):
 
     id: int | None = None
     canonicalName: str
-    entity_type: EntityType
+    entityType: EntityType
     classification_confidence: float = Field(ge=0.70, le=1.0)
     grouping_confidence: float = Field(ge=0.70, le=1.0)
     variations: List[NameVariation] = Field(min_length=1)

@@ -190,15 +190,15 @@ Exemplos:
 ```sql
 -- Tabela única desnormalizada (DuckDB)
 CREATE TABLE canonical_entities (
-    id INTEGER PRIMARY KEY,
-    canonical_name TEXT NOT NULL,
-    entity_type TEXT CHECK(entity_type IN
-        ('Pessoa', 'GrupoPessoas', 'Empresa', 'NaoDeterminado')),
-    classification_confidence REAL CHECK(0.70 <= value <= 1.0),
-    grouping_confidence REAL CHECK(0.70 <= value <= 1.0),
-    variations JSON NOT NULL, -- Array de variações
-    created_at TIMESTAMP,
-    updated_at TIMESTAMP
+  id INTEGER PRIMARY KEY,
+  canonicalName TEXT NOT NULL,
+  entityType TEXT CHECK(entityType IN
+    ('Pessoa', 'GrupoPessoas', 'Empresa', 'NaoDeterminado')),
+  classification_confidence REAL CHECK(0.70 <= value <= 1.0),
+  grouping_confidence REAL CHECK(0.70 <= value <= 1.0),
+  variations JSON NOT NULL, -- Array de variações
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
 );
 ```
 
@@ -346,7 +346,7 @@ python src/cli.py --config config.yaml --output ./meu_relatorio.csv
    - Persistente para análises futuras
 
 2. **Relatório CSV**: `./output/canonical_report.csv`
-   - 4 colunas: `canonicalName`, `entity_type`, `variations`, `occurrence_counts`
+  - 4 colunas: `canonicalName`, `entityType`, `variations`, `occurrenceCounts`
    - Separador: TAB (tabulação)
    - Variações separadas por `;`
    - Contagens alinhadas com variações
@@ -354,7 +354,7 @@ python src/cli.py --config config.yaml --output ./meu_relatorio.csv
 **Exemplo do CSV** (separado por TAB):
 
 ```text
-canonicalName    entity_type    variations                                   occurrence_counts
+canonicalName    entityType    variations                                   occurrenceCounts
 "Forzza, R.C."    Pessoa         Forzza, R.C.;R.C. Forzza;Rafaela C. Forzza    1523;847;234
 "Silva, J."       Pessoa         Silva, J.;J. Silva                          2891;1205
 "EMBRAPA"         Empresa        EMBRAPA                                      45
