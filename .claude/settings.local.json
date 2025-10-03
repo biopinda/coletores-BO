@@ -33,7 +33,8 @@
       "Bash(python:*)",
       "Bash(Forzza, R.C.)",
       "Bash(Pessoa)",
-      "Bash(Silva, J.)"
+      "Bash(Silva, J.)",
+      "Bash(echo:*)"
     ],
     "deny": [],
     "ask": []
