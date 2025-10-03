@@ -40,8 +40,9 @@ class LocalDatabase:
             )
         """)
 
+        # Non-unique index for better performance (allow temporary duplicates)
         self.conn.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_canonical_name_type ON canonical_entities(canonical_name, entity_type)"
+            "CREATE INDEX IF NOT EXISTS idx_canonical_name_type ON canonical_entities(canonical_name, entity_type)"
         )
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_entity_type ON canonical_entities(entity_type)"
