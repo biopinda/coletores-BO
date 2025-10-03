@@ -1,111 +1,111 @@
-# Sistema de IdentificaÃ§Ã£o e CanonicalizaÃ§Ã£o de Coletores de Plantas
+# Sistema de Identificação e Canonicalização de Coletores de Plantas
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-Sistema de processamento de linguagem natural (NLP) para identificar, classificar e canonicalizar nomes de coletores de plantas em registros de herbÃ¡rios digitais.
+Sistema de processamento de linguagem natural (NLP) para identificar, classificar e canonicalizar nomes de coletores de plantas em registros de herbários digitais.
 
 ---
 
-## ð SumÃ¡rio
+## 📋 Sumário
 
 - [Sobre o Projeto](#-sobre-o-projeto)
 - [O Problema](#-o-problema)
-- [A SoluÃ§Ã£o](#-a-soluÃ§Ã£o)
-- [Arquitetura TÃ©cnica](#-arquitetura-tÃ©cnica)
-- [InstalaÃ§Ã£o](#-instalaÃ§Ã£o)
+- [A Solução](#-a-solução)
+- [Arquitetura Técnica](#-arquitetura-técnica)
+- [Instalação](#-instalação)
 - [Uso](#-uso)
 - [Estrutura do Projeto](#-estrutura-do-projeto)
 - [Desenvolvimento](#-desenvolvimento)
 - [Roadmap](#-roadmap)
-- [LicenÃ§a](#-licenÃ§a)
+- [Licença](#-licença)
 
 ---
 
-## ð¿ Sobre o Projeto
+## 🌿 Sobre o Projeto
 
-Este projeto foi desenvolvido para resolver um problema crÃ­tico na curadoria de coleÃ§Ãµes botÃ¢nicas digitais: a inconsistÃªncia na representaÃ§Ã£o de nomes de coletores de plantas.
+Este projeto foi desenvolvido para resolver um problema crítico na curadoria de coleções botânicas digitais: a inconsistência na representação de nomes de coletores de plantas.
 
-Em bancos de dados de herbÃ¡rios, o mesmo coletor pode aparecer de diversas formas:
+Em bancos de dados de herbários, o mesmo coletor pode aparecer de diversas formas:
 - "Forzza, R.C."
 - "Forzza, R."
 - "R.C. Forzza"
 - "Rafaela C. Forzza"
 
-Essas variaÃ§Ãµes dificultam anÃ¡lises quantitativas, estudos de redes de colaboraÃ§Ã£o e a identificaÃ§Ã£o correta de contribuiÃ§Ãµes cientÃ­ficas individuais.
+Essas variações dificultam análises quantitativas, estudos de redes de colaboração e a identificação correta de contribuições científicas individuais.
 
 ### Contexto
 
-Com aproximadamente **4.6 milhÃµes de registros** de plantas (kingdom = "Plantae") em bases de dados MongoDB de herbÃ¡rios brasileiros, a padronizaÃ§Ã£o manual Ã© inviÃ¡vel. Este sistema automatiza o processo atravÃ©s de um pipeline de NLP robusto e eficiente.
+Com aproximadamente **4.6 milhões de registros** de plantas (kingdom = "Plantae") em bases de dados MongoDB de herbários brasileiros, a padronização manual é inviável. Este sistema automatiza o processo através de um pipeline de NLP robusto e eficiente.
 
 ---
 
-## ð¯ O Problema
+## 🎯 O Problema
 
 ### Desafios Identificados
 
-1. **MÃºltiplas representaÃ§Ãµes do mesmo coletor**
-   - VariaÃ§Ãµes de formataÃ§Ã£o: "Silva, J." vs "J. Silva"
-   - Diferentes nÃ­veis de detalhe: "Santos, M." vs "Maria Santos"
-   - Erros de digitaÃ§Ã£o e inconsistÃªncias
+1. **Múltiplas representações do mesmo coletor**
+   - Variações de formatação: "Silva, J." vs "J. Silva"
+   - Diferentes níveis de detalhe: "Santos, M." vs "Maria Santos"
+   - Erros de digitação e inconsistências
 
-2. **ClassificaÃ§Ã£o ambÃ­gua**
-   - Nomes prÃ³prios individuais vs. grupos de pessoas
-   - InstituiÃ§Ãµes vs. equipes de pesquisa
-   - Registros sem identificaÃ§Ã£o ("?", "sem coletor")
+2. **Classificação ambígua**
+   - Nomes próprios individuais vs. grupos de pessoas
+   - Instituições vs. equipes de pesquisa
+   - Registros sem identificação ("?", "sem coletor")
 
 3. **Volume e Performance**
-   - Processar 4.6 milhÃµes de registros
-   - Tempo limitado: mÃ¡ximo 6 horas de processamento
-   - Requisito: â¥213 registros/segundo
+   - Processar 4.6 milhões de registros
+   - Tempo limitado: máximo 6 horas de processamento
+   - Requisito: ≥213 registros/segundo
 
-4. **Dados nÃ£o estruturados**
-   - Strings livres com mÃºltiplos formatos
+4. **Dados não estruturados**
+   - Strings livres com múltiplos formatos
    - Separadores variados (";", "&", "et al.")
    - Mistura de idiomas e caracteres especiais
 
 ---
 
-## ð¡ A SoluÃ§Ã£o
+## 💡 A Solução
 
 ### Pipeline de Processamento em 4 Etapas
 
-O sistema implementa um pipeline sequencial de transformaÃ§Ã£o de dados:
+O sistema implementa um pipeline sequencial de transformação de dados:
 
 ```
 Entrada: "Silva, J. & R.C. Forzza; Santos, M. et al."
-    â
-[1] CLASSIFICAÃÃO â "conjunto_pessoas" (confianÃ§a: 0.95)
-    â
-[2] ATOMIZAÃÃO â ["Silva, J.", "R.C. Forzza", "Santos, M."]
-    â
-[3] NORMALIZAÃÃO â Para cada nome individual
-    â
-[4] CANONICALIZAÃÃO â Agrupamento por similaridade
-    â
-SaÃ­da: Entidades canÃ´nicas com variaÃ§Ãµes agrupadas
+    ↓
+[1] CLASSIFICAÇÃO → "conjunto_pessoas" (confiança: 0.95)
+    ↓
+[2] ATOMIZAÇÃO → ["Silva, J.", "R.C. Forzza", "Santos, M."]
+    ↓
+[3] NORMALIZAÇÃO → Para cada nome individual
+    ↓
+[4] CANONICALIZAÇÃO → Agrupamento por similaridade
+    ↓
+Saída: Entidades canônicas com variações agrupadas
 ```
 
-### 1. ClassificaÃ§Ã£o
+### 1. Classificação
 
-Categoriza cada string em **5 tipos** usando reconhecimento de padrÃµes:
+Categoriza cada string em **5 tipos** usando reconhecimento de padrões:
 
-| Categoria | DescriÃ§Ã£o | Exemplo |
+| Categoria | Descrição | Exemplo |
 |-----------|-----------|---------|
-| **Pessoa** | Nome prÃ³prio individual | "Silva, J.C.", "Maria Santos" |
-| **Conjunto de Pessoas** | MÃºltiplos nomes para atomizaÃ§Ã£o | "Silva, J.; Santos, M." |
-| **Grupo de Pessoas** | DenominaÃ§Ã£o genÃ©rica sem nomes | "Equipe de pesquisa" |
-| **Empresa/InstituiÃ§Ã£o** | AcrÃ´nimos e cÃ³digos | "EMBRAPA", "USP", "INPA" |
-| **NÃ£o Determinado** | Sem identificaÃ§Ã£o | "?", "sem coletor" |
+| **Pessoa** | Nome próprio individual | "Silva, J.C.", "Maria Santos" |
+| **Conjunto de Pessoas** | Múltiplos nomes para atomização | "Silva, J.; Santos, M." |
+| **Grupo de Pessoas** | Denominação genérica sem nomes | "Equipe de pesquisa" |
+| **Empresa/Instituição** | Acrônimos e códigos | "EMBRAPA", "USP", "INPA" |
+| **Não Determinado** | Sem identificação | "?", "sem coletor" |
 
-**ConfianÃ§a mÃ­nima**: 0.70 (classificaÃ§Ãµes abaixo sÃ£o sinalizadas para revisÃ£o manual)
+**Confiança mínima**: 0.70 (classificações abaixo são sinalizadas para revisão manual)
 
-### 2. AtomizaÃ§Ã£o
+### 2. Atomização
 
 Separa conjuntos de pessoas em nomes individuais:
 
-- **Separadores reconhecidos**: `;` (ponto-e-vÃ­rgula), `&` (e comercial), `et al.`
-- **Preserva formataÃ§Ã£o original** para rastreabilidade
+- **Separadores reconhecidos**: `;` (ponto-e-vírgula), `&` (e comercial), `et al.`
+- **Preserva formatação original** para rastreabilidade
 - **Registra ordem** dos nomes na string original
 
 **Exemplo**:
@@ -118,69 +118,69 @@ Output: [
 ]
 ```
 
-### 3. NormalizaÃ§Ã£o
+### 3. Normalização
 
-Padroniza nomes para comparaÃ§Ã£o, aplicando **3 regras**:
+Padroniza nomes para comparação, aplicando **3 regras**:
 
-1. **Remove espaÃ§os extras**: `"  Silva,J.C. "` â `"Silva,J.C."`
-2. **Padroniza pontuaÃ§Ã£o**: `"Silva,J"` â `"Silva, J"`
-3. **Converte para maiÃºsculas**: `"Silva, j.c."` â `"SILVA, J.C."`
+1. **Remove espaços extras**: `"  Silva,J.C. "` → `"Silva,J.C."`
+2. **Padroniza pontuação**: `"Silva,J"` → `"Silva, J"`
+3. **Converte para maiúsculas**: `"Silva, j.c."` → `"SILVA, J.C."`
 
-**Importante**: A formataÃ§Ã£o original Ã© **preservada** para exibiÃ§Ã£o, enquanto a versÃ£o normalizada Ã© usada apenas para matching.
+**Importante**: A formatação original é **preservada** para exibição, enquanto a versão normalizada é usada apenas para matching.
 
-### 4. CanonicalizaÃ§Ã£o
+### 4. Canonicalização
 
-Agrupa variaÃ§Ãµes similares sob um **nome canÃ´nico** usando algoritmos de similaridade combinados:
+Agrupa variações similares sob um **nome canônico** usando algoritmos de similaridade combinados:
 
 #### Algoritmos de Similaridade
 
-| Algoritmo | Peso | PropÃ³sito |
+| Algoritmo | Peso | Propósito |
 |-----------|------|-----------|
-| **Levenshtein** | 40% | Detecta erros de digitaÃ§Ã£o e transposiÃ§Ãµes |
+| **Levenshtein** | 40% | Detecta erros de digitação e transposições |
 | **Jaro-Winkler** | 40% | Otimizado para strings curtas (sobrenomes) |
-| **PhonÃ©tico (Metaphone)** | 20% | Captura variaÃ§Ãµes fonÃ©ticas |
+| **Phonético (Metaphone)** | 20% | Captura variações fonéticas |
 
-**Score final**: MÃ©dia ponderada â¥ 0.70 para agrupamento
+**Score final**: Média ponderada ≥ 0.70 para agrupamento
 
 **Exemplo de agrupamento**:
 ```
-VariaÃ§Ãµes detectadas:
-- "Forzza, R.C." (1523 ocorrÃªncias)
-- "Forzza, R." (847 ocorrÃªncias)
-- "R.C. Forzza" (234 ocorrÃªncias)
-- "Rafaela C. Forzza" (89 ocorrÃªncias)
+Variações detectadas:
+- "Forzza, R.C." (1523 ocorrências)
+- "Forzza, R." (847 ocorrências)
+- "R.C. Forzza" (234 ocorrências)
+- "Rafaela C. Forzza" (89 ocorrências)
 
-Nome canÃ´nico: "Forzza, R.C."
-Total de ocorrÃªncias: 2693
+Nome canônico: "Forzza, R.C."
+Total de ocorrências: 2693
 ```
 
-### Formato CanÃ´nico
+### Formato Canônico
 
-Para entidades do tipo **Pessoa**, o sistema aplica o formato padrÃ£o:
+Para entidades do tipo **Pessoa**, o sistema aplica o formato padrão:
 
 **"Sobrenome, Iniciais"**
 
 Exemplos:
-- Todas as variaÃ§Ãµes de "Forzza" â `"Forzza, R.C."`
-- Todas as variaÃ§Ãµes de "Silva" â `"Silva, J."`
+- Todas as variações de "Forzza" → `"Forzza, R.C."`
+- Todas as variações de "Silva" → `"Silva, J."`
 
 ---
 
-## ðï¸ Arquitetura TÃ©cnica
+## 🏗️ Arquitetura Técnica
 
-### Stack TecnolÃ³gico
+### Stack Tecnológico
 
 - **Linguagem**: Python 3.11+
 - **Processamento NLP**:
-  - `python-Levenshtein` - CÃ¡lculo de distÃ¢ncia de ediÃ§Ã£o
-  - `jellyfish` - Jaro-Winkler e algoritmos fonÃ©ticos (Metaphone, Soundex)
+  - `python-Levenshtein` - Cálculo de distância de edição
+  - `jellyfish` - Jaro-Winkler e algoritmos fonéticos (Metaphone, Soundex)
 - **Banco de Dados**:
   - **MongoDB** - Fonte de dados (4.6M registros)
-  - **DuckDB** - Armazenamento local otimizado para anÃ¡lises
-- **ManipulaÃ§Ã£o de Dados**:
+  - **DuckDB** - Armazenamento local otimizado para análises
+- **Manipulação de Dados**:
   - `pymongo` - Cliente MongoDB
-  - `pandas` - ExportaÃ§Ã£o CSV e processamento tabular
-  - `pydantic` - ValidaÃ§Ã£o de schemas e type safety
+  - `pandas` - Exportação CSV e processamento tabular
+  - `pydantic` - Validação de schemas e type safety
 - **Interface**:
   - `click` - CLI intuitivo
   - `tqdm` - Barras de progresso
@@ -188,7 +188,7 @@ Exemplos:
 ### Modelo de Dados
 
 ```sql
--- Tabela Ãºnica desnormalizada (DuckDB)
+-- Tabela única desnormalizada (DuckDB)
 CREATE TABLE canonical_entities (
     id INTEGER PRIMARY KEY,
     canonical_name TEXT NOT NULL,
@@ -196,13 +196,13 @@ CREATE TABLE canonical_entities (
         ('Pessoa', 'GrupoPessoas', 'Empresa', 'NaoDeterminado')),
     classification_confidence REAL CHECK(0.70 <= value <= 1.0),
     grouping_confidence REAL CHECK(0.70 <= value <= 1.0),
-    variations JSON NOT NULL, -- Array de variaÃ§Ãµes
+    variations JSON NOT NULL, -- Array de variações
     created_at TIMESTAMP,
     updated_at TIMESTAMP
 );
 ```
 
-**VariaÃ§Ãµes em JSON**:
+**Variações em JSON**:
 ```json
 [
   {
@@ -219,64 +219,64 @@ CREATE TABLE canonical_entities (
 
 #### Requisitos
 
-- **Throughput**: â¥213 registros/segundo
-- **Tempo total**: â¤6 horas para 4.6M registros
-- **MemÃ³ria**: Streaming eficiente (sem carregar todos os registros em RAM)
+- **Throughput**: ≥213 registros/segundo
+- **Tempo total**: ≤6 horas para 4.6M registros
+- **Memória**: Streaming eficiente (sem carregar todos os registros em RAM)
 
-#### EstratÃ©gia de ParalelizaÃ§Ã£o
+#### Estratégia de Paralelização
 
 ```
 MongoDB (4.6M registros)
-    â
+    ↓
 Batch Reader (chunks de 10K)
-    â
+    ↓
 Worker Pool (8 processos paralelos)
-    â [Pipeline completo por batch]
-    â
+    ↓ [Pipeline completo por batch]
+    ↓
 Results Aggregator (DuckDB com WAL)
-    â
+    ↓
 Banco de Dados Local
 ```
 
 - **Multiprocessing**: 8 workers em CPU moderna
 - **Batch processing**: Chunks de 10.000 registros
-- **Cursor streaming**: MongoDB batch_size=1000 (eficiÃªncia de memÃ³ria)
+- **Cursor streaming**: MongoDB batch_size=1000 (eficiência de memória)
 
 ### Garantias de Qualidade
 
-#### Limiar de ConfianÃ§a
+#### Limiar de Confiança
 
-Todas as operaÃ§Ãµes respeitam **confianÃ§a mÃ­nima de 0.70**:
+Todas as operações respeitam **confiança mínima de 0.70**:
 
-- â ConfianÃ§a â¥ 0.70: Aceita automaticamente
-- â ï¸ ConfianÃ§a < 0.70: Sinaliza para revisÃ£o manual
+- ✅ Confiança ≥ 0.70: Aceita automaticamente
+- ⚠️ Confiança < 0.70: Sinaliza para revisão manual
 
 #### Type Safety
 
-- **Pydantic models**: ValidaÃ§Ã£o em runtime
-- **mypy strict mode**: VerificaÃ§Ã£o estÃ¡tica de tipos
-- **100% type hints**: Todo cÃ³digo pÃºblico tipado
+- **Pydantic models**: Validação em runtime
+- **mypy strict mode**: Verificação estática de tipos
+- **100% type hints**: Todo código público tipado
 
 #### Testes
 
-- **Cobertura mÃ­nima**: 80% (100% em lÃ³gica de negÃ³cio)
-- **Contract tests**: Schemas de entrada/saÃ­da
-- **Integration tests**: 7 cenÃ¡rios de aceitaÃ§Ã£o
+- **Cobertura mínima**: 80% (100% em lógica de negócio)
+- **Contract tests**: Schemas de entrada/saída
+- **Integration tests**: 7 cenários de aceitação
 - **Performance tests**: Benchmarks com pytest-benchmark
 
 ---
 
-## ð InstalaÃ§Ã£o
+## 🚀 Instalação
 
-### PrÃ©-requisitos
+### Pré-requisitos
 
 - Python 3.11 ou superior
 - MongoDB rodando (local ou remoto)
-- 4GB RAM mÃ­nimo (8GB recomendado)
+- 4GB RAM mínimo (8GB recomendado)
 
 ### Passos
 
-1. **Clone o repositÃ³rio**
+1. **Clone o repositório**
 ```bash
 git clone https://github.com/biopinda/coletores-BO.git
 cd coletores-BO
@@ -293,7 +293,7 @@ venv\Scripts\activate
 source venv/bin/activate
 ```
 
-3. **Instale as dependÃªncias**
+3. **Instale as dependências**
 ```bash
 pip install -r requirements.txt
 ```
@@ -314,43 +314,41 @@ local_db:
 
 processing:
   batch_size: 10000
-  workers: 8
   confidence_threshold: 0.70
 ```
 
 ---
 
-## ð» Uso
+## 💻 Uso
 
-### Processamento BÃ¡sico
+### Processamento Básico
 
 ```bash
 python src/cli.py --config config.yaml
 ```
 
-### OpÃ§Ãµes AvanÃ§adas
+### Opções Avançadas
 
 ```bash
-# Processar com 16 workers (CPU com muitos cores)
-python src/cli.py --config config.yaml --workers 16
+python src/cli.py --config config.yaml 
 
 # Processar apenas primeiros 100K registros (teste)
 python src/cli.py --config config.yaml --max-records 100000
 
-# Especificar arquivo de saÃ­da CSV customizado
+# Especificar arquivo de saída CSV customizado
 python src/cli.py --config config.yaml --output ./meu_relatorio.csv
 ```
 
-### SaÃ­das Geradas
+### Saídas Geradas
 
 1. **Banco de dados local**: `./data/canonical_entities.db` (DuckDB)
-   - ContÃ©m todas as entidades canÃ´nicas e variaÃ§Ãµes
-   - Persistente para anÃ¡lises futuras
+   - Contém todas as entidades canônicas e variações
+   - Persistente para análises futuras
 
-2. **RelatÃ³rio CSV**: `./output/canonical_report.csv`
+2. **Relatório CSV**: `./output/canonical_report.csv`
    - 4 colunas: `canonical_name`, `entity_type`, `variations`, `occurrence_counts`
-   - VariaÃ§Ãµes separadas por `;`
-   - Contagens alinhadas com variaÃ§Ãµes
+   - Variações separadas por `;`
+   - Contagens alinhadas com variações
 
 **Exemplo do CSV**:
 ```csv
@@ -360,60 +358,60 @@ canonical_name,entity_type,variations,occurrence_counts
 "EMBRAPA",Empresa,"EMBRAPA","45"
 ```
 
-3. **DocumentaÃ§Ã£o de regras**: `./docs/rules.md`
-   - Regras editÃ¡veis do algoritmo
+3. **Documentação de regras**: `./docs/rules.md`
+   - Regras editáveis do algoritmo
    - Permite refinamento iterativo
 
 ---
 
-## ð Estrutura do Projeto
+## 📂 Estrutura do Projeto
 
 ```
 coletores-BO/
-âââ src/                        # CÃ³digo-fonte principal
-â   âââ pipeline/               # EstÃ¡gios do pipeline
-â   â   âââ classifier.py       # ClassificaÃ§Ã£o
-â   â   âââ atomizer.py         # AtomizaÃ§Ã£o
-â   â   âââ normalizer.py       # NormalizaÃ§Ã£o
-â   â   âââ canonicalizer.py    # CanonicalizaÃ§Ã£o
-â   âââ algorithms/             # Algoritmos de similaridade
-â   â   âââ similarity.py       # Levenshtein, Jaro-Winkler
-â   â   âââ phonetic.py         # Metaphone, Soundex
-â   âââ models/                 # Modelos de dados
-â   â   âââ entities.py         # Entidades Pydantic
-â   â   âââ schemas.py          # Schemas I/O
-â   âââ storage/                # Adaptadores de armazenamento
-â   â   âââ mongodb_client.py   # Cliente MongoDB
-â   â   âââ local_db.py         # Cliente DuckDB
-â   âââ cli.py                  # Interface CLI
-â   âââ config.py               # Gerenciamento de configuraÃ§Ã£o
-â
-âââ tests/                      # Testes automatizados
-â   âââ contract/               # Testes de contrato
-â   âââ integration/            # Testes de integraÃ§Ã£o
-â   âââ unit/                   # Testes unitÃ¡rios
-â
-âââ docs/                       # DocumentaÃ§Ã£o
-â   âââ rules.md                # Regras editÃ¡veis do algoritmo
-â
-âââ specs/                      # EspecificaÃ§Ãµes do projeto
-â   âââ 001-especificacao-leia-o/
-â       âââ spec.md             # EspecificaÃ§Ã£o funcional
-â       âââ plan.md             # Plano de implementaÃ§Ã£o
-â       âââ research.md         # Pesquisa tÃ©cnica
-â       âââ data-model.md       # Modelo de dados
-â       âââ quickstart.md       # Guia de validaÃ§Ã£o
-â       âââ tasks.md            # 40 tarefas de implementaÃ§Ã£o
-â       âââ contracts/          # Contratos de interface
-â
-âââ config.yaml                 # ConfiguraÃ§Ã£o principal
-âââ requirements.txt            # DependÃªncias Python
-âââ README.md                   # Este arquivo
+├─ src/                        # Código-fonte principal
+│   ├─ pipeline/               # Estágios do pipeline
+│   │   ├─ classifier.py       # Classificação
+│   │   ├─ atomizer.py         # Atomização
+│   │   ├─ normalizer.py       # Normalização
+│   │   └─ canonicalizer.py    # Canonicalização
+│   ├─ algorithms/             # Algoritmos de similaridade
+│   │   ├─ similarity.py       # Levenshtein, Jaro-Winkler
+│   │   └─ phonetic.py         # Metaphone, Soundex
+│   ├─ models/                 # Modelos de dados
+│   │   ├─ entities.py         # Entidades Pydantic
+│   │   └─ schemas.py          # Schemas I/O
+│   ├─ storage/                # Adaptadores de armazenamento
+│   │   ├─ mongodb_client.py   # Cliente MongoDB
+│   │   └─ local_db.py         # Cliente DuckDB
+│   ├─ cli.py                  # Interface CLI
+│   └─ config.py               # Gerenciamento de configuração
+│
+├─ tests/                      # Testes automatizados
+│   ├─ contract/               # Testes de contrato
+│   ├─ integration/            # Testes de integração
+│   └─ unit/                   # Testes unitários
+│
+├─ docs/                       # Documentação
+│   └─ rules.md                # Regras editáveis do algoritmo
+│
+├─ specs/                      # Especificações do projeto
+│   └─ 001-especificacao-leia-o/
+│       ├─ spec.md             # Especificação funcional
+│       ├─ plan.md             # Plano de implementação
+│       ├─ research.md         # Pesquisa técnica
+│       ├─ data-model.md       # Modelo de dados
+│       ├─ quickstart.md       # Guia de validação
+│       ├─ tasks.md            # 40 tarefas de implementação
+│       └─ contracts/          # Contratos de interface
+│
+├─ config.yaml                 # Configuração principal
+├─ requirements.txt            # Dependências Python
+└─ README.md                   # Este arquivo
 ```
 
 ---
 
-## ð ï¸ Desenvolvimento
+## 🛠️ Desenvolvimento
 
 ### Executar Testes
 
@@ -431,7 +429,7 @@ pytest --cov=src --cov-report=term-missing
 pytest tests/unit/test_algorithms.py --benchmark-only
 ```
 
-### VerificaÃ§Ã£o de Qualidade
+### Verificação de Qualidade
 
 ```bash
 # Type checking
@@ -440,16 +438,16 @@ mypy src/ --strict
 # Linting
 ruff check src/
 
-# FormataÃ§Ã£o
+# Formatação
 black --check src/
 ```
 
-### Adicionar Novos PadrÃµes de ClassificaÃ§Ã£o
+### Adicionar Novos Padrões de Classificação
 
-Edite `docs/rules.md` e ajuste os padrÃµes em `src/pipeline/classifier.py`:
+Edite `docs/rules.md` e ajuste os padrões em `src/pipeline/classifier.py`:
 
 ```python
-# Exemplo: adicionar novo padrÃ£o institucional
+# Exemplo: adicionar novo padrão institucional
 INSTITUTION_PATTERNS = [
     r'^EMBRAPA$',
     r'^USP$',
@@ -465,82 +463,85 @@ Edite `config.yaml`:
 ```yaml
 algorithms:
   similarity_weights:
-    levenshtein: 0.5      # Aumentar peso de ediÃ§Ã£o
+    levenshtein: 0.5      # Aumentar peso de edição
     jaro_winkler: 0.3     # Reduzir peso de prefixo
-    phonetic: 0.2         # Manter peso fonÃ©tico
+    phonetic: 0.2         # Manter peso fonético
 ```
 
 ---
 
-## ðºï¸ Roadmap
+## 🗺️ Roadmap
 
-### Fase 1: ImplementaÃ§Ã£o Core (Atual)
+### Fase 1: Implementação Core (Atual)
+
 - [x] Estrutura do projeto
-- [x] EspecificaÃ§Ãµes e planejamento
+- [x] Especificações e planejamento
 - [x] Contratos de interface
-- [ ] ImplementaÃ§Ã£o do pipeline (Tarefas T002-T030)
+- [ ] Implementação do pipeline (Tarefas T002-T030)
 - [ ] Testes automatizados
-- [ ] ValidaÃ§Ã£o com 4.6M registros
+- [ ] Validação com 4.6M registros
 
 ### Fase 2: Refinamento (Futuro)
-- [ ] Interface web para revisÃ£o manual de baixa confianÃ§a
-- [ ] Dashboard de mÃ©tricas e visualizaÃ§Ãµes
-- [ ] API REST para integraÃ§Ã£o com outros sistemas
-- [ ] Suporte a mÃºltiplos idiomas
-- [ ] Machine Learning para aprimorar classificaÃ§Ã£o
+
+- [ ] Interface web para revisão manual de baixa confiança
+- [ ] Dashboard de métricas e visualizações
+- [ ] API REST para integração com outros sistemas
+- [ ] Suporte a múltiplos idiomas
+- [ ] Machine Learning para aprimorar classificação
 
 ### Fase 3: Escalabilidade (Futuro)
-- [ ] Processamento distribuÃ­do (Dask/Spark)
+
+- [ ] Processamento distribuído (Dask/Spark)
 - [ ] Cache inteligente de similaridades
-- [ ] ExportaÃ§Ã£o para mÃºltiplos formatos (JSON, Parquet)
-- [ ] Versionamento de entidades canÃ´nicas
+- [ ] Exportação para múltiplos formatos (JSON, Parquet)
+- [ ] Versionamento de entidades canônicas
 
 ---
 
-## ð EspecificaÃ§Ãµes TÃ©cnicas Detalhadas
+## 📊 Especificações Técnicas Detalhadas
 
-Para informaÃ§Ãµes tÃ©cnicas completas, consulte:
+Para informações técnicas completas, consulte:
 
-- **EspecificaÃ§Ã£o Funcional**: `specs/001-especificacao-leia-o/spec.md`
-- **Plano de ImplementaÃ§Ã£o**: `specs/001-especificacao-leia-o/plan.md`
-- **Pesquisa TÃ©cnica**: `specs/001-especificacao-leia-o/research.md`
+- **Especificação Funcional**: `specs/001-especificacao-leia-o/spec.md`
+- **Plano de Implementação**: `specs/001-especificacao-leia-o/plan.md`
+- **Pesquisa Técnica**: `specs/001-especificacao-leia-o/research.md`
 - **Modelo de Dados**: `specs/001-especificacao-leia-o/data-model.md`
-- **Tarefas de ImplementaÃ§Ã£o**: `specs/001-especificacao-leia-o/tasks.md`
+- **Tarefas de Implementação**: `specs/001-especificacao-leia-o/tasks.md`
 
 ---
 
-## ð LicenÃ§a
+## 📄 Licença
 
-Este projeto estÃ¡ sob a licenÃ§a MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
 ---
 
-## ð¤ Contribuindo
+## 🤝 Contribuindo
 
-ContribuiÃ§Ãµes sÃ£o bem-vindas! Por favor:
+Contribuições são bem-vindas! Por favor:
 
 1. Fork o projeto
 2. Crie uma branch para sua feature (`git checkout -b feature/MinhaFeature`)
-3. Commit suas mudanÃ§as (`git commit -m 'Adiciona MinhaFeature'`)
+3. Commit suas mudanças (`git commit -m 'Adiciona MinhaFeature'`)
 4. Push para a branch (`git push origin feature/MinhaFeature`)
 5. Abra um Pull Request
 
 ---
 
-## ð§ Contato
+## 📧 Contato
 
-**Projeto**: Sistema de IdentificaÃ§Ã£o e CanonicalizaÃ§Ã£o de Coletores de Plantas
-**RepositÃ³rio**: https://github.com/biopinda/coletores-BO
-**OrganizaÃ§Ã£o**: BioPinda
+**Projeto**: Sistema de Identificação e Canonicalização de Coletores de Plantas
+**Repositório**: [https://github.com/biopinda/coletores-BO](https://github.com/biopinda/coletores-BO)
+**Organização**: BioPinda
 
 ---
 
-## ð Agradecimentos
+## 🙏 Agradecimentos
 
-- HerbÃ¡rios brasileiros que disponibilizam dados abertos
-- Comunidade cientÃ­fica de botÃ¢nica sistemÃ¡tica
+- Herbários brasileiros que disponibilizam dados abertos
+- Comunidade científica de botânica sistemática
 - Desenvolvedores das bibliotecas open-source utilizadas
 
 ---
 
-**Desenvolvido com ð¿ para a ciÃªncia botÃ¢nica brasileira**
+Desenvolvido com 🌿 para a ciência botânica brasileira

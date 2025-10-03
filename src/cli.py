@@ -3,7 +3,6 @@
 import logging
 import time
 from datetime import datetime
-from multiprocessing import Pool
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -122,21 +121,18 @@ def process_single_record(
 
 @click.command()
 @click.option("--config", default="config.yaml", help="Path to configuration file")
-@click.option("--workers", default=None, type=int, help="Number of parallel workers")
 @click.option("--batch-size", default=None, type=int, help="Batch size for processing")
 @click.option("--max-records", default=None, type=int, help="Maximum records to process (for testing)")
-def main(config: str, workers: int | None, batch_size: int | None, max_records: int | None):
+def main(config: str, batch_size: int | None, max_records: int | None):
     """Run the collector canonicalization pipeline"""
     # Load configuration
     cfg = Config.from_yaml(config)
 
     # Override with CLI arguments
-    if workers is None:
-        workers = cfg.processing.workers
     if batch_size is None:
         batch_size = cfg.processing.batch_size
 
-    logger.info(f"Starting pipeline with {workers} workers, batch size {batch_size}")
+    logger.info(f"Starting pipeline with batch size {batch_size}")
 
     # Initialize MongoDB source
     mongo_source = MongoDBSource(
@@ -169,18 +165,11 @@ def main(config: str, workers: int | None, batch_size: int | None, max_records: 
             if max_records:
                 batch = batch[: max_records - processed_count]
 
-            # Process batch in parallel
-            if workers > 1:
-                with Pool(processes=workers) as pool:
-                    args = [(record, cfg.local_db.path) for record in batch]
-                    results = pool.starmap(process_single_record, args)
-                    successful = sum(results)
-            else:
-                # Single-threaded processing
-                successful = 0
-                for record in batch:
-                    if process_single_record(record, cfg.local_db.path):
-                        successful += 1
+            # Process batch (single-threaded due to DuckDB write limitations)
+            successful = 0
+            for record in batch:
+                if process_single_record(record, cfg.local_db.path):
+                    successful += 1
 
             processed_count += len(batch)
             pbar.update(len(batch))

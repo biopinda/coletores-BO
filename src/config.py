@@ -27,7 +27,6 @@ class ProcessingConfig(BaseModel):
     """Processing configuration"""
 
     batch_size: int = Field(gt=0)
-    workers: int = Field(gt=0, le=32)
     confidence_threshold: float = Field(ge=0.70, le=1.0)
 
 
