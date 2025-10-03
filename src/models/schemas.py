@@ -79,6 +79,6 @@ class CanonicalizationOutput(BaseModel):
 class CSVReportRow(BaseModel):
     """CSV export row format (FR-025)"""
 
-    canonical_name: str
+    canonicalName: str
     variations: str = Field(description="Semicolon-separated variation texts")
     occurrence_counts: str = Field(description="Semicolon-separated counts aligned with variations")

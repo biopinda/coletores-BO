@@ -90,7 +90,7 @@ class CanonicalEntity(BaseModel):
     """Unique collector entity with grouped variations"""
 
     id: int | None = None
-    canonical_name: str
+    canonicalName: str
     entity_type: EntityType
     classification_confidence: float = Field(ge=0.70, le=1.0)
     grouping_confidence: float = Field(ge=0.70, le=1.0)

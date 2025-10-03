@@ -346,7 +346,7 @@ python src/cli.py --config config.yaml --output ./meu_relatorio.csv
    - Persistente para análises futuras
 
 2. **Relatório CSV**: `./output/canonical_report.csv`
-   - 4 colunas: `canonical_name`, `entity_type`, `variations`, `occurrence_counts`
+   - 4 colunas: `canonicalName`, `entity_type`, `variations`, `occurrence_counts`
    - Separador: TAB (tabulação)
    - Variações separadas por `;`
    - Contagens alinhadas com variações
@@ -354,10 +354,10 @@ python src/cli.py --config config.yaml --output ./meu_relatorio.csv
 **Exemplo do CSV** (separado por TAB):
 
 ```text
-canonical_name    entity_type    variations                                   occurrence_counts
-"Forzza, R.C."    Pessoa         "Forzza, R.C.;R.C. Forzza;Rafaela C. Forzza"    "1523;847;234"
-"Silva, J."       Pessoa         "Silva, J.;J. Silva"                          "2891;1205"
-"EMBRAPA"         Empresa        "EMBRAPA"                                      "45"
+canonicalName    entity_type    variations                                   occurrence_counts
+"Forzza, R.C."    Pessoa         Forzza, R.C.;R.C. Forzza;Rafaela C. Forzza    1523;847;234
+"Silva, J."       Pessoa         Silva, J.;J. Silva                          2891;1205
+"EMBRAPA"         Empresa        EMBRAPA                                      45
 ```
 
 3. **Documentação de regras**: `./docs/rules.md`

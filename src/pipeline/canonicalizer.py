@@ -116,7 +116,7 @@ class Canonicalizer:
         """
         Format canonical name according to entity type.
 
-        For Pessoa: "Sobrenome, Iniciais" format
+        For Pessoa: "Sobrenome, Iniciais" format with proper capitalization
         For others: Use normalized name as-is
 
         Args:
@@ -130,10 +130,11 @@ class Canonicalizer:
             # Try to extract "Sobrenome, Iniciais" format
             # If already in that format, use as-is
             if "," in normalized_name:
-                return normalized_name
+                # Apply proper capitalization (Title Case)
+                return normalized_name.title()
             else:
-                # Best effort: use as-is
-                return normalized_name
+                # Best effort: use as-is with proper capitalization
+                return normalized_name.title()
         else:
             # For non-Pessoa types, use normalized name as canonical
             return normalized_name

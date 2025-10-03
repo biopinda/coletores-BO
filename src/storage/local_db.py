@@ -30,7 +30,7 @@ class LocalDatabase:
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS canonical_entities (
                 id INTEGER PRIMARY KEY DEFAULT nextval('canonical_entities_id_seq'),
-                canonical_name TEXT NOT NULL,
+                canonicalName TEXT NOT NULL,
                 entity_type TEXT NOT NULL CHECK(entity_type IN ('Pessoa', 'GrupoPessoas', 'Empresa', 'NaoDeterminado')),
                 classification_confidence REAL NOT NULL CHECK(classification_confidence >= 0.70 AND classification_confidence <= 1.0),
                 grouping_confidence REAL NOT NULL CHECK(grouping_confidence >= 0.70 AND grouping_confidence <= 1.0),
@@ -42,7 +42,7 @@ class LocalDatabase:
 
         # Non-unique index for better performance (allow temporary duplicates)
         self.conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_canonical_name_type ON canonical_entities(canonical_name, entity_type)"
+            "CREATE INDEX IF NOT EXISTS idx_canonical_name_type ON canonical_entities(canonicalName, entity_type)"
         )
         self.conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_entity_type ON canonical_entities(entity_type)"
@@ -70,7 +70,7 @@ class LocalDatabase:
             result = self.conn.execute(
                 """
                 INSERT INTO canonical_entities
-                (canonical_name, entity_type, classification_confidence, grouping_confidence,
+                (canonicalName, entity_type, classification_confidence, grouping_confidence,
                  variations, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
@@ -91,7 +91,7 @@ class LocalDatabase:
             self.conn.execute(
                 """
                 UPDATE canonical_entities
-                SET canonical_name = ?, entity_type = ?, classification_confidence = ?,
+                SET canonicalName = ?, entity_type = ?, classification_confidence = ?,
                     grouping_confidence = ?, variations = ?, updated_at = ?
                 WHERE id = ?
                 """,
@@ -119,7 +119,7 @@ class LocalDatabase:
         results = []
         for entity in all_entities:
             # Compare with canonical name
-            score = similarity_score(normalized_name, entity.canonical_name)
+            score = similarity_score(normalized_name, entity.canonicalName)
 
             if score >= threshold:
                 results.append((entity, score))
@@ -170,7 +170,7 @@ class LocalDatabase:
         )
 
     def export_to_csv(self, output_path: str) -> None:
-        """Export entities to CSV format (4 columns: canonical_name, entity_type, variations, counts)"""
+        """Export entities to CSV format (4 columns: canonicalName, entity_type, variations, counts)"""
         entities = self.get_all_entities()
 
         data = []
@@ -180,7 +180,7 @@ class LocalDatabase:
 
             data.append(
                 {
-                    "canonical_name": entity.canonical_name,
+                    "canonicalName": entity.canonicalName,
                     "entity_type": entity.entity_type.value,
                     "variations": variations_text,
                     "occurrence_counts": occurrence_counts,
@@ -189,8 +189,8 @@ class LocalDatabase:
 
         df = pd.DataFrame(data)
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-        # Ensure UTF-8 encoding in CSV export with TAB separator
-        df.to_csv(output_path, index=False, encoding='utf-8', sep='\t')
+        # Ensure UTF-8 encoding in CSV export with TAB separator, no quotes
+        df.to_csv(output_path, index=False, encoding='utf-8', sep='\t', quoting=3)  # QUOTE_NONE
 
     def close(self) -> None:
         """Close database connection"""

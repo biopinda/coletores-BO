@@ -134,7 +134,7 @@ class CanonicalVariation(BaseModel):
 class CanonicalEntity(BaseModel):
     """Canonical entity with variations (FR-013, FR-014, FR-015, FR-016)"""
     id: int | None = None
-    canonical_name: str = Field(description="Standardized 'Sobrenome, Iniciais' format for Pessoa")
+    canonicalName: str = Field(description="Standardized 'Sobrenome, Iniciais' format for Pessoa")
     entity_type: EntityType
     classification_confidence: float = Field(ge=0.70, le=1.0)
     grouping_confidence: float = Field(ge=0.70, le=1.0, description="Confidence of variation grouping")
@@ -146,7 +146,7 @@ class CanonicalEntity(BaseModel):
         json_schema_extra = {
             "example": {
                 "id": 1,
-                "canonical_name": "Forzza, R.C.",
+                "canonicalName": "Forzza, R.C.",
                 "entity_type": "Pessoa",
                 "classification_confidence": 0.92,
                 "grouping_confidence": 0.88,
@@ -294,7 +294,7 @@ class LocalDatabaseProtocol(Protocol):
         ...
 
     def export_to_csv(self, output_path: str) -> None:
-        """Export entities to CSV format (4 columns: canonical_name, entity_type, variations, occurrence_counts)"""
+        """Export entities to CSV format (4 columns: canonicalName, entity_type, variations, occurrence_counts)"""
         ...
 
 

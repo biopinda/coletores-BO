@@ -317,15 +317,15 @@ class CanonicalEntity(BaseModel):
 
 ### Output Format (canonical_report.csv)
 
-| canonical_name | entity_type | variations | occurrence_counts |
+| canonicalName | entity_type | variations | occurrence_counts |
 |---------------|-------------|-----------|-------------------|
-| Forzza, R.C. | Pessoa | "Forzza, R.C.;R.C. Forzza;Rafaela C. Forzza" | "1523;847;234" |
-| Silva, J. | Pessoa | "Silva, J.;J. Silva" | "2891;1205" |
-| EMBRAPA | Empresa | "EMBRAPA" | "45" |
+| Forzza, R.C. | Pessoa | Forzza, R.C.;R.C. Forzza;Rafaela C. Forzza | 1523;847;234 |
+| Silva, J. | Pessoa | Silva, J.;J. Silva | 2891;1205 |
+| EMBRAPA | Empresa | EMBRAPA | 45 |
 
 **Column Specifications**:
 
-1. `canonical_name`: str - Canonical entity name
+1. `canonicalName`: str - Canonical entity name
 2. `entity_type`: str - Entity classification type (Pessoa/GrupoPessoas/Empresa/NaoDeterminado)
 3. `variations`: str - Semicolon-separated list of variation texts
 4. `occurrence_counts`: str - Semicolon-separated counts (aligned with variations)
