@@ -27,7 +27,10 @@
       "Bash(if not exist contract mkdir contract)",
       "Bash(if not exist integration mkdir integration)",
       "Bash(if not exist unit mkdir unit)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(pip install:*)",
+      "Bash(python -m pytest --version)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []

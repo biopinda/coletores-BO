@@ -1,7 +1,7 @@
 mongodb:
-  uri: "mongodb://localhost:27017"
-  database: "plant_samples"
-  collection: "specimens"
+  uri: "mongodb://dwc2json:VLWQ8Bke65L52hfBM635@192.168.1.10:27017/?authSource=admin"
+  database: "dwc2json"
+  collection: "ocorrencias"
   filter: { kingdom: "Plantae" }
 
 local_db:

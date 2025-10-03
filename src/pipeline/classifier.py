@@ -11,7 +11,7 @@ class Classifier:
     """Classifier for collector name categorization (FR-001 to FR-007)"""
 
     # Pattern hierarchy from research.md Section 4
-    NAO_DETERMINADO_EXACT = {"?", "sem coletor", "não identificado", "desconhecido"}
+    NAO_DETERMINADO_EXACT = {"?", "sem coletor", "nao identificado", "desconhecido"}
     INSTITUTION_KEYWORDS = {
         "embrapa",
         "usp",
@@ -20,9 +20,8 @@ class Classifier:
         "ufmg",
         "inpa",
         "jbrj",
-        "herbário",
         "herbario",
-        "jardim botânico",
+        "jardim botanico",
         "jardim botanico",
         "instituto",
         "universidade",
@@ -33,7 +32,6 @@ class Classifier:
         "equipe",
         "grupo",
         "projeto",
-        "expedição",
         "expedicao",
         "levantamento",
     }
@@ -42,16 +40,16 @@ class Classifier:
     SEPARATOR_PATTERN = re.compile(r"[;&]|et\s+al\.?", re.IGNORECASE)
     ACRONYM_PATTERN = re.compile(r"^[A-Z]{2,}$")
     NAME_WITH_INITIALS = re.compile(
-        r"[A-ZÀ-}][a-zà-~]+(?:-[A-ZÀ-}][a-zà-~]+)?,\s*[A-ZÀ-}]\.(?:[A-ZÀ-}]\.)*"
+        r"[A-ZÃ€-Å½][a-zÃ -Å¾]+(?:-[A-ZÃ€-Å½][a-zÃ -Å¾]+)?,\s*[A-ZÃ€-Å½]\.(?:[A-ZÃ€-Å½]\.)*"
     )
-    INITIALS_PATTERN = re.compile(r"\b[A-ZÀ-}]\.[A-ZÀ-}]\.?\b")
+    INITIALS_PATTERN = re.compile(r"\b[A-ZÃ€-Å½]\.[A-ZÃ€-Å½]\.?\b")
 
     def classify(self, input_data: ClassificationInput) -> ClassificationOutput:
         """
         Classify input string into one of 5 categories with confidence score.
 
         Pattern hierarchy (checked in order):
-        1. NãoDeterminado: exact match
+        1. NaoDeterminado: exact match
         2. Empresa: all-caps acronyms, institution keywords
         3. ConjuntoPessoas: separators + name patterns
         4. Pessoa: single name pattern
@@ -71,7 +69,7 @@ class Classifier:
         confidence = 0.0
         category = ClassificationCategory.NAO_DETERMINADO
 
-        # 1. Check for NãoDeterminado (exact match)
+        # 1. Check for NaoDeterminado (exact match)
         if text.lower() in self.NAO_DETERMINADO_EXACT:
             category = ClassificationCategory.NAO_DETERMINADO
             confidence = 1.0
@@ -118,13 +116,13 @@ class Classifier:
         # Default fallback if no patterns matched
         else:
             # Try to infer: if has letters but no clear pattern
-            if re.search(r"[a-zA-ZÀ-~]", text):
+            if re.search(r"[a-zA-ZÃ -Å¾]", text):
                 # Ambiguous case - could be Pessoa or GrupoPessoas
                 category = ClassificationCategory.PESSOA
                 confidence = 0.72
                 patterns_matched.append("ambiguous_text")
             else:
-                # No letters, likely NãoDeterminado
+                # No letters, likely Nï¿½oDeterminado
                 category = ClassificationCategory.NAO_DETERMINADO
                 confidence = 0.70
                 patterns_matched.append("no_letter_pattern")

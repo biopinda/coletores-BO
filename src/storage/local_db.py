@@ -24,9 +24,12 @@ class LocalDatabase:
 
     def _create_schema(self) -> None:
         """Create canonical_entities table with schema from data-model.md"""
+        # Create sequence for ID
+        self.conn.execute("CREATE SEQUENCE IF NOT EXISTS canonical_entities_id_seq")
+
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS canonical_entities (
-                id INTEGER PRIMARY KEY,
+                id INTEGER PRIMARY KEY DEFAULT nextval('canonical_entities_id_seq'),
                 canonical_name TEXT NOT NULL,
                 entity_type TEXT NOT NULL CHECK(entity_type IN ('Pessoa', 'GrupoPessoas', 'Empresa', 'NaoDeterminado')),
                 classification_confidence REAL NOT NULL CHECK(classification_confidence >= 0.70 AND classification_confidence <= 1.0),

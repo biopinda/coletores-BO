@@ -47,7 +47,7 @@ class PipelineResult:
 
 
 def process_single_record(
-    record: Dict[str, Any], db_path: str, collector_field: str = "collector"
+    record: Dict[str, Any], db_path: str, collector_field: str = "recordedBy"
 ) -> bool:
     """
     Process a single record through the full pipeline.
