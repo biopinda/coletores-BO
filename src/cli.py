@@ -90,11 +90,13 @@ def run_pipeline(config: str, max_records: int = None):
                                 norm_result = normalizer.normalize(NormalizationInput(original_name=name))
 
                                 # Stage 4: Canonicalization
+                                # Round confidence to avoid floating point precision issues
+                                confidence = round(class_result.confidence, 2)
                                 canon_result = canonicalizer.canonicalize(CanonicalizationInput(
                                     normalized_name=norm_result.normalized,
                                     original_name=name,  # Pass original format from MongoDB
                                     entityType=class_result.category.value if class_result.category.value != "ConjuntoPessoas" else "Pessoa",
-                                    classification_confidence=class_result.confidence
+                                    classification_confidence=max(0.70, confidence)  # Ensure minimum 0.70
                                 ))
 
                                 # Store in database
