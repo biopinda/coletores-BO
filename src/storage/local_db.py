@@ -139,8 +139,8 @@ class LocalDatabase:
                     id=row[0],
                     canonicalName=row[1],
                     entityType=EntityType(row[2]),
-                    classification_confidence=row[3],
-                    grouping_confidence=row[4],
+                    classification_confidence=max(0.70, round(row[3], 2)),
+                    grouping_confidence=max(0.70, round(row[4], 2)),
                     variations=variations,
                     created_at=row[6],
                     updated_at=row[7]
@@ -184,8 +184,8 @@ class LocalDatabase:
                 id=row[0],
                 canonicalName=row[1],
                 entityType=EntityType(row[2]),
-                classification_confidence=row[3],
-                grouping_confidence=row[4],
+                classification_confidence=max(0.70, round(row[3], 2)),
+                grouping_confidence=max(0.70, round(row[4], 2)),
                 variations=variations,
                 created_at=row[6],
                 updated_at=row[7]

@@ -81,10 +81,14 @@ class Canonicalizer:
             input_data.entityType
         )
 
+        # Round confidence to avoid floating point precision issues
+        classification_confidence = round(input_data.classification_confidence, 2)
+        classification_confidence = max(0.70, classification_confidence)
+
         entity = CanonicalEntity(
             canonicalName=canonical_name,
             entityType=input_data.entityType,
-            classification_confidence=input_data.classification_confidence,
+            classification_confidence=classification_confidence,
             grouping_confidence=1.0,  # Perfect match with itself
             variations=[
                 CanonicalVariation(
