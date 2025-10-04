@@ -30,6 +30,7 @@ class SeparatorType(str, Enum):
     """Separator types for atomization"""
 
     SEMICOLON = ";"
+    COLON = ":"
     AMPERSAND = "&"
     ET_AL = "et al."
     NONE = "none"

@@ -37,7 +37,9 @@ class Classifier:
     }
 
     # Regex patterns
-    SEPARATOR_PATTERN = re.compile(r"[;&]|et\s+al\.?", re.IGNORECASE)
+    # Added : as separator and parenthetical role indicators like (Pai), (Irmão)
+    SEPARATOR_PATTERN = re.compile(r"[;&:]|et\s+al\.?", re.IGNORECASE)
+    ROLE_INDICATOR_PATTERN = re.compile(r"\([A-Za-zÀ-ž]+\)", re.IGNORECASE)
     ACRONYM_PATTERN = re.compile(r"^[A-Z]{2,}$")
     NAME_WITH_INITIALS = re.compile(
         r"[A-ZÀ-Ž][a-zà-ž]+(?:-[A-ZÀ-Ž][a-zà-ž]+)?,\s*[A-ZÀ-Ž]\.(?:[A-ZÀ-Ž]\.)*"
@@ -85,11 +87,15 @@ class Classifier:
             confidence = 0.85
             patterns_matched.append("institution_keyword")
 
-        # 3. Check for ConjuntoPessoas (separators + name patterns)
-        elif self.SEPARATOR_PATTERN.search(text):
+        # 3. Check for ConjuntoPessoas (separators + name patterns or role indicators)
+        elif self.SEPARATOR_PATTERN.search(text) or self.ROLE_INDICATOR_PATTERN.search(text):
             category = ClassificationCategory.CONJUNTO_PESSOAS
             confidence = 0.90
-            patterns_matched.append("multiple_name_separator")
+
+            if self.SEPARATOR_PATTERN.search(text):
+                patterns_matched.append("multiple_name_separator")
+            if self.ROLE_INDICATOR_PATTERN.search(text):
+                patterns_matched.append("role_indicator_detected")
 
             # Boost confidence if name patterns detected
             if self.NAME_WITH_INITIALS.search(text) or self.INITIALS_PATTERN.search(text):

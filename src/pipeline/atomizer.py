@@ -27,7 +27,7 @@ class Atomizer:
         if input_data.category != ClassificationCategory.CONJUNTO_PESSOAS:
             return AtomizationOutput(original_text=text, atomized_names=[])
 
-        # Split by separators: ;, &, et al.
+        # Split by separators: ;, :, &, et al.
         # Strategy: Replace separators with a unique delimiter, then split
         parts = []
         separators_used = []
@@ -45,7 +45,7 @@ class Atomizer:
                 if segment.strip():
                     parts.append((segment.strip(), SeparatorType.ET_AL if i > 0 else None))
         else:
-            # No "et al.", process semicolon and ampersand
+            # No "et al.", process semicolon, colon and ampersand
             # Split by ; first
             semicolon_parts = current_text.split(";")
 
@@ -54,26 +54,37 @@ class Atomizer:
                 if not semi_part:
                     continue
 
-                # Now split by &
-                ampersand_parts = semi_part.split("&")
+                # Now split by : (colon)
+                colon_parts = semi_part.split(":")
 
-                for j, amp_part in enumerate(ampersand_parts):
-                    amp_part = amp_part.strip()
-                    if not amp_part:
+                for k, colon_part in enumerate(colon_parts):
+                    colon_part = colon_part.strip()
+                    if not colon_part:
                         continue
 
-                    # Determine separator used
-                    if i > 0 and j == 0:
-                        # This part came after a semicolon
-                        separator = SeparatorType.SEMICOLON
-                    elif j > 0:
-                        # This part came after an ampersand
-                        separator = SeparatorType.AMPERSAND
-                    else:
-                        # First part
-                        separator = None
+                    # Now split by &
+                    ampersand_parts = colon_part.split("&")
 
-                    parts.append((amp_part, separator))
+                    for j, amp_part in enumerate(ampersand_parts):
+                        amp_part = amp_part.strip()
+                        if not amp_part:
+                            continue
+
+                        # Determine separator used (priority: semicolon > colon > ampersand)
+                        if i > 0 and k == 0 and j == 0:
+                            # This part came after a semicolon
+                            separator = SeparatorType.SEMICOLON
+                        elif k > 0 and j == 0:
+                            # This part came after a colon
+                            separator = SeparatorType.COLON
+                        elif j > 0:
+                            # This part came after an ampersand
+                            separator = SeparatorType.AMPERSAND
+                        else:
+                            # First part
+                            separator = None
+
+                        parts.append((amp_part, separator))
 
         # Create AtomizedName objects
         for position, (name_text, separator) in enumerate(parts):
