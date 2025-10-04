@@ -77,6 +77,40 @@ def test_role_indicator_classification():
     return result.category == ClassificationCategory.CONJUNTO_PESSOAS
 
 
+def test_multiple_commas_classification():
+    """Test: \"J. A. A. Meira Neto, M. T Grombone, J. Y, Tamashiro, H. F. Leitão Filho.\" should be CONJUNTO_PESSOAS"""
+    classifier = Classifier()
+    result = classifier.classify(
+        ClassificationInput(text="J. A. A. Meira Neto, M. T Grombone, J. Y, Tamashiro, H. F. Leitão Filho.")
+    )
+
+    print("Test 5: Multiple commas classification")
+    print(f"  Input: 'J. A. A. Meira Neto, M. T Grombone, J. Y, Tamashiro, H. F. Leitão Filho.'")
+    print(f"  Category: {result.category}")
+    print(f"  Expected: {ClassificationCategory.CONJUNTO_PESSOAS}")
+    print(f"  Patterns matched: {result.patterns_matched}")
+    print(f"  PASS" if result.category == ClassificationCategory.CONJUNTO_PESSOAS else f"  FAIL")
+    print()
+    return result.category == ClassificationCategory.CONJUNTO_PESSOAS
+
+
+def test_plant_description_filter():
+    """Test: \"Flores Verdes\" should be NAO_DETERMINADO"""
+    classifier = Classifier()
+    result = classifier.classify(
+        ClassificationInput(text="Flores Verdes")
+    )
+
+    print("Test 6: Plant description filter")
+    print(f"  Input: 'Flores Verdes'")
+    print(f"  Category: {result.category}")
+    print(f"  Expected: {ClassificationCategory.NAO_DETERMINADO}")
+    print(f"  Patterns matched: {result.patterns_matched}")
+    print(f"  PASS" if result.category == ClassificationCategory.NAO_DETERMINADO else f"  FAIL")
+    print()
+    return result.category == ClassificationCategory.NAO_DETERMINADO
+
+
 if __name__ == "__main__":
     print("=" * 70)
     print("Testing fixes from docs/fix.md")
@@ -88,6 +122,8 @@ if __name__ == "__main__":
     results.append(test_colon_separator_classification())
     results.append(test_colon_separator_atomization())
     results.append(test_role_indicator_classification())
+    results.append(test_multiple_commas_classification())
+    results.append(test_plant_description_filter())
 
     print("=" * 70)
     print(f"Results: {sum(results)}/{len(results)} tests passed")

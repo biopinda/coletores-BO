@@ -1,6 +1,7 @@
 """CLI orchestrator for the collector canonicalization pipeline"""
 
 import logging
+import os
 import time
 from typing import Any, Dict
 
@@ -107,6 +108,16 @@ def main(config: str, batch_size: int | None, max_records: int | None):
         batch_size = cfg.processing.batch_size
 
     logger.info(f"Starting pipeline with batch size {batch_size}")
+
+    # Reset database and CSV before starting new processing
+    logger.info("Resetting database and output files...")
+    if os.path.exists(cfg.local_db.path):
+        os.remove(cfg.local_db.path)
+        logger.info(f"Deleted existing database: {cfg.local_db.path}")
+
+    if os.path.exists(cfg.output.csv_path):
+        os.remove(cfg.output.csv_path)
+        logger.info(f"Deleted existing CSV: {cfg.output.csv_path}")
 
     # Initialize MongoDB source
     mongo_source = MongoDBSource(

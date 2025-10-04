@@ -46,6 +46,13 @@ class Classifier:
     )
     INITIALS_PATTERN = re.compile(r"\b[A-ZÀ-Ž]\.[A-ZÀ-Ž]\.?\b")
 
+    # Plant description keywords (should be discarded)
+    PLANT_DESCRIPTION_KEYWORDS = {
+        "flores", "flor", "fruto", "frutos", "inflorescência", "inflorescencia",
+        "pétalas", "petalas", "estames", "brácteas", "bracteas", "cálice", "calice",
+        "corola", "folhas", "folha"
+    }
+
     def classify(self, input_data: ClassificationInput) -> ClassificationOutput:
         """
         Classify input string into one of 5 categories with confidence score.
@@ -71,6 +78,20 @@ class Classifier:
         confidence = 0.0
         category = ClassificationCategory.NAO_DETERMINADO
 
+        # 0. Check for plant descriptions (discard as NAO_DETERMINADO)
+        text_lower = text.lower()
+        if any(keyword in text_lower for keyword in self.PLANT_DESCRIPTION_KEYWORDS):
+            category = ClassificationCategory.NAO_DETERMINADO
+            confidence = 1.0
+            patterns_matched.append("plant_description_detected")
+            return ClassificationOutput(
+                original_text=text,
+                category=category,
+                confidence=confidence,
+                patterns_matched=patterns_matched,
+                should_atomize=False,
+            )
+
         # 1. Check for NaoDeterminado (exact match)
         if text.lower() in self.NAO_DETERMINADO_EXACT:
             category = ClassificationCategory.NAO_DETERMINADO
@@ -87,8 +108,13 @@ class Classifier:
             confidence = 0.85
             patterns_matched.append("institution_keyword")
 
-        # 3. Check for ConjuntoPessoas (separators + name patterns or role indicators)
-        elif self.SEPARATOR_PATTERN.search(text) or self.ROLE_INDICATOR_PATTERN.search(text):
+        # 3. Check for ConjuntoPessoas (separators + name patterns or role indicators or multiple commas)
+        # Count commas - more than 2 commas usually indicates multiple people
+        comma_count = text.count(',')
+
+        if (self.SEPARATOR_PATTERN.search(text) or
+            self.ROLE_INDICATOR_PATTERN.search(text) or
+            comma_count >= 3):
             category = ClassificationCategory.CONJUNTO_PESSOAS
             confidence = 0.90
 
@@ -96,6 +122,8 @@ class Classifier:
                 patterns_matched.append("multiple_name_separator")
             if self.ROLE_INDICATOR_PATTERN.search(text):
                 patterns_matched.append("role_indicator_detected")
+            if comma_count >= 3:
+                patterns_matched.append("multiple_commas_detected")
 
             # Boost confidence if name patterns detected
             if self.NAME_WITH_INITIALS.search(text) or self.INITIALS_PATTERN.search(text):
