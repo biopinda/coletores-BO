@@ -30,14 +30,14 @@ class Atomizer:
         # Split by separators (priority order)
         parts = []
         current_sep = SeparatorType.NONE
-        
-        # Handle "et al." first (special case)
-        if 'et al.' in text:
-            parts_et_al = text.split('et al.')
-            text = parts_et_al[0].strip()
+
+        # Handle "et al." first (special case) - remove it
+        if re.search(r'et\.?\s*al\.?', text, re.IGNORECASE):
+            text = re.sub(r'\s*et\.?\s*al\.?\s*$', '', text, flags=re.IGNORECASE)
+            text = re.sub(r'\s*et\.?\s*alli\.?\s*$', '', text, flags=re.IGNORECASE)
             current_sep = SeparatorType.ET_AL
-        
-        # Split by semicolon
+
+        # Split by semicolon (highest priority)
         if ';' in text:
             parts = text.split(';')
             current_sep = SeparatorType.SEMICOLON
@@ -45,6 +45,13 @@ class Atomizer:
         elif '&' in text:
             parts = text.split('&')
             current_sep = SeparatorType.AMPERSAND
+        # Split by comma if it appears between name patterns
+        # Pattern: "Surname, Initials, Surname, Initials"
+        elif re.search(r'[A-Z][a-z]+,\s*[A-Z]\..*,\s*[A-Z]', text):
+            # Complex comma-separated names - split carefully
+            # Match pattern: "Word, Initial(s), Word"
+            parts = re.split(r',\s*(?=[A-Z][a-z]+)', text)
+            current_sep = SeparatorType.SEMICOLON
         # Split by " e " or " and "
         elif ' e ' in text.lower():
             parts = re.split(r'\s+e\s+', text, flags=re.IGNORECASE)

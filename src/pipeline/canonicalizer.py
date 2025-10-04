@@ -121,7 +121,41 @@ class Canonicalizer:
                 initials = parts[1].strip().upper()
                 return f"{surname}, {initials}"
             else:
-                return normalized_name.title()
+                # Check if it's "Initials Surname" format (D.R. GONZAGA) or mixed format
+                name_parts = normalized_name.split()
+                if len(name_parts) >= 2:
+                    # Check if any part has dots (indicates initials present)
+                    has_initials = any('.' in part for part in name_parts)
+
+                    if has_initials:
+                        # Mixed format: some initials, some full names
+                        # Last part without dot is likely surname
+                        surname_idx = -1
+                        for i in range(len(name_parts) - 1, -1, -1):
+                            if '.' not in name_parts[i]:
+                                surname_idx = i
+                                break
+
+                        if surname_idx != -1:
+                            surname = name_parts[surname_idx].title()
+                            # Convert all other parts to initials
+                            initial_parts = []
+                            for i, part in enumerate(name_parts):
+                                if i != surname_idx:
+                                    if '.' in part:
+                                        initial_parts.append(part.upper())
+                                    else:
+                                        # Full name -> initial
+                                        initial_parts.append(part[0].upper() + '.')
+                            initials = ''.join(initial_parts)
+                            return f"{surname}, {initials}"
+                    else:
+                        # No initials - full names: "ALISSON NOGUEIRA BRAZ" -> "Braz, A.N."
+                        surname = name_parts[-1].title()
+                        initials = '.'.join([p[0].upper() for p in name_parts[:-1]]) + '.'
+                        return f"{surname}, {initials}"
+                else:
+                    return normalized_name.title()
         elif entity_type in [EntityType.EMPRESA, EntityType.GRUPO_PESSOAS]:
             # Keep uppercase for institutions and groups
             return normalized_name.upper()

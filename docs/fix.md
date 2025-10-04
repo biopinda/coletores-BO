@@ -22,14 +22,24 @@
 
 ---
 
+## ✅ Ajustes Implementados (2025-10-04)
+
+### Normalização
+* ✅ ". L. Azevedo, L.O." - Remove pontuação inicial → "L. Azevedo, L.O."
+* ✅ "Botelho, R.D. ET. AL." - Remove "et al." e variações (et. al., Et. Al., et alli, etc.)
+* ✅ "G.M. Antar Et. Al." - Remove todas as variações de "et al"
+
+### Canonicalização
+* ✅ "Alisson Nogueira Braz" → "Braz, A.N." (nomes completos sem iniciais)
+* ✅ "D.R. Gonzaga" → "Gonzaga, D.R." (iniciais antes do sobrenome)
+* ✅ "Débora G. Takaki" → "Takaki, D.G." (nome completo + inicial + sobrenome)
+* ✅ "G.M. Antar" → "Antar, G.M." (múltiplas iniciais + sobrenome)
+
+### Atomização
+* ✅ "Fernandes, F. M, Nogueira, J. B" - Detecta e separa nomes com vírgula como separador
+* ✅ "Cc. Oliveira, L. S Inocencio, Mj. Silva N. Carvalho, R. C, Sodré" - Melhoria na detecção de conjuntos
+
 ## Ajustes Pendentes
 
-* ". L. Azevedo, L.O." está iniciando com ". ". Corrigir
-* "Alisson Nogueira Braz" é uma pessoa, mas seu canonicalName deve ser "Braz, A.N.". Sempre use este padrão para nomes completos sem iniciais definidas
-* "Botelho, R.D. ET. AL." novamente "ET. AL." atrapalhando a definição do canonicalName. Corrija.
-* "Cc. Oliveira, L. S Inocencio, Mj. Silva N. Carvalho, R. C, Sodré" é um conjunto de pessoas
-* "D.R. Gonzaga" deve ser canonizado para "Gonzaga, D.R."
-* "Débora G. Takaki" deve ser canonizado como "Takaki, D.G."
-* "Fernandes, F. M, Nogueira, J. B" São duas pessoas: "Fernandes, F. M." e "Nogueira, J. B."
-* "G.M. Antar Et. Al." outra forma de "et al" atrapalhando. Encontre uma forma de identificar "et al" e "et alli" em todas as suas formas e descartar
+Nenhum ajuste pendente no momento.
 
