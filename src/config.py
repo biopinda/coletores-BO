@@ -1,59 +1,51 @@
-"""Configuration management"""
+"""Configuration management using Pydantic for type-safe config loading"""
 
-from pathlib import Path
-from typing import Any, Dict
-
-import yaml
 from pydantic import BaseModel, Field
+from typing import Dict
+import yaml
 
 
 class MongoDBConfig(BaseModel):
-    """MongoDB connection configuration"""
-
+    """MongoDB configuration"""
     uri: str
     database: str
     collection: str
-    filter: Dict[str, Any]
+    filter: Dict[str, str]
 
 
 class LocalDBConfig(BaseModel):
     """Local database configuration"""
-
-    type: str = Field(pattern="^(duckdb|sqlite)$")
+    type: str = Field(description="Database type: duckdb or sqlite")
     path: str
 
 
 class ProcessingConfig(BaseModel):
     """Processing configuration"""
-
-    batch_size: int = Field(gt=0)
-    confidence_threshold: float = Field(ge=0.70, le=1.0)
+    batch_size: int = 10000
+    workers: int = 8
+    confidence_threshold: float = 0.70
 
 
 class SimilarityWeights(BaseModel):
-    """Algorithm similarity weights"""
-
-    levenshtein: float = Field(ge=0.0, le=1.0)
-    jaro_winkler: float = Field(ge=0.0, le=1.0)
-    phonetic: float = Field(ge=0.0, le=1.0)
+    """Similarity algorithm weights"""
+    levenshtein: float = 0.4
+    jaro_winkler: float = 0.4
+    phonetic: float = 0.2
 
 
 class AlgorithmsConfig(BaseModel):
-    """Algorithm configuration"""
-
+    """Algorithms configuration"""
     similarity_weights: SimilarityWeights
 
 
 class OutputConfig(BaseModel):
     """Output configuration"""
-
     csv_path: str
     rules_doc: str
 
 
 class Config(BaseModel):
     """Main configuration"""
-
     mongodb: MongoDBConfig
     local_db: LocalDBConfig
     processing: ProcessingConfig

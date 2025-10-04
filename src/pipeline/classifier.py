@@ -1,188 +1,178 @@
-"""Classification stage: Categorize collector strings into 5 types"""
+"""Classification stage: Identify collector type"""
 
 import re
-from typing import List
-
-from src.models.entities import ClassificationCategory
-from src.models.schemas import ClassificationInput, ClassificationOutput
+from typing import Optional
+from src.models.contracts import ClassificationInput, ClassificationOutput, ClassificationCategory
+from src.pipeline.ner_fallback import NERFallback
 
 
 class Classifier:
-    """Classifier for collector name categorization (FR-001 to FR-007)"""
+    """Classifier for collector categorization with NER fallback"""
 
-    # Pattern hierarchy from research.md Section 4
-    NAO_DETERMINADO_EXACT = {"?", "sem coletor", "nao identificado", "desconhecido"}
-    INSTITUTION_KEYWORDS = {
-        "embrapa",
-        "usp",
-        "unicamp",
-        "ufrj",
-        "ufmg",
-        "inpa",
-        "jbrj",
-        "herbario",
-        "jardim botanico",
-        "jardim botanico",
-        "instituto",
-        "universidade",
-        "faculdade",
-    }
-    GROUP_TERMS = {
-        "pesquisas",
-        "equipe",
-        "grupo",
-        "projeto",
-        "expedicao",
-        "levantamento",
-    }
+    def __init__(self, use_ner_fallback: bool = True, ner_device: Optional[str] = None):
+        """
+        Initialize classifier
 
-    # Regex patterns
-    # Added : as separator and parenthetical role indicators like (Pai), (Irmão)
-    SEPARATOR_PATTERN = re.compile(r"[;&:]|et\s+al\.?", re.IGNORECASE)
-    ROLE_INDICATOR_PATTERN = re.compile(r"\([A-Za-zÀ-ž]+\)", re.IGNORECASE)
-    ACRONYM_PATTERN = re.compile(r"^[A-Z]{2,}$")
-    NAME_WITH_INITIALS = re.compile(
-        r"[A-ZÀ-Ž][a-zà-ž]+(?:-[A-ZÀ-Ž][a-zà-ž]+)?,\s*[A-ZÀ-Ž]\.(?:[A-ZÀ-Ž]\.)*"
-    )
-    INITIALS_PATTERN = re.compile(r"\b[A-ZÀ-Ž]\.[A-ZÀ-Ž]\.?\b")
-
-    # Plant description keywords (should be discarded)
-    PLANT_DESCRIPTION_KEYWORDS = {
-        "flores", "flor", "fruto", "frutos", "inflorescência", "inflorescencia",
-        "pétalas", "petalas", "estames", "brácteas", "bracteas", "cálice", "calice",
-        "corola", "folhas", "folha"
-    }
+        Args:
+            use_ner_fallback: Enable NER fallback for low-confidence cases (default: True)
+            ner_device: Device for NER model ('cuda', 'cpu', or None for auto)
+        """
+        self.use_ner_fallback = use_ner_fallback
+        self.ner_fallback = None
+        self.ner_device = ner_device
+        self.ner_fallback_count = 0  # Track how many times NER was used
 
     def classify(self, input_data: ClassificationInput) -> ClassificationOutput:
         """
-        Classify input string into one of 5 categories with confidence score.
-
-        Pattern hierarchy (checked in order):
-        1. NaoDeterminado: exact match
-        2. Empresa: all-caps acronyms, institution keywords
-        3. ConjuntoPessoas: separators + name patterns
-        4. Pessoa: single name pattern
-        5. GrupoPessoas: generic group terms
-
-        Args:
-            input_data: ClassificationInput containing raw text
-
-        Returns:
-            ClassificationOutput with category, confidence, and atomization flag
-
-        Raises:
-            ValueError: If confidence < 0.70 (below threshold from spec)
+        Classify collector string into one of 5 categories
+        
+        Priority order (from research.md):
+        1. NãoDeterminado
+        2. Empresa
+        3. ConjuntoPessoas
+        4. Pessoa
+        5. GrupoPessoas
         """
         text = input_data.text.strip()
-        patterns_matched: List[str] = []
-        confidence = 0.0
-        category = ClassificationCategory.NAO_DETERMINADO
-
-        # 0. Check for plant descriptions (discard as NAO_DETERMINADO)
-        text_lower = text.lower()
-        if any(keyword in text_lower for keyword in self.PLANT_DESCRIPTION_KEYWORDS):
-            category = ClassificationCategory.NAO_DETERMINADO
-            confidence = 1.0
-            patterns_matched.append("plant_description_detected")
+        patterns_matched = []
+        
+        # 1. Não Determinado (exact matches)
+        nao_det_patterns = ["?", "sem coletor", "não identificado", "s.c.", "s/c"]
+        if text.lower() in nao_det_patterns:
             return ClassificationOutput(
                 original_text=text,
-                category=category,
-                confidence=confidence,
+                category=ClassificationCategory.NAO_DETERMINADO,
+                confidence=1.0,
+                patterns_matched=["exact_match"],
+                should_atomize=False
+            )
+        
+        # 2. Empresa/Instituição (all-caps acronyms, institution keywords)
+        if re.match(r'^[A-Z]{2,}$', text):  # All caps, 2+ letters
+            patterns_matched.append("all_caps_acronym")
+            return ClassificationOutput(
+                original_text=text,
+                category=ClassificationCategory.EMPRESA,
+                confidence=0.95,
                 patterns_matched=patterns_matched,
-                should_atomize=False,
+                should_atomize=False
             )
+        
+        # 3. Conjunto de Pessoas (separators + name patterns)
+        conjunto_separators = [';', '&', 'et al.', ' e ', ' and ']
+        has_separator = any(sep in text for sep in conjunto_separators)
+        has_initials = bool(re.search(r'\b[A-Z]\.\s*[A-Z]\.?', text))
+        
+        if has_separator and has_initials:
+            patterns_matched.extend(["multiple_names", "separator_detected"])
+            return ClassificationOutput(
+                original_text=text,
+                category=ClassificationCategory.CONJUNTO_PESSOAS,
+                confidence=0.92,
+                patterns_matched=patterns_matched,
+                should_atomize=True
+            )
+        
+        # 4. Pessoa (single name pattern)
+        surname_pattern = r'^[A-ZÀ-Ú][a-zà-ú]+(?:-[A-ZÀ-Ú][a-zà-ú]+)?,\s*[A-ZÀ-Ú]\.(?:[A-ZÀ-Ú]\.)*'
+        if re.match(surname_pattern, text):
+            patterns_matched.append("surname_initials_format")
+            return ClassificationOutput(
+                original_text=text,
+                category=ClassificationCategory.PESSOA,
+                confidence=0.90,
+                patterns_matched=patterns_matched,
+                should_atomize=False
+            )
+        
+        # Check for initials without strict surname format
+        if has_initials and not has_separator:
+            patterns_matched.append("single_name_with_initials")
+            return ClassificationOutput(
+                original_text=text,
+                category=ClassificationCategory.PESSOA,
+                confidence=0.75,
+                patterns_matched=patterns_matched,
+                should_atomize=False
+            )
+        
+        # 5. Grupo de Pessoas (generic group terms)
+        grupo_keywords = ["pesquisas", "grupo", "equipe", "time", "laboratório", "lab"]
+        if any(kw in text.lower() for kw in grupo_keywords):
+            patterns_matched.append("group_keyword")
+            return ClassificationOutput(
+                original_text=text,
+                category=ClassificationCategory.GRUPO_PESSOAS,
+                confidence=0.80,
+                patterns_matched=patterns_matched,
+                should_atomize=False
+            )
+        
+        # Default: Pessoa (conservative fallback) - but check if we need NER
+        result = ClassificationOutput(
+            original_text=text,
+            category=ClassificationCategory.PESSOA,
+            confidence=0.70,
+            patterns_matched=["default_fallback"],
+            should_atomize=False
+        )
 
-        # 1. Check for NaoDeterminado (exact match)
-        if text.lower() in self.NAO_DETERMINADO_EXACT:
-            category = ClassificationCategory.NAO_DETERMINADO
-            confidence = 1.0
-            patterns_matched.append("exact_nao_determinado")
+        # NER fallback for low-confidence cases
+        if self.use_ner_fallback and result.confidence < 0.70:
+            result = self._apply_ner_fallback(text, result)
 
-        # 2. Check for Empresa (all-caps acronyms or institution keywords)
-        elif self.ACRONYM_PATTERN.match(text):
-            category = ClassificationCategory.EMPRESA
-            confidence = 0.90
-            patterns_matched.append("acronym")
-        elif any(keyword in text.lower() for keyword in self.INSTITUTION_KEYWORDS):
-            category = ClassificationCategory.EMPRESA
-            confidence = 0.85
-            patterns_matched.append("institution_keyword")
+        return result
 
-        # 3. Check for ConjuntoPessoas (separators + name patterns or role indicators or multiple commas)
-        # Count commas - more than 2 commas usually indicates multiple people
-        comma_count = text.count(',')
+    def _apply_ner_fallback(
+        self,
+        text: str,
+        original_result: ClassificationOutput
+    ) -> ClassificationOutput:
+        """
+        Apply NER fallback to improve low-confidence classification
 
-        # Check for multiple name patterns (e.g., "E. C. Silva, A. L. Cunha, R. D. Sartin")
-        # Pattern: initials + surname, repeated
-        initial_surname_pattern = re.compile(r'[A-Z]\.\s*[A-Z]\.\s*[A-ZÀ-Ž][a-zà-ž]+', re.IGNORECASE)
-        initial_matches = initial_surname_pattern.findall(text)
-        has_multiple_initial_patterns = len(initial_matches) >= 2
+        Args:
+            text: Original text
+            original_result: Classification result with confidence < 0.70
 
-        if (self.SEPARATOR_PATTERN.search(text) or
-            self.ROLE_INDICATOR_PATTERN.search(text) or
-            comma_count >= 3 or
-            has_multiple_initial_patterns):
-            category = ClassificationCategory.CONJUNTO_PESSOAS
-            confidence = 0.90
+        Returns:
+            Updated ClassificationOutput with improved confidence
+        """
+        # Lazy load NER model (only on first use)
+        if self.ner_fallback is None:
+            self.ner_fallback = NERFallback(device=self.ner_device)
 
-            if self.SEPARATOR_PATTERN.search(text):
-                patterns_matched.append("multiple_name_separator")
-            if self.ROLE_INDICATOR_PATTERN.search(text):
-                patterns_matched.append("role_indicator_detected")
-            if comma_count >= 3:
-                patterns_matched.append("multiple_commas_detected")
-            if has_multiple_initial_patterns:
-                patterns_matched.append("multiple_initial_patterns")
+        # Run NER
+        ner_output = self.ner_fallback.classify_with_ner(
+            text,
+            original_result.confidence
+        )
 
-            # Boost confidence if name patterns detected
-            if self.NAME_WITH_INITIALS.search(text) or self.INITIALS_PATTERN.search(text):
-                confidence = 0.95
-                patterns_matched.append("name_pattern_detected")
+        self.ner_fallback_count += 1
 
-        # 4. Check for Pessoa (single name pattern)
-        elif self.NAME_WITH_INITIALS.search(text) or self.INITIALS_PATTERN.search(text):
+        # Update category based on NER findings
+        category = original_result.category
+        patterns = original_result.patterns_matched.copy()
+        patterns.append("ner_fallback")
+
+        if ner_output.has_person:
             category = ClassificationCategory.PESSOA
-            confidence = 0.85
-            patterns_matched.append("single_name_pattern")
-
-            # Boost if proper format "Surname, Initials"
-            if self.NAME_WITH_INITIALS.search(text):
-                confidence = 0.90
-                patterns_matched.append("proper_name_format")
-
-        # 5. Check for GrupoPessoas (generic group terms, no proper names)
-        elif any(term in text.lower() for term in self.GROUP_TERMS):
-            category = ClassificationCategory.GRUPO_PESSOAS
-            confidence = 0.75
-            patterns_matched.append("group_term")
-
-        # Default fallback if no patterns matched
-        else:
-            # Try to infer: if has letters but no clear pattern
-            if re.search(r"[a-zA-Zà-ž]", text):
-                # Ambiguous case - could be Pessoa or GrupoPessoas
-                category = ClassificationCategory.PESSOA
-                confidence = 0.72
-                patterns_matched.append("ambiguous_text")
-            else:
-                # No letters, likely N�oDeterminado
-                category = ClassificationCategory.NAO_DETERMINADO
-                confidence = 0.70
-                patterns_matched.append("no_letter_pattern")
-
-        # Check threshold
-        if confidence < 0.70:
-            raise ValueError(
-                f"Confidence {confidence:.2f} below threshold (0.70) for text: '{text}'"
+            patterns.append("ner_person_detected")
+        elif ner_output.entities:
+            # Check for organization
+            has_org = any(
+                e.label in ['ORGANIZACAO', 'ORG', 'ORGANIZATION']
+                for e in ner_output.entities
             )
+            if has_org:
+                category = ClassificationCategory.EMPRESA
+                patterns.append("ner_org_detected")
 
-        # Determine if should atomize
-        should_atomize = category == ClassificationCategory.CONJUNTO_PESSOAS
-
+        # Return updated result
         return ClassificationOutput(
             original_text=text,
             category=category,
-            confidence=confidence,
-            patterns_matched=patterns_matched,
-            should_atomize=should_atomize,
+            confidence=ner_output.improved_confidence,
+            patterns_matched=patterns,
+            should_atomize=False
         )

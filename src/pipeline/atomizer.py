@@ -1,103 +1,72 @@
-"""Atomization stage: Separate ConjuntoPessoas into individual names"""
+"""Atomization stage: Separate conjunto de pessoas into individual names"""
 
 import re
-from typing import List
-
-from src.models.entities import AtomizedName, ClassificationCategory, SeparatorType
-from src.models.schemas import AtomizationInput, AtomizationOutput
+from src.models.contracts import (
+    AtomizationInput,
+    AtomizationOutput,
+    AtomizedName,
+    ClassificationCategory,
+    SeparatorType
+)
 
 
 class Atomizer:
-    """Atomizer for splitting conjunto_pessoas strings (FR-008 to FR-010)"""
-
+    """Atomizer for separating multiple names"""
+    
     def atomize(self, input_data: AtomizationInput) -> AtomizationOutput:
         """
-        Separate ConjuntoPessoas strings into individual names.
-
-        Args:
-            input_data: AtomizationInput with text and category
-
-        Returns:
-            AtomizationOutput with list of atomized names (empty if not ConjuntoPessoas)
+        Separate ConjuntoPessoas into individual names
+        Returns empty list if not ConjuntoPessoas
         """
-        text = input_data.text.strip()
-        atomized_names: List[AtomizedName] = []
-
-        # Only atomize if category is ConjuntoPessoas
         if input_data.category != ClassificationCategory.CONJUNTO_PESSOAS:
-            return AtomizationOutput(original_text=text, atomized_names=[])
-
-        # Split by separators: ;, :, &, et al.
-        # Strategy: Replace separators with a unique delimiter, then split
-        parts = []
-        separators_used = []
-
-        # First handle "et al." pattern - special case: only keep the name before "et al."
-        # Matches: "et al", "et. al", "et al.", "et. al.", "et alli", "et. alli.", etc.
-        et_al_pattern = re.compile(r"\s*et\.?\s+al(\.|\s|l\.?i\.?)?", re.IGNORECASE)
-        current_text = text
-
-        # Find "et al." occurrences
-        et_al_match = et_al_pattern.search(current_text)
-        if et_al_match:
-            # Only keep the text BEFORE "et al." and discard everything after
-            current_text = current_text[:et_al_match.start()].strip()
-            if current_text:
-                parts.append((current_text, None))
-        else:
-            # No "et al.", process semicolon, colon and ampersand
-            # Split by ; first
-            semicolon_parts = current_text.split(";")
-
-            for i, semi_part in enumerate(semicolon_parts):
-                semi_part = semi_part.strip()
-                if not semi_part:
-                    continue
-
-                # Now split by : (colon)
-                colon_parts = semi_part.split(":")
-
-                for k, colon_part in enumerate(colon_parts):
-                    colon_part = colon_part.strip()
-                    if not colon_part:
-                        continue
-
-                    # Now split by &
-                    ampersand_parts = colon_part.split("&")
-
-                    for j, amp_part in enumerate(ampersand_parts):
-                        amp_part = amp_part.strip()
-                        if not amp_part:
-                            continue
-
-                        # Determine separator used (priority: semicolon > colon > ampersand)
-                        if i > 0 and k == 0 and j == 0:
-                            # This part came after a semicolon
-                            separator = SeparatorType.SEMICOLON
-                        elif k > 0 and j == 0:
-                            # This part came after a colon
-                            separator = SeparatorType.COLON
-                        elif j > 0:
-                            # This part came after an ampersand
-                            separator = SeparatorType.AMPERSAND
-                        else:
-                            # First part
-                            separator = None
-
-                        parts.append((amp_part, separator))
-
-        # Create AtomizedName objects
-        for position, (name_text, separator) in enumerate(parts):
-            if not name_text:
-                continue
-
-            atomized_names.append(
-                AtomizedName(
-                    text=name_text,
-                    original_formatting=name_text,
-                    position=position,
-                    separator_used=separator if separator else SeparatorType.NONE,
-                )
+            return AtomizationOutput(
+                original_text=input_data.text,
+                atomized_names=[]
             )
-
-        return AtomizationOutput(original_text=text, atomized_names=atomized_names)
+        
+        text = input_data.text
+        atomized_names = []
+        
+        # Split by separators (priority order)
+        parts = []
+        current_sep = SeparatorType.NONE
+        
+        # Handle "et al." first (special case)
+        if 'et al.' in text:
+            parts_et_al = text.split('et al.')
+            text = parts_et_al[0].strip()
+            current_sep = SeparatorType.ET_AL
+        
+        # Split by semicolon
+        if ';' in text:
+            parts = text.split(';')
+            current_sep = SeparatorType.SEMICOLON
+        # Split by ampersand
+        elif '&' in text:
+            parts = text.split('&')
+            current_sep = SeparatorType.AMPERSAND
+        # Split by " e " or " and "
+        elif ' e ' in text.lower():
+            parts = re.split(r'\s+e\s+', text, flags=re.IGNORECASE)
+            current_sep = SeparatorType.AMPERSAND
+        elif ' and ' in text.lower():
+            parts = re.split(r'\s+and\s+', text, flags=re.IGNORECASE)
+            current_sep = SeparatorType.AMPERSAND
+        else:
+            parts = [text]
+        
+        # Create AtomizedName objects
+        for i, part in enumerate(parts):
+            part = part.strip()
+            if part:
+                atomized_names.append(AtomizedName(
+                    text=part,
+                    original_formatting=part,
+                    position=i,
+                    separator_used=current_sep if i > 0 else SeparatorType.NONE
+                ))
+        
+        return AtomizationOutput(
+            original_text=input_data.text,
+            atomized_names=atomized_names
+        )

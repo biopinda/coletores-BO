@@ -1,4 +1,4 @@
-# Core dependencies
+# Core dependencies (minimal - no NER)
 pymongo>=4.6.0
 pydantic>=2.5.0
 python-Levenshtein>=0.23.0
@@ -8,10 +8,6 @@ pandas>=2.1.0
 click>=8.1.0
 tqdm>=4.66.0
 pyyaml>=6.0.0
-
-# NER Model dependencies (fallback for low-confidence cases)
-transformers>=4.35.0
-torch>=2.1.0
 
 # Development dependencies
 pytest>=7.4.0

@@ -49,7 +49,7 @@ Single project structure (data processing pipeline):
 
 ## Phase 3.1: Setup & Infrastructure
 
-### T001: Create project structure
+### [X] T001: Create project structure
 **File**: Repository root
 **Description**: Create directory structure matching plan.md:
 ```
@@ -106,7 +106,7 @@ output/  # Created at runtime for CSV reports
 
 ---
 
-### T002: Initialize Python 3.11+ project with dependencies
+### [X] T002: Initialize Python 3.11+ project with dependencies
 **File**: `requirements.txt`, `setup.py` or `pyproject.toml`
 **Description**: Create dependency file with:
 ```
@@ -137,7 +137,7 @@ Install with: `pip install -r requirements.txt`
 
 ---
 
-### T003 [P]: Configure linting and type checking
+### [X] T003 [P]: Configure linting and type checking
 **File**: `pyproject.toml`, `.ruff.toml`, `mypy.ini`
 **Description**: Create configuration files:
 
@@ -170,7 +170,7 @@ warn_unused_configs = True
 
 ---
 
-### T004 [P]: Create configuration file structure
+### [X] T004 [P]: Create configuration file structure
 **File**: `config.yaml`, `src/config.py`
 **Description**:
 
@@ -208,7 +208,7 @@ output:
 
 ---
 
-### T005 [P]: Setup DuckDB schema
+### [X] T005 [P]: Setup DuckDB schema
 **File**: `src/storage/local_db.py` (schema creation only)
 **Description**: Create DuckDB schema from data-model.md:
 ```sql
@@ -235,7 +235,7 @@ Implement schema creation method only (no CRUD yet).
 ## Phase 3.2: Tests First (TDD) ⚠️ MUST COMPLETE BEFORE 3.3
 **CRITICAL: These tests MUST be written and MUST FAIL before ANY implementation**
 
-### T006 [P]: Contract test - Classification schema
+### [X] T006 [P]: Contract test - Classification schema
 **File**: `tests/contract/test_classification_schema.py`
 **Description**: Test ClassificationInput/Output from pipeline_contracts.py:
 - Valid input: `{"text": "Silva, J. & Forzza, R.C."}` → accepts
@@ -248,7 +248,7 @@ Use Pydantic validation, pytest parametrize for test cases.
 
 ---
 
-### T007 [P]: Contract test - Atomization schema
+### [X] T007 [P]: Contract test - Atomization schema
 **File**: `tests/contract/test_atomization_schema.py`
 **Description**: Test AtomizationInput/Output from pipeline_contracts.py:
 - Valid input: text + category
@@ -260,7 +260,7 @@ Use Pydantic validation, pytest parametrize for test cases.
 
 ---
 
-### T008 [P]: Contract test - Normalization schema
+### [X] T008 [P]: Contract test - Normalization schema
 **File**: `tests/contract/test_normalization_schema.py`
 **Description**: Test NormalizationInput/Output from pipeline_contracts.py:
 - Valid input: original_name (min_length=1)
@@ -271,7 +271,7 @@ Use Pydantic validation, pytest parametrize for test cases.
 
 ---
 
-### T009 [P]: Contract test - Canonicalization schema
+### [X] T009 [P]: Contract test - Canonicalization schema
 **File**: `tests/contract/test_canonicalization_schema.py`
 **Description**: Test CanonicalizationInput/Output from pipeline_contracts.py:
 - Valid input: normalized_name, entityType, classification_confidence ≥0.70
@@ -282,7 +282,7 @@ Use Pydantic validation, pytest parametrize for test cases.
 
 ---
 
-### T010 [P]: Contract test - Entity schema
+### [X] T010 [P]: Contract test - Entity schema
 **File**: `tests/contract/test_entity_schema.py`
 **Description**: Test CanonicalEntity and NameVariation from pipeline_contracts.py:
 - CanonicalEntity: all confidence fields ≥0.70, variations non-empty
@@ -293,7 +293,7 @@ Use Pydantic validation, pytest parametrize for test cases.
 
 ---
 
-### T011 [P]: Contract test - CSV export schema
+### [X] T011 [P]: Contract test - CSV export schema
 **File**: `tests/contract/test_csv_schema.py`
 **Description**: Test CSVReportRow from pipeline_contracts.py:
 - Valid row: canonicalName, semicolon-separated variations, semicolon-separated counts
@@ -304,7 +304,7 @@ Use Pydantic validation, pytest parametrize for test cases.
 
 ---
 
-### T011a [P]: Contract test - NER fallback schema
+### [X] T011a [P]: Contract test - NER fallback schema
 **File**: `tests/contract/test_ner_schema.py`
 **Description**: Test NER fallback input/output schemas:
 - Valid input: text (string), original_confidence (0.0-1.0)
@@ -316,7 +316,7 @@ Use Pydantic validation, pytest parametrize for test cases.
 
 ---
 
-### T012 [P]: Integration test - Scenario 1 (ConjuntoPessoas)
+### [X] T012 [P]: Integration test - Scenario 1 (ConjuntoPessoas)
 **File**: `tests/integration/test_scenarios.py::test_scenario_1_conjunto_pessoas`
 **Description**: From quickstart.md Scenario 1:
 - Input: "Silva, J. & R.C. Forzza; Santos, M. et al."
@@ -328,7 +328,7 @@ Use Classifier and Atomizer (not yet implemented).
 
 ---
 
-### T013 [P]: Integration test - Scenario 2 (Variation grouping)
+### [X] T013 [P]: Integration test - Scenario 2 (Variation grouping)
 **File**: `tests/integration/test_scenarios.py::test_scenario_2_variation_grouping`
 **Description**: From quickstart.md Scenario 2:
 - Inputs: ["Forzza, R.C.", "Forzza, R.", "R.C. Forzza", "Rafaela C. Forzza"]
@@ -339,7 +339,7 @@ Use Classifier and Atomizer (not yet implemented).
 
 ---
 
-### T014 [P]: Integration test - Scenarios 3-5 (Classification categories)
+### [X] T014 [P]: Integration test - Scenarios 3-5 (Classification categories)
 **File**: `tests/integration/test_scenarios.py::test_scenario_3_grupo_pessoas`, `test_scenario_4_empresa`, `test_scenario_5_nao_determinado`
 **Description**: From quickstart.md Scenarios 3-5:
 - Scenario 3: "Pesquisas da Biodiversidade" → GrupoPessoas
@@ -351,7 +351,7 @@ Use Classifier (not yet implemented).
 
 ---
 
-### T015 [P]: Integration test - Scenario 6 (Dynamic DB updates)
+### [X] T015 [P]: Integration test - Scenario 6 (Dynamic DB updates)
 **File**: `tests/integration/test_scenarios.py::test_scenario_6_dynamic_updates`
 **Description**: From quickstart.md Scenario 6:
 - Start with empty database
@@ -363,7 +363,7 @@ Use LocalDatabase.get_all_entities() (not yet implemented).
 
 ---
 
-### T016 [P]: Integration test - Scenario 7 (CSV export)
+### [X] T016 [P]: Integration test - Scenario 7 (CSV export)
 **File**: `tests/integration/test_scenarios.py::test_scenario_7_csv_export`
 **Description**: From quickstart.md Scenario 7:
 - Export to CSV using LocalDatabase.export_to_csv()
@@ -375,7 +375,7 @@ Use LocalDatabase.get_all_entities() (not yet implemented).
 
 ---
 
-### T017 [P]: Integration test - Performance validation
+### [X] T017 [P]: Integration test - Performance validation
 **File**: `tests/integration/test_scenarios.py::test_performance_target`
 **Description**: From quickstart.md Performance Validation:
 - Process 100K test records
@@ -387,7 +387,7 @@ Use pytest-benchmark for timing.
 
 ---
 
-### T018 [P]: Unit test - Similarity algorithms
+### [X] T018 [P]: Unit test - Similarity algorithms
 **File**: `tests/unit/test_algorithms.py`
 **Description**: From research.md Section 2:
 - Test Levenshtein distance: known pairs → expected scores
@@ -402,7 +402,7 @@ Use pytest-benchmark for timing.
 
 ## Phase 3.3: Core Implementation (ONLY after tests T006-T018 are failing)
 
-### T019 [P]: Implement Pydantic models
+### [X] T019 [P]: Implement Pydantic models
 **File**: `src/models/entities.py`, `src/models/schemas.py`
 **Description**: From data-model.md:
 - `entities.py`: EntityType, ClassificationCategory enums, ClassificationResult, NormalizedName, CanonicalEntity, NameVariation models (Pydantic BaseModel)
@@ -413,7 +413,7 @@ Use pytest-benchmark for timing.
 
 ---
 
-### T020 [P]: Implement similarity algorithms
+### [X] T020 [P]: Implement similarity algorithms
 **File**: `src/algorithms/similarity.py`, `src/algorithms/phonetic.py`
 **Description**: From research.md Section 2:
 - `similarity.py`:
@@ -427,7 +427,7 @@ Use pytest-benchmark for timing.
 
 ---
 
-### T021: Implement Classifier
+### [X] T021: Implement Classifier
 **File**: `src/pipeline/classifier.py`
 **Description**: From research.md Section 4 and quickstart.md:
 - Implement ClassifierProtocol from pipeline_contracts.py
@@ -446,7 +446,7 @@ Use pytest-benchmark for timing.
 
 ---
 
-### T022: Implement Atomizer
+### [X] T022: Implement Atomizer
 **File**: `src/pipeline/atomizer.py`
 **Description**: From spec FR-008 to FR-010:
 - Implement AtomizerProtocol from pipeline_contracts.py
@@ -460,7 +460,7 @@ Use pytest-benchmark for timing.
 
 ---
 
-### T023: Implement Normalizer
+### [X] T023: Implement Normalizer
 **File**: `src/pipeline/normalizer.py`
 **Description**: From research.md Section 1 and FR-012:
 - Implement NormalizerProtocol from pipeline_contracts.py
@@ -475,7 +475,7 @@ Use pytest-benchmark for timing.
 
 ---
 
-### T024: Implement Canonicalizer
+### [X] T024: Implement Canonicalizer
 **File**: `src/pipeline/canonicalizer.py`
 **Description**: From spec FR-013 to FR-016 and research.md Section 2:
 - Implement CanonicalizerProtocol from pipeline_contracts.py
@@ -519,7 +519,7 @@ Use pytest-benchmark for timing.
 
 ---
 
-### T025 [P]: Implement MongoDB client
+### [X] T025 [P]: Implement MongoDB client
 **File**: `src/storage/mongodb_client.py`
 **Description**: From spec FR-017, FR-018:
 - Implement MongoDBSourceProtocol from pipeline_contracts.py
@@ -531,7 +531,7 @@ Use pytest-benchmark for timing.
 
 ---
 
-### T026: Implement LocalDatabase CRUD
+### [X] T026: Implement LocalDatabase CRUD
 **File**: `src/storage/local_db.py` (extend from T005)
 **Description**: From spec FR-022 to FR-024:
 - Implement LocalDatabaseProtocol from pipeline_contracts.py
@@ -546,7 +546,7 @@ Use pytest-benchmark for timing.
 
 ---
 
-### T027: Implement CSV export
+### [X] T027: Implement CSV export
 **File**: `src/storage/local_db.py::export_to_csv`
 **Description**: From spec FR-025:
 - Implement `export_to_csv(output_path: str) -> None`
@@ -560,7 +560,7 @@ Use pytest-benchmark for timing.
 
 ---
 
-### T028: Implement CLI orchestrator
+### [X] T028: Implement CLI orchestrator
 **File**: `src/cli.py`
 **Description**: From spec and quickstart.md:
 - Main entry point: `run_pipeline(config_path, batch_size, workers, output_csv)`

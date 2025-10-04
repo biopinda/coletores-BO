@@ -1,0 +1,6 @@
+# NER Model dependencies (optional - for low-confidence fallback)
+# Note: Use CPU-only torch to avoid path length issues on Windows
+
+# Install with: pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch>=2.1.0
+transformers>=4.35.0
