@@ -186,3 +186,7 @@ def main(config: str, batch_size: int | None, max_records: int | None):
     # Close connections
     db.close()
     mongo_source.close()
+
+
+if __name__ == "__main__":
+    main()
