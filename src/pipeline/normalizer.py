@@ -30,8 +30,8 @@ class Normalizer:
         # Start with the original text
         normalized = original
 
-        # Rule 1: Trim obvious leading separator characters (ex: leading ';', ',', '&')
-        stripped_initial = re.sub(r'^[;,&\s]+', '', normalized)
+        # Rule 1: Trim obvious leading separator characters and punctuation (ex: leading ';', ',', '&', '.')
+        stripped_initial = re.sub(r'^[;,&.\s]+', '', normalized)
         if stripped_initial != normalized:
             normalized = stripped_initial
             rules_applied.append("remove_leading_separators")

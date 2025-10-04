@@ -33,7 +33,8 @@ class Atomizer:
         separators_used = []
 
         # First handle "et al." pattern - special case: only keep the name before "et al."
-        et_al_pattern = re.compile(r"\s*et\.?\s+al\.?\s*", re.IGNORECASE)
+        # Matches: "et al", "et. al", "et al.", "et. al.", "et alli", "et. alli.", etc.
+        et_al_pattern = re.compile(r"\s*et\.?\s+al(\.|\s|l\.?i\.?)?", re.IGNORECASE)
         current_text = text
 
         # Find "et al." occurrences

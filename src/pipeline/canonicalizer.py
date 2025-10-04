@@ -97,38 +97,74 @@ class Canonicalizer:
         """Gerar canonicalName com capitalização padronizada.
 
         Regras para Pessoa:
-        - Se formato "SOBRENOME, X. Y." (uppercase) -> converter para "Sobrenome, X. Y."
-        - Se formato "X. Y. SOBRENOME" (iniciais primeiro) -> converter para "Sobrenome, X. Y."
-        - Caso geral: Title Case preservando pontos e vírgulas.
-        Outros tipos: manter como veio (uppercase) por enquanto.
+        - Se formato "SOBRENOME, X.Y." -> "Sobrenome, X.Y."
+        - Se formato "X.Y. SOBRENOME" ou "X. Y. SOBRENOME" -> "Sobrenome, X.Y."
+        - Se formato "NOME SOBRENOME" (sem iniciais) -> "Sobrenome, N.S." (criar iniciais)
+        - Se formato "NOME X. SOBRENOME" (mix) -> "Sobrenome, N.X."
         """
         if entityType == EntityType.PESSOA:
-            # Ex: "FERREIRA JUNIOR, C. A." -> "Ferreira Junior, C. A."
+            import re
+
+            # Case 1: Already in "Surname, Initials" format
             parts = normalized_name.split(",")
             if len(parts) == 2:
                 last_name = parts[0].title().strip()
-                rest = parts[1].strip()
-                # Mantém iniciais como estão (já uppercase com pontos)
-                return f"{last_name}, {rest}"
+                initials = parts[1].strip()
+                # Normalize initials: remove spaces, ensure dots
+                initials_normalized = re.sub(r'\s+', '', initials)
+                if not initials_normalized.endswith('.'):
+                    initials_normalized += '.'
+                return f"{last_name}, {initials_normalized}"
 
-            # Check if format is "X. Y. SURNAME" (initials first, surname last)
-            # Pattern: starts with capital letters followed by dots
-            import re
-            if re.match(r'^([A-Z]\.\s*)+[A-ZÀ-Ž]', normalized_name):
-                # Split into words
-                tokens = normalized_name.split()
-                # Find where initials end and surname begins
+            # Case 2: "X.Y. SURNAME" or "X. Y. SURNAME" (initials first)
+            # Pattern: starts with initials (must have at least one dot to distinguish from full names)
+            if re.match(r'^[A-Z]\.', normalized_name):
+                # First, extract initials that might be concatenated like "D.R."
+                # Split on dots followed by capital letters to handle "D.R." -> ["D", "R"]
+                text_with_spaces = re.sub(r'\.([A-Z])', r'. \1', normalized_name)
+                tokens = text_with_spaces.split()
                 initials = []
                 surname_parts = []
+
                 for token in tokens:
+                    # Check if token is an initial (single letter with optional dot)
                     if re.match(r'^[A-Z]\.?$', token):
-                        initials.append(token if '.' in token else token + '.')
-                    else:
+                        letter = token[0]
+                        initials.append(letter)
+                    # Check if token looks like a word (multi-letter, not just an initial)
+                    elif len(token) > 2 or (len(token) == 2 and not token.endswith('.')):
                         surname_parts.append(token)
 
                 if initials and surname_parts:
                     surname = ' '.join(surname_parts).title()
-                    initials_str = ' '.join(initials).upper().replace('..', '.')
+                    initials_str = '.'.join(initials).upper() + '.'
+                    return f"{surname}, {initials_str}"
+
+            # Case 3: "NOME SOBRENOME" or "NOME MEIO SOBRENOME" (full names, no initials)
+            # Create initials from first letters
+            tokens = normalized_name.split()
+            if len(tokens) >= 2:
+                # Last token is surname, rest are first/middle names
+                surname = tokens[-1].title()
+                first_middle = tokens[:-1]
+
+                # Check if any token is already an initial
+                has_initials = any(re.match(r'^[A-Z]\.?$', token) for token in first_middle)
+
+                if not has_initials:
+                    # Create initials from full names
+                    initials = [token[0].upper() for token in first_middle if token]
+                    initials_str = '.'.join(initials) + '.'
+                    return f"{surname}, {initials_str}"
+                else:
+                    # Mix of initials and full names
+                    initials = []
+                    for token in first_middle:
+                        if re.match(r'^[A-Z]\.?$', token):
+                            initials.append(token[0])
+                        else:
+                            initials.append(token[0].upper())
+                    initials_str = '.'.join(initials) + '.'
                     return f"{surname}, {initials_str}"
 
             return normalized_name.title()
