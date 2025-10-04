@@ -168,6 +168,7 @@ class CanonicalEntity(BaseModel):
 class CanonicalizationInput(BaseModel):
     """Input contract for canonicalization stage"""
     normalized_name: str
+    original_name: str  # Original format from MongoDB for variation storage
     entityType: EntityType
     classification_confidence: float = Field(ge=0.70, le=1.0)
 

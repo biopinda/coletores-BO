@@ -92,6 +92,7 @@ def run_pipeline(config: str, max_records: int = None):
                                 # Stage 4: Canonicalization
                                 canon_result = canonicalizer.canonicalize(CanonicalizationInput(
                                     normalized_name=norm_result.normalized,
+                                    original_name=name,  # Pass original format from MongoDB
                                     entityType=class_result.category.value if class_result.category.value != "ConjuntoPessoas" else "Pessoa",
                                     classification_confidence=class_result.confidence
                                 ))

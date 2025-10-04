@@ -37,31 +37,31 @@ class Canonicalizer:
             # Update existing entity
             entity, sim_score = similar_entities[0]  # Take best match
 
-            # Add new variation
+            # Add new variation (use original format from MongoDB)
             now = datetime.now()
             new_variation = CanonicalVariation(
-                variation_text=input_data.normalized_name,
+                variation_text=input_data.original_name,  # Store original format
                 occurrence_count=1,
                 association_confidence=sim_score,
                 first_seen=now,
                 last_seen=now
             )
-            
-            # Check if variation already exists
+
+            # Check if variation already exists (compare by original text)
             existing_var = next(
-                (v for v in entity.variations if v.variation_text == input_data.normalized_name),
+                (v for v in entity.variations if v.variation_text == input_data.original_name),
                 None
             )
-            
+
             if existing_var:
                 existing_var.occurrence_count += 1
                 existing_var.last_seen = now
             else:
                 entity.variations.append(new_variation)
-            
+
             entity.updated_at = now
             entity.grouping_confidence = sim_score
-            
+
             return CanonicalizationOutput(
                 entity=entity,
                 is_new_entity=False,
@@ -74,10 +74,13 @@ class Canonicalizer:
     def _create_new_entity(self, input_data: CanonicalizationInput) -> CanonicalizationOutput:
         """Create a new canonical entity"""
         now = datetime.now()
-        
-        # Format canonical name (Sobrenome, Iniciais for Pessoa)
-        canonical_name = input_data.normalized_name
-        
+
+        # Format canonical name based on entity type
+        canonical_name = self._format_canonical_name(
+            input_data.normalized_name,
+            input_data.entityType
+        )
+
         entity = CanonicalEntity(
             canonicalName=canonical_name,
             entityType=input_data.entityType,
@@ -85,7 +88,7 @@ class Canonicalizer:
             grouping_confidence=1.0,  # Perfect match with itself
             variations=[
                 CanonicalVariation(
-                    variation_text=input_data.normalized_name,
+                    variation_text=input_data.original_name,  # Store original format from MongoDB
                     occurrence_count=1,
                     association_confidence=1.0,
                     first_seen=now,
@@ -95,9 +98,33 @@ class Canonicalizer:
             created_at=now,
             updated_at=now
         )
-        
+
         return CanonicalizationOutput(
             entity=entity,
             is_new_entity=True,
             similarity_score=None
         )
+
+    def _format_canonical_name(self, normalized_name: str, entity_type: str) -> str:
+        """
+        Format canonical name according to entity type:
+        - Pessoa: "Andrade, I.R." (title case)
+        - Empresa/Instituição: "EMBRAPA" (uppercase)
+        - GrupoPessoas: "EMBRAPA" (uppercase)
+        - NaoDeterminado: original format
+        """
+        if entity_type == EntityType.PESSOA:
+            # Title case: "ANDRADE, I.R." -> "Andrade, I.R."
+            parts = normalized_name.split(',', 1)
+            if len(parts) == 2:
+                surname = parts[0].strip().title()
+                initials = parts[1].strip().upper()
+                return f"{surname}, {initials}"
+            else:
+                return normalized_name.title()
+        elif entity_type in [EntityType.EMPRESA, EntityType.GRUPO_PESSOAS]:
+            # Keep uppercase for institutions and groups
+            return normalized_name.upper()
+        else:
+            # NãoDeterminado: keep as is
+            return normalized_name
