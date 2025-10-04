@@ -40,6 +40,9 @@ output/
 *.db
 *.log
 
+# Configuration with sensitive data
+config.yaml
+
 # OS
 .DS_Store
 Thumbs.db
