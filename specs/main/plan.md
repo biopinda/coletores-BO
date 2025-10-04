@@ -31,11 +31,11 @@
 - Phase 3-4: Implementation execution (manual or via tools)
 
 ## Summary
-Sistema de processamento NLP para identificar, classificar e canonicalizar nomes de coletores de plantas em 4.6 milhões de registros MongoDB. O pipeline processa strings através de classificação (5 categorias), atomização (separação de nomes), normalização (padronização) e canonicalização (agrupamento por similaridade usando Levenshtein + Jaro-Winkler + algoritmo fonético). Saída: banco de dados local com entidades canônicas e variações, relatório CSV, e documentação editável de regras.
+Sistema de processamento NLP para identificar, classificar e canonicalizar nomes de coletores de plantas em 4.6 milhões de registros MongoDB. O pipeline processa strings através de classificação (5 categorias), atomização (separação de nomes), normalização (padronização) e canonicalização (agrupamento por similaridade usando Levenshtein + Jaro-Winkler + algoritmo fonético). Para casos complexos ou com baixa confiança (<0.70), utiliza modelo NER (Named Entity Recognition) BERT como fallback para melhorar a precisão da classificação e identificação de entidades. Saída: banco de dados local com entidades canônicas e variações, relatório CSV, e documentação editável de regras.
 
 ## Technical Context
 **Language/Version**: Python 3.11+
-**Primary Dependencies**: pymongo (MongoDB client), pandas (CSV/data processing), NLP libraries (nltk, jellyfish for phonetic algorithms), similarity algorithms (python-Levenshtein, jellyfish for Jaro-Winkler)
+**Primary Dependencies**: pymongo (MongoDB client), pandas (CSV/data processing), NLP libraries (nltk, jellyfish for phonetic algorithms), similarity algorithms (python-Levenshtein, jellyfish for Jaro-Winkler), transformers + torch (BERT NER model: pierreguillou/bert-base-cased-pt-lenerbr for low-confidence fallback)
 **Storage**: MongoDB (source - 4.6M records), SQLite ou DuckDB (local denormalized table with embedded JSON arrays for variations)
 **Testing**: pytest (unit/integration), pytest-benchmark (performance validation)
 **Target Platform**: Linux/Windows server (CLI application)
@@ -98,7 +98,8 @@ src/
 │   ├── classifier.py       # Stage 1: Classification
 │   ├── atomizer.py          # Stage 2: Atomization
 │   ├── normalizer.py        # Stage 3: Normalization
-│   └── canonicalizer.py     # Stage 4: Canonicalization
+│   ├── canonicalizer.py     # Stage 4: Canonicalization
+│   └── ner_fallback.py      # NER fallback for low-confidence cases
 ├── algorithms/
 │   ├── __init__.py
 │   ├── similarity.py        # Levenshtein, Jaro-Winkler
@@ -118,7 +119,8 @@ tests/
 ├── contract/
 │   ├── test_classification_schema.py
 │   ├── test_entity_schema.py
-│   └── test_output_schema.py
+│   ├── test_output_schema.py
+│   └── test_ner_schema.py
 ├── integration/
 │   ├── test_pipeline_e2e.py
 │   └── test_scenarios.py    # From acceptance criteria
@@ -127,13 +129,14 @@ tests/
     ├── test_atomizer.py
     ├── test_normalizer.py
     ├── test_canonicalizer.py
-    └── test_algorithms.py
+    ├── test_algorithms.py
+    └── test_ner_fallback.py
 
 docs/
 └── rules.md                 # Editable algorithm rules documentation
 ```
 
-**Structure Decision**: Single project structure (data processing pipeline). This is a CLI-based Python application with clear separation of concerns: pipeline stages (classify→atomize→normalize→canonicalize), algorithms (similarity/phonetic), data models, storage adapters (MongoDB source, local DB), and comprehensive testing.
+**Structure Decision**: Single project structure (data processing pipeline). This is a CLI-based Python application with clear separation of concerns: pipeline stages (classify→atomize→normalize→canonicalize), NER fallback for low-confidence cases, algorithms (similarity/phonetic), data models, storage adapters (MongoDB source, local DB), and comprehensive testing.
 
 ## Phase 0: Outline & Research
 1. **Extract unknowns from Technical Context** above:
