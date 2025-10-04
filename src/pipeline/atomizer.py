@@ -32,18 +32,17 @@ class Atomizer:
         parts = []
         separators_used = []
 
-        # First handle "et al." pattern
-        et_al_pattern = re.compile(r"\s*et\s+al\.?\s*", re.IGNORECASE)
+        # First handle "et al." pattern - special case: only keep the name before "et al."
+        et_al_pattern = re.compile(r"\s*et\.?\s+al\.?\s*", re.IGNORECASE)
         current_text = text
 
         # Find "et al." occurrences
-        et_al_matches = list(et_al_pattern.finditer(current_text))
-        if et_al_matches:
-            # Split by "et al." and track it
-            segments = et_al_pattern.split(current_text)
-            for i, segment in enumerate(segments):
-                if segment.strip():
-                    parts.append((segment.strip(), SeparatorType.ET_AL if i > 0 else None))
+        et_al_match = et_al_pattern.search(current_text)
+        if et_al_match:
+            # Only keep the text BEFORE "et al." and discard everything after
+            current_text = current_text[:et_al_match.start()].strip()
+            if current_text:
+                parts.append((current_text, None))
         else:
             # No "et al.", process semicolon, colon and ampersand
             # Split by ; first

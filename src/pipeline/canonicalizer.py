@@ -98,6 +98,7 @@ class Canonicalizer:
 
         Regras para Pessoa:
         - Se formato "SOBRENOME, X. Y." (uppercase) -> converter para "Sobrenome, X. Y."
+        - Se formato "X. Y. SOBRENOME" (iniciais primeiro) -> converter para "Sobrenome, X. Y."
         - Caso geral: Title Case preservando pontos e vírgulas.
         Outros tipos: manter como veio (uppercase) por enquanto.
         """
@@ -109,6 +110,27 @@ class Canonicalizer:
                 rest = parts[1].strip()
                 # Mantém iniciais como estão (já uppercase com pontos)
                 return f"{last_name}, {rest}"
+
+            # Check if format is "X. Y. SURNAME" (initials first, surname last)
+            # Pattern: starts with capital letters followed by dots
+            import re
+            if re.match(r'^([A-Z]\.\s*)+[A-ZÀ-Ž]', normalized_name):
+                # Split into words
+                tokens = normalized_name.split()
+                # Find where initials end and surname begins
+                initials = []
+                surname_parts = []
+                for token in tokens:
+                    if re.match(r'^[A-Z]\.?$', token):
+                        initials.append(token if '.' in token else token + '.')
+                    else:
+                        surname_parts.append(token)
+
+                if initials and surname_parts:
+                    surname = ' '.join(surname_parts).title()
+                    initials_str = ' '.join(initials).upper().replace('..', '.')
+                    return f"{surname}, {initials_str}"
+
             return normalized_name.title()
         return normalized_name.title()
 

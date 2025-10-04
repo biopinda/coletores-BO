@@ -72,6 +72,21 @@ class Normalizer:
             normalized = normalized[2:]
             rules_applied.append("remove_leading_conjunction_e")
 
+        # Rule 8: Remove parenthetical observations like (Pai), (Irmão), (Tziu)
+        before_parens = normalized
+        normalized = re.sub(r'\s*\([^)]*\)\s*', ' ', normalized)
+        normalized = normalized.strip()
+        if before_parens != normalized:
+            rules_applied.append("remove_parenthetical_observations")
+
+        # Rule 9: Normalize initials - remove spaces between initials
+        # "I. R." -> "I.R." for better similarity matching (Andrade, I. R. = Andrade, I.R.)
+        before_initials = normalized
+        # Match pattern: capital letter + dot + spaces + another capital (likely an initial)
+        normalized = re.sub(r'([A-Z]\.)\s+(?=[A-Z]\.)', r'\1', normalized)
+        if before_initials != normalized:
+            rules_applied.append("normalize_initial_spacing")
+
         return NormalizationOutput(
             original=original, normalized=normalized, rules_applied=rules_applied
         )

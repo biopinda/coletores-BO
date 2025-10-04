@@ -118,7 +118,7 @@ class LocalDatabase:
                     entity.updated_at,
                 ],
             ).fetchone()
-            entity.id = result[0]
+                entity.id = result[0]
         if entity.id is not None:
             # Update existing entity
             self.conn.execute(

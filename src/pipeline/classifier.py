@@ -112,9 +112,16 @@ class Classifier:
         # Count commas - more than 2 commas usually indicates multiple people
         comma_count = text.count(',')
 
+        # Check for multiple name patterns (e.g., "E. C. Silva, A. L. Cunha, R. D. Sartin")
+        # Pattern: initials + surname, repeated
+        initial_surname_pattern = re.compile(r'[A-Z]\.\s*[A-Z]\.\s*[A-ZÀ-Ž][a-zà-ž]+', re.IGNORECASE)
+        initial_matches = initial_surname_pattern.findall(text)
+        has_multiple_initial_patterns = len(initial_matches) >= 2
+
         if (self.SEPARATOR_PATTERN.search(text) or
             self.ROLE_INDICATOR_PATTERN.search(text) or
-            comma_count >= 3):
+            comma_count >= 3 or
+            has_multiple_initial_patterns):
             category = ClassificationCategory.CONJUNTO_PESSOAS
             confidence = 0.90
 
@@ -124,6 +131,8 @@ class Classifier:
                 patterns_matched.append("role_indicator_detected")
             if comma_count >= 3:
                 patterns_matched.append("multiple_commas_detected")
+            if has_multiple_initial_patterns:
+                patterns_matched.append("multiple_initial_patterns")
 
             # Boost confidence if name patterns detected
             if self.NAME_WITH_INITIALS.search(text) or self.INITIALS_PATTERN.search(text):
