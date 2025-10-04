@@ -1,7 +1,7 @@
 # Sistema de Identificação e Canonicalização de Coletores de Plantas
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
 [![AI Powered](https://img.shields.io/badge/AI-BERT%20NER-orange.svg)](docs/TECHNICAL-NER.md)
 
 Sistema de processamento de linguagem natural (NLP) com **inteligência artificial** para identificar, classificar e canonicalizar nomes de coletores de plantas em registros de herbários digitais.
@@ -602,7 +602,16 @@ Para informações técnicas completas, consulte:
 
 ## 📄 Licença
 
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+Este projeto está licenciado sob a [Creative Commons Attribution 4.0 International License (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
+
+Você é livre para:
+- **Compartilhar** — copiar e redistribuir o material em qualquer meio ou formato
+- **Adaptar** — remixar, transformar e construir sobre o material para qualquer propósito, mesmo comercialmente
+
+Sob os seguintes termos:
+- **Atribuição** — Você deve dar crédito apropriado, fornecer um link para a licença e indicar se mudanças foram feitas
+
+Veja o arquivo [LICENSE](LICENSE) para detalhes completos.
 
 ---
 
