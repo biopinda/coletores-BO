@@ -23,7 +23,15 @@ class Canonicalizer:
         # normalized_name já vem em uppercase (normalizer)
         normalized_name = input_data.normalized_name
         entityType = input_data.entityType
+
+        # Ensure classification_confidence is at least 0.70 (handle floating point precision)
         classification_confidence = input_data.classification_confidence
+        if classification_confidence < 0.70:
+            classification_confidence = 0.70
+        elif classification_confidence < 0.701:  # Handle 0.6999999...
+            classification_confidence = 0.70
+        else:
+            classification_confidence = round(classification_confidence, 2)
 
         similar_entities = self.database.find_similar_entities(
             normalized_name, entityType.value, threshold=0.70

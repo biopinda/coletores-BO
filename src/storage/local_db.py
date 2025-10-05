@@ -22,6 +22,15 @@ class LocalDatabase:
         self.conn = duckdb.connect(db_path)
         self._create_schema()
 
+    @staticmethod
+    def _fix_confidence(confidence: float) -> float:
+        """Ensure confidence is at least 0.70 (handle floating point precision)"""
+        if confidence < 0.70:
+            return 0.70
+        elif confidence < 0.701:  # Handle 0.6999999...
+            return 0.70
+        return round(confidence, 2)
+
     def _create_schema(self) -> None:
         """Create canonical_entities table with schema from data-model.md"""
         # Create sequence for ID
@@ -111,7 +120,7 @@ class LocalDatabase:
                 [
                     entity.canonicalName,
                     entity.entityType.value,
-                    entity.classification_confidence,
+                    self._fix_confidence(entity.classification_confidence),
                     entity.grouping_confidence,
                     variations_json,
                     entity.created_at,
@@ -131,7 +140,7 @@ class LocalDatabase:
                 [
                     entity.canonicalName,
                     entity.entityType.value,
-                    entity.classification_confidence,
+                    self._fix_confidence(entity.classification_confidence),
                     entity.grouping_confidence,
                     variations_json,
                     entity.updated_at,
@@ -252,7 +261,7 @@ class LocalDatabase:
             id=row[0],
             canonicalName=row[1],
             entityType=EntityType(row[2]),
-            classification_confidence=row[3],
+            classification_confidence=self._fix_confidence(row[3]),
             grouping_confidence=row[4],
             variations=variations,
             created_at=row[6],

@@ -29,17 +29,26 @@ class NEROutput:
 class NERFallback:
     """NER-based fallback for low-confidence classification using Portuguese BERT"""
 
-    # Model: Portuguese BERT fine-tuned on LeNER-Br (Brazilian legal NER dataset)
-    MODEL_NAME = "pierreguillou/bert-base-cased-pt-lenerbr"
+    # Available models for Portuguese NER
+    AVAILABLE_MODELS = {
+        "lenerbr": "pierreguillou/bert-base-cased-pt-lenerbr",  # Legal NER (current)
+        "bertimbau-base": "neuralmind/bert-base-portuguese-cased",  # BERTimbau base
+        "bertimbau-large": "neuralmind/bert-large-portuguese-cased",  # BERTimbau large
+        "bertimbau-ner": "marquesafonso/bertimbau-large-ner-selective",  # Fine-tuned for NER
+        "multilingual": "Davlan/bert-base-multilingual-cased-ner-hrl"  # Multilingual
+    }
 
-    def __init__(self, device: Optional[str] = None):
+    def __init__(self, device: Optional[str] = None, model_key: str = "lenerbr"):
         """
         Initialize NER model
 
         Args:
             device: 'cuda' for GPU, 'cpu' for CPU, or None for auto-detect
+            model_key: Which model to use (one of AVAILABLE_MODELS keys)
         """
         self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model_key = model_key
+        self.model_name = self.AVAILABLE_MODELS.get(model_key, self.AVAILABLE_MODELS["lenerbr"])
         self.model = None
         self.tokenizer = None
         self.ner_pipeline = None
@@ -52,10 +61,10 @@ class NERFallback:
         if self.ner_pipeline is not None:
             return
 
-        print(f"Loading NER model: {self.MODEL_NAME} on {self.device}...")
+        print(f"Loading NER model: {self.model_name} ({self.model_key}) on {self.device}...")
 
-        self.tokenizer = AutoTokenizer.from_pretrained(self.MODEL_NAME)
-        self.model = AutoModelForTokenClassification.from_pretrained(self.MODEL_NAME)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.model = AutoModelForTokenClassification.from_pretrained(self.model_name)
 
         # Move model to GPU if available
         if self.device == 'cuda':
@@ -235,3 +244,40 @@ class NERFallback:
             True if confidence < 0.85 (threshold for NER fallback - more generous)
         """
         return confidence < 0.85
+
+    def extract_person_name(self, text: str) -> str:
+        """
+        Extract only the person name portion from a string using NER.
+
+        This helps parse strings like "V.C. Vilela (67)" to extract only "V.C. Vilela"
+        or "M. Emmerich 1007" to extract only "M. Emmerich".
+
+        Args:
+            text: Input text potentially containing person name + numbers/codes
+
+        Returns:
+            Extracted person name, or original text if no person entity found
+        """
+        # Ensure model is loaded
+        self._load_model()
+
+        # Run NER
+        ner_results = self.ner_pipeline(text)
+
+        # Find PESSOA entities
+        person_entities = [
+            result for result in ner_results
+            if result['entity_group'] in ['PESSOA', 'PER', 'PERSON']
+        ]
+
+        if not person_entities:
+            # No person entity found, return original text
+            return text
+
+        # Find the longest person entity (most likely to be the complete name)
+        longest_entity = max(person_entities, key=lambda e: e['end'] - e['start'])
+
+        # Extract the person name substring
+        extracted_name = text[longest_entity['start']:longest_entity['end']].strip()
+
+        return extracted_name if extracted_name else text

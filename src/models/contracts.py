@@ -52,6 +52,7 @@ class ClassificationInput(BaseModel):
 class ClassificationOutput(BaseModel):
     """Output contract for classification stage (FR-001, FR-002)"""
     original_text: str
+    sanitized_text: str = Field(description="Text with trailing numeric codes removed")
     category: ClassificationCategory
     confidence: float = Field(ge=0.0, le=1.0, description="Confidence score 0.0-1.0")
     patterns_matched: List[str] = Field(description="Patterns that triggered classification")

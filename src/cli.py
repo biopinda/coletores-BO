@@ -59,10 +59,11 @@ def run_pipeline(config: str, max_records: int = None, continue_processing: bool
     local_db = LocalDatabase(cfg.local_db.path)
 
     # Initialize classifier with NER fallback enabled (uses GPU if available)
-    classifier = Classifier(use_ner_fallback=True, ner_device=None)  # None = auto-detect GPU
+    # Using bertimbau-ner model: fine-tuned specifically for Portuguese NER
+    classifier = Classifier(use_ner_fallback=True, ner_device=None, ner_model="bertimbau-ner")  # None = auto-detect GPU
     atomizer = Atomizer()
     normalizer = Normalizer()
-    canonicalizer = Canonicalizer(local_db=local_db)
+    canonicalizer = Canonicalizer(database=local_db)
     
     # Get total count
     total_records = max_records if max_records else mongo_source.get_total_count()
@@ -102,27 +103,35 @@ def run_pipeline(config: str, max_records: int = None, continue_processing: bool
                             # Stage 1: Classification
                             class_result = classifier.classify(ClassificationInput(text=collector_text))
 
-                            # Stage 2: Atomization
+                            # Stage 2: Atomization (use sanitized_text instead of original_text)
                             atom_result = atomizer.atomize(AtomizationInput(
-                                text=class_result.original_text,
+                                text=class_result.sanitized_text,
                                 category=class_result.category
                             ))
 
                             # Process each atomized name (or single name)
-                            names_to_process = [n.text for n in atom_result.atomized_names] if atom_result.atomized_names else [collector_text]
+                            # Use sanitized_text instead of original collector_text to ensure numbers are removed
+                            names_to_process = [n.text for n in atom_result.atomized_names] if atom_result.atomized_names else [class_result.sanitized_text]
 
                             for name in names_to_process:
                                 # Stage 3: Normalization
                                 norm_result = normalizer.normalize(NormalizationInput(original_name=name))
 
                                 # Stage 4: Canonicalization
-                                # Round confidence to avoid floating point precision issues
-                                confidence = round(class_result.confidence, 2)
+                                # Ensure confidence is at least 0.70 with epsilon tolerance
+                                confidence = class_result.confidence
+                                if confidence < 0.70:
+                                    confidence = 0.70
+                                elif confidence < 0.701:  # Handle floating point: 0.699999... -> 0.70
+                                    confidence = 0.70
+                                else:
+                                    confidence = round(confidence, 2)
+
                                 canon_result = canonicalizer.canonicalize(CanonicalizationInput(
                                     normalized_name=norm_result.normalized,
                                     original_name=name,  # Pass original format from MongoDB
                                     entityType=class_result.category.value if class_result.category.value != "ConjuntoPessoas" else "Pessoa",
-                                    classification_confidence=max(0.70, confidence)  # Ensure minimum 0.70
+                                    classification_confidence=confidence
                                 ))
 
                                 # Store in database
@@ -157,7 +166,7 @@ def run_pipeline(config: str, max_records: int = None, continue_processing: bool
         total_processed_count = progress.get_total_processed()
 
         # Summary
-        click.echo(f"\n✅ Pipeline complete!")
+        click.echo(f"\nPipeline complete!")
         click.echo(f"   Processed: {processed} records")
         if continue_processing and skipped > 0:
             click.echo(f"   Skipped (already done): {skipped} records")

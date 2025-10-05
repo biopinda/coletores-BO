@@ -6,7 +6,14 @@
       "Bash(python -m pytest ../tests/unit/test_progress_tracker.py::test_initialization -v)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git checkout:*)",
+      "WebSearch",
+      "mcp__context7__resolve-library-id",
+      "Bash(python -m pytest tests/unit/test_number_removal.py -v)",
+      "Bash(python -m pytest tests/unit/test_number_removal.py::test_internal_numbers_preserved_for_conjunto -v)",
+      "Bash(python -m pytest tests/unit/test_classifier.py -v)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []
