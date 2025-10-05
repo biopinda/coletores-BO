@@ -88,7 +88,7 @@ Saída: Entidades canônicas com variações agrupadas
 
 ### 1. Classificação
 
-Categoriza cada string em **5 tipos** usando reconhecimento de padrões:
+Categoriza cada string em **5 tipos** usando reconhecimento de padrões e **IA (NER)**:
 
 | Categoria | Descrição | Exemplo |
 |-----------|-----------|---------|
@@ -97,6 +97,19 @@ Categoriza cada string em **5 tipos** usando reconhecimento de padrões:
 | **Grupo de Pessoas** | Denominação genérica sem nomes | "Equipe de pesquisa" |
 | **Empresa/Instituição** | Acrônimos e códigos | "EMBRAPA", "USP", "INPA" |
 | **Não Determinado** | Sem identificação | "?", "sem coletor" |
+
+#### 🤖 NER - Named Entity Recognition
+
+O sistema utiliza **IA com modelos transformers** para extração e classificação precisa:
+
+- **Modelo**: [BERTimbau-NER](https://huggingface.co/marquesafonso/bertimbau-large-ner-selective) (BERT otimizado para português)
+- **Cobertura**: 100% dos registros processados com NER para máxima precisão
+- **Sanitização inteligente**: Remove códigos de coleção preservando apenas nomes
+  - `"V.C. Vilela (67)"` → `"V.C. Vilela"`
+  - `"M. Emmerich 1007"` → `"M. Emmerich"`
+  - `"E. Santos 1092A"` → `"E. Santos"`
+- **Suporte multi-modelo**: 5 modelos NER disponíveis (LenerBR, BERTimbau-base/large, multilíngue)
+- **Aceleração GPU**: Suporte CUDA opcional para processamento em larga escala
 
 **Confiança mínima**: 0.70 (classificações abaixo são sinalizadas para revisão manual)
 
@@ -171,6 +184,10 @@ Exemplos:
 ### Stack Tecnológico
 
 - **Linguagem**: Python 3.11+
+- **Inteligência Artificial**:
+  - `transformers` - Modelos NER (BERTimbau, LenerBR)
+  - `torch` - Backend para modelos transformers
+  - **Modelo principal**: [BERTimbau-NER](https://huggingface.co/marquesafonso/bertimbau-large-ner-selective)
 - **Processamento NLP**:
   - `python-Levenshtein` - Cálculo de distância de edição
   - `jellyfish` - Jaro-Winkler e algoritmos fonéticos (Metaphone, Soundex)
