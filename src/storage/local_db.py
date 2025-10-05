@@ -117,7 +117,18 @@ class LocalDatabase:
 
         for row in results:
             canon_name = row[1]
-            similarity = calc_similarity(normalized_name, canon_name)
+
+            # Also check variations for similarity
+            # This helps group "Korte, A" with "Korte, A." and similar cases
+            variations_data = json.loads(row[5])
+            max_similarity = calc_similarity(normalized_name, canon_name)
+
+            # Check similarity against all variations
+            for v in variations_data:
+                var_similarity = calc_similarity(normalized_name, v['variation_text'].upper())
+                max_similarity = max(max_similarity, var_similarity)
+
+            similarity = max_similarity
 
             if similarity >= threshold:
                 # Reconstruct entity
@@ -195,20 +206,18 @@ class LocalDatabase:
         return entities
 
     def export_to_csv(self, output_path: str) -> None:
-        """Export entities to CSV format"""
+        """Export entities to CSV format (2 columns: canonicalName and variations)"""
         import pandas as pd
 
         entities = self.get_all_entities()
 
         rows = []
         for entity in entities:
-            variations_text = ";".join([v.variation_text for v in entity.variations])
-            occurrence_counts = ";".join([str(v.occurrence_count) for v in entity.variations])
+            variations_text = "|".join([v.variation_text for v in entity.variations])
 
             rows.append({
                 "canonicalName": entity.canonicalName,
-                "variations": variations_text,
-                "occurrenceCounts": occurrence_counts
+                "variations": variations_text
             })
 
         df = pd.DataFrame(rows)

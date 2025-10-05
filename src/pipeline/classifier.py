@@ -53,26 +53,44 @@ class Classifier:
             return ClassificationOutput(
                 original_text=text,
                 category=ClassificationCategory.EMPRESA,
-                confidence=0.95,
+                confidence=0.85,
                 patterns_matched=patterns_matched,
                 should_atomize=False
             )
         
         # 3. Conjunto de Pessoas (separators + name patterns)
-        conjunto_separators = [';', '&', 'et al.', ' e ', ' and ']
+        conjunto_separators = [';', '&', 'et al.', ' e ', ' and ', '|']
         has_separator = any(sep in text for sep in conjunto_separators)
         has_initials = bool(re.search(r'\b[A-Z]\.\s*[A-Z]\.?', text))
-        
-        if has_separator and has_initials:
+
+        # Check for multiple comma-separated names pattern
+        # Pattern: multiple occurrences of "Surname, Initials"
+        comma_name_pattern = r'[A-Z][a-z]+,\s*[A-Z]\.'
+        comma_matches = re.findall(comma_name_pattern, text)
+        has_multiple_comma_names = len(comma_matches) >= 2
+
+        # Check for names with associated numbers (e.g., "I. E. Santo 410, M. F. CASTILHORI 444")
+        has_numbers_between_names = bool(re.search(r'[A-Z]\.\s+\d+[,\s]+[A-Z]\.', text))
+
+        # Check for keywords that indicate a group (ALUNOS, etc.)
+        group_keywords_in_list = bool(re.search(r',\s*(ALUNOS|EQUIPE|GRUPO)', text, re.IGNORECASE))
+
+        # Check for pattern: "Name & Name" or "Name, Name & Name"
+        ampersand_with_names = bool(re.search(r'[A-Z][a-z]+,\s*[A-Z]\.\s*[A-Z]?\.*\s*&', text))
+
+        # Check for multiple short initials/names separated by comma (e.g., "Y. Pires, C. GOMES, E. ADAIS")
+        multiple_short_names = len(re.findall(r'[A-Z]\.\s*[A-Z][a-z]+', text)) >= 2
+
+        if (has_separator and has_initials) or has_multiple_comma_names or has_numbers_between_names or group_keywords_in_list or ampersand_with_names or multiple_short_names:
             patterns_matched.extend(["multiple_names", "separator_detected"])
             return ClassificationOutput(
                 original_text=text,
                 category=ClassificationCategory.CONJUNTO_PESSOAS,
-                confidence=0.92,
+                confidence=0.82,
                 patterns_matched=patterns_matched,
                 should_atomize=True
             )
-        
+
         # 4. Pessoa (single name pattern)
         surname_pattern = r'^[A-ZÀ-Ú][a-zà-ú]+(?:-[A-ZÀ-Ú][a-zà-ú]+)?,\s*[A-ZÀ-Ú]\.(?:[A-ZÀ-Ú]\.)*'
         if re.match(surname_pattern, text):
@@ -80,18 +98,31 @@ class Classifier:
             return ClassificationOutput(
                 original_text=text,
                 category=ClassificationCategory.PESSOA,
-                confidence=0.90,
+                confidence=0.80,
                 patterns_matched=patterns_matched,
                 should_atomize=False
             )
-        
+
         # Check for initials without strict surname format
         if has_initials and not has_separator:
             patterns_matched.append("single_name_with_initials")
             return ClassificationOutput(
                 original_text=text,
                 category=ClassificationCategory.PESSOA,
-                confidence=0.75,
+                confidence=0.65,
+                patterns_matched=patterns_matched,
+                should_atomize=False
+            )
+
+        # Discard generic single names (first name or last name only)
+        # Pattern: single word, no initials, title case or all caps
+        if ' ' not in text and ',' not in text and '.' not in text:
+            # Single word without punctuation
+            patterns_matched.append("generic_single_name")
+            return ClassificationOutput(
+                original_text=text,
+                category=ClassificationCategory.NAO_DETERMINADO,
+                confidence=0.0,  # Signal to discard
                 patterns_matched=patterns_matched,
                 should_atomize=False
             )
@@ -103,22 +134,22 @@ class Classifier:
             return ClassificationOutput(
                 original_text=text,
                 category=ClassificationCategory.GRUPO_PESSOAS,
-                confidence=0.80,
+                confidence=0.70,
                 patterns_matched=patterns_matched,
                 should_atomize=False
             )
-        
-        # Default: Pessoa (conservative fallback) - but check if we need NER
+
+        # Default: Low confidence - use NER fallback
         result = ClassificationOutput(
             original_text=text,
             category=ClassificationCategory.PESSOA,
-            confidence=0.70,
+            confidence=0.60,
             patterns_matched=["default_fallback"],
             should_atomize=False
         )
 
-        # NER fallback for low-confidence cases
-        if self.use_ner_fallback and result.confidence < 0.70:
+        # NER fallback for low-confidence cases (threshold raised to 0.85)
+        if self.use_ner_fallback and result.confidence < 0.85:
             result = self._apply_ner_fallback(text, result)
 
         return result
@@ -133,10 +164,10 @@ class Classifier:
 
         Args:
             text: Original text
-            original_result: Classification result with confidence < 0.70
+            original_result: Classification result with confidence < 0.85
 
         Returns:
-            Updated ClassificationOutput with improved confidence
+            Updated ClassificationOutput with improved confidence or marked for discard
         """
         # Lazy load NER model (only on first use)
         if self.ner_fallback is None:
@@ -150,14 +181,36 @@ class Classifier:
 
         self.ner_fallback_count += 1
 
+        # Check if should discard
+        if ner_output.should_discard or ner_output.improved_confidence == 0.0:
+            patterns = original_result.patterns_matched.copy()
+            patterns.append("ner_discard")
+            return ClassificationOutput(
+                original_text=text,
+                category=ClassificationCategory.NAO_DETERMINADO,
+                confidence=0.0,  # Signal to discard
+                patterns_matched=patterns,
+                should_atomize=False
+            )
+
         # Update category based on NER findings
         category = original_result.category
         patterns = original_result.patterns_matched.copy()
         patterns.append("ner_fallback")
 
+        # Determine category based on entities found
         if ner_output.has_person:
-            category = ClassificationCategory.PESSOA
-            patterns.append("ner_person_detected")
+            # Check if multiple persons detected (could be conjunto)
+            person_entities = [
+                e for e in ner_output.entities
+                if e.label in ['PESSOA', 'PER', 'PERSON']
+            ]
+            if len(person_entities) > 1:
+                category = ClassificationCategory.CONJUNTO_PESSOAS
+                patterns.append("ner_multiple_persons_detected")
+            else:
+                category = ClassificationCategory.PESSOA
+                patterns.append("ner_person_detected")
         elif ner_output.entities:
             # Check for organization
             has_org = any(
@@ -174,5 +227,5 @@ class Classifier:
             category=category,
             confidence=ner_output.improved_confidence,
             patterns_matched=patterns,
-            should_atomize=False
+            should_atomize=(category == ClassificationCategory.CONJUNTO_PESSOAS)
         )

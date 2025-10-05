@@ -23,6 +23,7 @@ class NEROutput:
     improved_confidence: float
     original_text: str
     has_person: bool
+    should_discard: bool  # True if string should be discarded
 
 
 class NERFallback:
@@ -77,10 +78,10 @@ class NERFallback:
 
         Args:
             text: Input text to classify
-            original_confidence: Original classification confidence (should be < 0.70)
+            original_confidence: Original classification confidence
 
         Returns:
-            NEROutput with extracted entities and improved confidence
+            NEROutput with extracted entities, improved confidence, and discard flag
         """
         # Ensure model is loaded
         self._load_model()
@@ -106,41 +107,86 @@ class NERFallback:
             if entity.label in ['PESSOA', 'PER', 'PERSON']:
                 has_person = True
 
+        # Determine if we should discard this string
+        should_discard = self._should_discard(text, entities, has_person)
+
         # Calculate improved confidence
         improved_confidence = self._calculate_improved_confidence(
             original_confidence,
             entities,
-            has_person
+            has_person,
+            should_discard
         )
 
         return NEROutput(
             entities=entities,
             improved_confidence=improved_confidence,
             original_text=text,
-            has_person=has_person
+            has_person=has_person,
+            should_discard=should_discard
         )
+
+    def _should_discard(self, text: str, entities: List[NEREntity], has_person: bool) -> bool:
+        """
+        Determine if a string should be discarded
+
+        Discard criteria:
+        - No recognized entities found
+        - All entities have very low confidence (<0.50)
+        - Text is too short (<3 characters) and no entities
+        - Text has suspicious patterns (mostly numbers, special chars)
+        """
+        import re
+
+        # Too short without clear entity
+        if len(text.strip()) < 3 and not entities:
+            return True
+
+        # No entities found at all
+        if not entities:
+            # Check if text looks like garbage (mostly non-alphabetic)
+            alpha_ratio = sum(c.isalpha() for c in text) / max(len(text), 1)
+            if alpha_ratio < 0.5:
+                return True
+            # If it's very short and no entities, likely not useful
+            if len(text.strip()) < 5:
+                return True
+
+        # All entities have very low confidence
+        if entities:
+            max_score = max(e.score for e in entities)
+            if max_score < 0.50:
+                return True
+
+        return False
 
     def _calculate_improved_confidence(
         self,
         original_confidence: float,
         entities: List[NEREntity],
-        has_person: bool
+        has_person: bool,
+        should_discard: bool
     ) -> float:
         """
         Calculate improved confidence based on NER results
 
-        Confidence boost logic:
-        - If PESSOA entity found with high score (>0.85): +0.15 boost
-        - If PESSOA entity found with medium score (>0.70): +0.10 boost
-        - If PESSOA entity found with low score: +0.05 boost
-        - If ORGANIZATION found: +0.05 boost
-        - Maximum confidence: 0.95 (leave room for uncertainty)
+        Confidence logic:
+        - If should_discard: return 0.0 (will be filtered out)
+        - If PESSOA entity found with high score (>0.85): boost to 0.85-0.90
+        - If PESSOA entity found with medium score (>0.70): boost to 0.75-0.80
+        - If PESSOA entity found with low score (>0.50): boost to 0.70-0.75
+        - If ORGANIZATION found: boost accordingly
+        - If no clear entities: reduce confidence to 0.65-0.70
+        - Maximum confidence: 0.90 (more conservative)
         """
+        if should_discard:
+            return 0.0  # Signal to discard
+
         confidence = original_confidence
 
         if not entities:
-            # No entities found, slight penalty
-            return max(confidence - 0.05, 0.65)
+            # No entities found, reduce confidence
+            return max(confidence - 0.10, 0.65)
 
         # Find highest scoring PESSOA entity
         person_entities = [
@@ -152,11 +198,13 @@ class NERFallback:
             max_person_score = max(e.score for e in person_entities)
 
             if max_person_score > 0.85:
-                confidence += 0.15
+                confidence = 0.85
             elif max_person_score > 0.70:
-                confidence += 0.10
+                confidence = 0.75
+            elif max_person_score > 0.50:
+                confidence = 0.70
             else:
-                confidence += 0.05
+                confidence = 0.65
 
         # Check for organization entities
         org_entities = [
@@ -164,11 +212,17 @@ class NERFallback:
             if e.label in ['ORGANIZACAO', 'ORG', 'ORGANIZATION']
         ]
 
-        if org_entities:
-            confidence += 0.05
+        if org_entities and not person_entities:
+            max_org_score = max(e.score for e in org_entities)
+            if max_org_score > 0.85:
+                confidence = 0.85
+            elif max_org_score > 0.70:
+                confidence = 0.75
+            else:
+                confidence = 0.70
 
-        # Cap at 0.95
-        return min(confidence, 0.95)
+        # Cap at 0.90 (more conservative)
+        return min(confidence, 0.90)
 
     def should_use_fallback(self, confidence: float) -> bool:
         """
@@ -178,6 +232,6 @@ class NERFallback:
             confidence: Original classification confidence
 
         Returns:
-            True if confidence < 0.70 (threshold for NER fallback)
+            True if confidence < 0.85 (threshold for NER fallback - more generous)
         """
-        return confidence < 0.70
+        return confidence < 0.85

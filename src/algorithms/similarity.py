@@ -26,34 +26,42 @@ def jaro_winkler_score(s1: str, s2: str) -> float:
     return jellyfish.jaro_winkler_similarity(s1, s2)
 
 
-def similarity_score(s1: str, s2: str, 
-                    lev_weight: float = 0.4,
+def similarity_score(s1: str, s2: str,
+                    lev_weight: float = 0.3,
                     jw_weight: float = 0.4,
-                    phonetic_weight: float = 0.2) -> float:
+                    phonetic_weight: float = 0.3) -> float:
     """
     Calculate weighted similarity score combining Levenshtein, Jaro-Winkler, and phonetic
-    
+
     Args:
         s1: First string
         s2: Second string
-        lev_weight: Levenshtein weight (default 0.4)
+        lev_weight: Levenshtein weight (default 0.3)
         jw_weight: Jaro-Winkler weight (default 0.4)
-        phonetic_weight: Phonetic weight (default 0.2)
-    
+        phonetic_weight: Phonetic weight (default 0.3, increased for better phonetic grouping)
+
     Returns:
         Weighted similarity score (0.0-1.0)
     """
     # Normalize inputs
     s1_norm = s1.upper().strip()
     s2_norm = s2.upper().strip()
-    
+
+    # Remove dots and spaces for better comparison (e.g., "J.C.F." vs "J. C. F" vs "J.C.F")
+    s1_clean = s1_norm.replace('.', '').replace(' ', '')
+    s2_clean = s2_norm.replace('.', '').replace(' ', '')
+
     # Calculate individual scores
     lev_score = levenshtein_score(s1_norm, s2_norm)
     jw_score = jaro_winkler_score(s1_norm, s2_norm)
-    
-    # Phonetic matching
+
+    # Also check without punctuation for exact match
+    if s1_clean == s2_clean:
+        return 1.0
+
+    # Phonetic matching (increased weight for better grouping)
     from .phonetic import phonetic_match
     phon_score = 1.0 if phonetic_match(s1_norm, s2_norm) else 0.0
-    
+
     # Weighted average
     return (lev_score * lev_weight) + (jw_score * jw_weight) + (phon_score * phonetic_weight)

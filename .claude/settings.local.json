@@ -51,7 +51,9 @@
       "Bash(nvidia-smi:*)",
       "Bash(reg query:*)",
       "Bash(pip uninstall:*)",
-      "Bash(del test_ner_gpu.py verify_gpu_usage.py)"
+      "Bash(del test_ner_gpu.py verify_gpu_usage.py)",
+      "Bash(\" as separator\n\n- Canonicalization:\n  * Convert full first names to initials (e.g., \"TIAGO\" → \"T.\")\n  * Unique variations enforcement (case-sensitive)\n  * Update occurrence counts for existing variations\n\n- Similarity & Grouping:\n  * Increased phonetic weight (0.2 → 0.3)\n  * Check variations for similarity matching\n  * Remove punctuation/spaces for exact match detection\n  * Better grouping of phonetic variants\n\n- CSV Export:\n  * Changed to 2 columns: canonicalName and variations\n  * Use \")",
+      "Bash(\" separator for variations\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")"
     ],
     "deny": [],
     "ask": []

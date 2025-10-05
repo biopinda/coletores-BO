@@ -39,24 +39,26 @@ class Canonicalizer:
 
             # Add new variation (use original format from MongoDB)
             now = datetime.now()
-            new_variation = CanonicalVariation(
-                variation_text=input_data.original_name,  # Store original format
-                occurrence_count=1,
-                association_confidence=sim_score,
-                first_seen=now,
-                last_seen=now
-            )
 
-            # Check if variation already exists (compare by original text)
+            # Check if variation already exists (compare by original text, case-sensitive)
             existing_var = next(
                 (v for v in entity.variations if v.variation_text == input_data.original_name),
                 None
             )
 
             if existing_var:
+                # Update existing variation
                 existing_var.occurrence_count += 1
                 existing_var.last_seen = now
             else:
+                # Add new unique variation
+                new_variation = CanonicalVariation(
+                    variation_text=input_data.original_name,  # Store original format
+                    occurrence_count=1,
+                    association_confidence=sim_score,
+                    first_seen=now,
+                    last_seen=now
+                )
                 entity.variations.append(new_variation)
 
             entity.updated_at = now
@@ -122,7 +124,13 @@ class Canonicalizer:
             parts = normalized_name.split(',', 1)
             if len(parts) == 2:
                 surname = parts[0].strip().title()
-                initials = parts[1].strip().upper()
+                # Handle case where second part is full name instead of initials (e.g., "Grespan, TIAGO")
+                second_part = parts[1].strip()
+                if '.' not in second_part and len(second_part) > 2:
+                    # Full first name, convert to initial
+                    initials = second_part[0].upper() + '.'
+                else:
+                    initials = second_part.upper()
                 return f"{surname}, {initials}"
             else:
                 # Check if it's "Initials Surname" format (D.R. GONZAGA) or mixed format

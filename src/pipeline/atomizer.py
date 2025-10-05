@@ -37,8 +37,15 @@ class Atomizer:
             text = re.sub(r'\s*et\.?\s*alli\.?\s*$', '', text, flags=re.IGNORECASE)
             current_sep = SeparatorType.ET_AL
 
-        # Split by semicolon (highest priority)
-        if ';' in text:
+        # Remove numbers associated with names (e.g., "I. E. Santo 410" -> "I. E. Santo")
+        text = re.sub(r'\s+\d+(?=[,\s]|$)', '', text)
+
+        # Split by pipe (highest priority)
+        if '|' in text:
+            parts = text.split('|')
+            current_sep = SeparatorType.SEMICOLON
+        # Split by semicolon
+        elif ';' in text:
             parts = text.split(';')
             current_sep = SeparatorType.SEMICOLON
         # Split by ampersand
