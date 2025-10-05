@@ -1,68 +1,77 @@
-"""Normalization stage: Standardize name format"""
+"""Normalization stage: Standardize names for comparison"""
 
 import re
-from src.models.contracts import NormalizationInput, NormalizationOutput
+from typing import List
+
+from src.models.schemas import NormalizationInput, NormalizationOutput
 
 
 class Normalizer:
-    """Normalizer for standardizing name format"""
-    
+    """Normalizer for name standardization (FR-011, FR-012)"""
+
     def normalize(self, input_data: NormalizationInput) -> NormalizationOutput:
         """
-        Normalize name: remove extra spaces, standardize punctuation, uppercase
+        Normalize name: remove extra spaces, standardize punctuation, uppercase.
+
+        Rules from research.md Section 1:
+        1. Remove extra whitespace
+        2. Standardize punctuation spacing
+        3. Uppercase for comparison
+
+        Args:
+            input_data: NormalizationInput with original name
+
+        Returns:
+            NormalizationOutput with normalized name and rules applied
         """
-        text = input_data.original_name
-        rules_applied = []
+        original = input_data.original_name
+        rules_applied: List[str] = []
 
-        # 0. Discard strings with numbers that are not valid names
-        # Patterns:
-        # - Starts with digits: "1214", "12196"
-        # - "number, initials": "1214, I.E.S.", "1216, M.E.", "12196, M.B."
-        # - Starts with pipe separator: "|Amanda"
-        if (re.match(r'^\d+', text) or
-            re.search(r'^\d+\s*[,;-]\s*[A-Z]\.(?:[A-Z]\.)*\s*$', text) or
-            text.startswith('|')):
-            rules_applied.append("invalid_name_with_numbers_or_separator")
-            return NormalizationOutput(
-                original=input_data.original_name,
-                normalized="",  # Empty string signals invalid
-                rules_applied=rules_applied
-            )
+        # Start with the original text
+        normalized = original
 
-        # 1. Remove leading/trailing punctuation and whitespace
-        text = re.sub(r'^[.,;:\s]+', '', text)
-        text = re.sub(r'[.,;:\s]+$', '', text)
-        rules_applied.append("remove_leading_trailing_punct")
+        # Rule 1: Trim obvious leading separator characters (ex: leading ';', ',', '&')
+        stripped_initial = re.sub(r'^[;,&\s]+', '', normalized)
+        if stripped_initial != normalized:
+            normalized = stripped_initial
+            rules_applied.append("remove_leading_separators")
 
-        # 2. Remove "et al." and variations (case insensitive, anywhere in string)
-        original_text = text
-        text = re.sub(r'\s*[;,]?\s*et\.?\s*al\.?\s*[;,]?\s*', ' ', text, flags=re.IGNORECASE)
-        text = re.sub(r'\s*[;,]?\s*et\.?\s*alli\.?\s*[;,]?\s*', ' ', text, flags=re.IGNORECASE)
-        text = re.sub(r'\s*&\s*et\.?\s*al\.?\s*', ' ', text, flags=re.IGNORECASE)
-        if text != original_text:
-            rules_applied.append("remove_et_al")
+        # Rule 2: Remove trailing separator clutter
+        stripped_trailing = re.sub(r'[;,&\s]+$', '', normalized)
+        if stripped_trailing != normalized:
+            normalized = stripped_trailing
+            rules_applied.append("remove_trailing_separators")
 
-        # 3. Remove extra whitespace
-        text = ' '.join(text.split())
-        rules_applied.append("remove_extra_spaces")
+        # Rule 3: Remove extra whitespace
+        if "  " in normalized or normalized != normalized.strip():
+            normalized = " ".join(normalized.split())
+            rules_applied.append("remove_extra_spaces")
 
-        # 3.5. Remove collection numbers from names
-        # Examples: "M. Emmerich 1130" -> "M. Emmerich", "R. Rocha 1010," -> "R. Rocha"
-        original_text_for_num = text
-        text = re.sub(r'\s+\d+\s*[,;.]*\s*$', '', text)
-        if text != original_text_for_num:
-            rules_applied.append("remove_collection_numbers")
+        # Rule 4: Standardize punctuation spacing
+        # Ensure punctuation marks are followed by a space
+        before_punctuation = normalized
+        normalized = re.sub(r"\s*([,;.&])\s*", r"\1 ", normalized)
+        normalized = normalized.strip()
 
-        # 4. Standardize punctuation spacing
-        text = re.sub(r'\s*([,;.&|])\s*', r'\1 ', text)
-        rules_applied.append("standardize_punctuation")
+        if before_punctuation != normalized:
+            rules_applied.append("standardize_punctuation")
 
-        # 5. Uppercase for comparison
-        text = text.upper().strip()
-        rules_applied.append("uppercase")
+        # Rule 5: Uppercase for comparison
+        if normalized != normalized.upper():
+            normalized = normalized.upper()
+            rules_applied.append("uppercase")
+
+        # Rule 6: Remover novamente separadores iniciais residuais pós transformações
+        cleaned = re.sub(r'^[;\s]+', '', normalized)
+        if cleaned != normalized:
+            normalized = cleaned
+            rules_applied.append("strip_leading_separators_post")
+
+        # Rule 7: Se nome começa com 'E ' (português 'e' conjuntivo errante no início) remover
+        if normalized.startswith('E '):
+            normalized = normalized[2:]
+            rules_applied.append("remove_leading_conjunction_e")
 
         return NormalizationOutput(
-            original=input_data.original_name,
-            normalized=text,
-            rules_applied=rules_applied
+            original=original, normalized=normalized, rules_applied=rules_applied
         )

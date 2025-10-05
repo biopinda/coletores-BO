@@ -6,24 +6,24 @@
 ## Execution Flow (main)
 ```
 1. Load plan.md from feature directory ✓
-   → Tech stack: Python 3.11+, pymongo, pandas, NLP libraries, DuckDB, transformers+torch (NER)
+   → Tech stack: Python 3.11+, pymongo, pandas, NLP libraries, DuckDB
    → Structure: Single project (src/, tests/, docs/)
 2. Load design documents ✓
    → data-model.md: 6 entities (ClassificationResult, AtomizedName, etc.)
-   → contracts/: pipeline_contracts.py (8 protocols + NER)
-   → research.md: 8 technical decisions + NER model selection
+   → contracts/: pipeline_contracts.py (8 protocols)
+   → research.md: 8 technical decisions
    → quickstart.md: 7 acceptance scenarios
 3. Generate tasks by category ✓
    → Setup: 5 tasks (project init, deps, config)
-   → Tests: 14 tasks (7 contract including NER + 7 integration)
-   → Core: 14 tasks (models, algorithms, pipeline stages, NER fallback)
+   → Tests: 13 tasks (6 contract + 7 integration)
+   → Core: 12 tasks (models, algorithms, pipeline stages)
    → Integration: 5 tasks (CLI, parallel processing, CSV export)
    → Polish: 5 tasks (unit tests, performance, docs)
 4. Apply task rules ✓
    → Different files = [P] parallel
    → Same file = sequential
    → Tests before implementation (TDD)
-5. Number tasks sequentially (T001-T040, T011a, T024a, T024b) ✓
+5. Number tasks sequentially (T001-T040) ✓
 6. Dependencies mapped ✓
 7. Parallel execution examples included ✓
 8. Validation ✓
@@ -49,7 +49,7 @@ Single project structure (data processing pipeline):
 
 ## Phase 3.1: Setup & Infrastructure
 
-### [X] T001: Create project structure
+### T001: Create project structure
 **File**: Repository root
 **Description**: Create directory structure matching plan.md:
 ```
@@ -106,7 +106,7 @@ output/  # Created at runtime for CSV reports
 
 ---
 
-### [X] T002: Initialize Python 3.11+ project with dependencies
+### T002: Initialize Python 3.11+ project with dependencies
 **File**: `requirements.txt`, `setup.py` or `pyproject.toml`
 **Description**: Create dependency file with:
 ```
@@ -119,10 +119,6 @@ duckdb>=0.10.0
 pandas>=2.1.0
 click>=8.1.0
 tqdm>=4.66.0
-
-# NER Model dependencies (fallback for low-confidence cases)
-transformers>=4.35.0
-torch>=2.1.0
 
 # Development dependencies
 pytest>=7.4.0
@@ -137,7 +133,7 @@ Install with: `pip install -r requirements.txt`
 
 ---
 
-### [X] T003 [P]: Configure linting and type checking
+### T003 [P]: Configure linting and type checking
 **File**: `pyproject.toml`, `.ruff.toml`, `mypy.ini`
 **Description**: Create configuration files:
 
@@ -170,7 +166,7 @@ warn_unused_configs = True
 
 ---
 
-### [X] T004 [P]: Create configuration file structure
+### T004 [P]: Create configuration file structure
 **File**: `config.yaml`, `src/config.py`
 **Description**:
 
@@ -208,7 +204,7 @@ output:
 
 ---
 
-### [X] T005 [P]: Setup DuckDB schema
+### T005 [P]: Setup DuckDB schema
 **File**: `src/storage/local_db.py` (schema creation only)
 **Description**: Create DuckDB schema from data-model.md:
 ```sql
@@ -235,7 +231,7 @@ Implement schema creation method only (no CRUD yet).
 ## Phase 3.2: Tests First (TDD) ⚠️ MUST COMPLETE BEFORE 3.3
 **CRITICAL: These tests MUST be written and MUST FAIL before ANY implementation**
 
-### [X] T006 [P]: Contract test - Classification schema
+### T006 [P]: Contract test - Classification schema
 **File**: `tests/contract/test_classification_schema.py`
 **Description**: Test ClassificationInput/Output from pipeline_contracts.py:
 - Valid input: `{"text": "Silva, J. & Forzza, R.C."}` → accepts
@@ -248,7 +244,7 @@ Use Pydantic validation, pytest parametrize for test cases.
 
 ---
 
-### [X] T007 [P]: Contract test - Atomization schema
+### T007 [P]: Contract test - Atomization schema
 **File**: `tests/contract/test_atomization_schema.py`
 **Description**: Test AtomizationInput/Output from pipeline_contracts.py:
 - Valid input: text + category
@@ -260,7 +256,7 @@ Use Pydantic validation, pytest parametrize for test cases.
 
 ---
 
-### [X] T008 [P]: Contract test - Normalization schema
+### T008 [P]: Contract test - Normalization schema
 **File**: `tests/contract/test_normalization_schema.py`
 **Description**: Test NormalizationInput/Output from pipeline_contracts.py:
 - Valid input: original_name (min_length=1)
@@ -271,7 +267,7 @@ Use Pydantic validation, pytest parametrize for test cases.
 
 ---
 
-### [X] T009 [P]: Contract test - Canonicalization schema
+### T009 [P]: Contract test - Canonicalization schema
 **File**: `tests/contract/test_canonicalization_schema.py`
 **Description**: Test CanonicalizationInput/Output from pipeline_contracts.py:
 - Valid input: normalized_name, entityType, classification_confidence ≥0.70
@@ -282,7 +278,7 @@ Use Pydantic validation, pytest parametrize for test cases.
 
 ---
 
-### [X] T010 [P]: Contract test - Entity schema
+### T010 [P]: Contract test - Entity schema
 **File**: `tests/contract/test_entity_schema.py`
 **Description**: Test CanonicalEntity and NameVariation from pipeline_contracts.py:
 - CanonicalEntity: all confidence fields ≥0.70, variations non-empty
@@ -293,7 +289,7 @@ Use Pydantic validation, pytest parametrize for test cases.
 
 ---
 
-### [X] T011 [P]: Contract test - CSV export schema
+### T011 [P]: Contract test - CSV export schema
 **File**: `tests/contract/test_csv_schema.py`
 **Description**: Test CSVReportRow from pipeline_contracts.py:
 - Valid row: canonicalName, semicolon-separated variations, semicolon-separated counts
@@ -304,19 +300,7 @@ Use Pydantic validation, pytest parametrize for test cases.
 
 ---
 
-### [X] T011a [P]: Contract test - NER fallback schema
-**File**: `tests/contract/test_ner_schema.py`
-**Description**: Test NER fallback input/output schemas:
-- Valid input: text (string), original_confidence (0.0-1.0)
-- Valid output: entities list with (text, label, score), improved_confidence (0.0-1.0)
-- Trigger condition: original_confidence < 0.70
-- NER labels: PESSOA, ORGANIZATION, etc.
-**Dependencies**: T002
-**Acceptance**: Test runs, assertions FAIL
-
----
-
-### [X] T012 [P]: Integration test - Scenario 1 (ConjuntoPessoas)
+### T012 [P]: Integration test - Scenario 1 (ConjuntoPessoas)
 **File**: `tests/integration/test_scenarios.py::test_scenario_1_conjunto_pessoas`
 **Description**: From quickstart.md Scenario 1:
 - Input: "Silva, J. & R.C. Forzza; Santos, M. et al."
@@ -328,7 +312,7 @@ Use Classifier and Atomizer (not yet implemented).
 
 ---
 
-### [X] T013 [P]: Integration test - Scenario 2 (Variation grouping)
+### T013 [P]: Integration test - Scenario 2 (Variation grouping)
 **File**: `tests/integration/test_scenarios.py::test_scenario_2_variation_grouping`
 **Description**: From quickstart.md Scenario 2:
 - Inputs: ["Forzza, R.C.", "Forzza, R.", "R.C. Forzza", "Rafaela C. Forzza"]
@@ -339,7 +323,7 @@ Use Classifier and Atomizer (not yet implemented).
 
 ---
 
-### [X] T014 [P]: Integration test - Scenarios 3-5 (Classification categories)
+### T014 [P]: Integration test - Scenarios 3-5 (Classification categories)
 **File**: `tests/integration/test_scenarios.py::test_scenario_3_grupo_pessoas`, `test_scenario_4_empresa`, `test_scenario_5_nao_determinado`
 **Description**: From quickstart.md Scenarios 3-5:
 - Scenario 3: "Pesquisas da Biodiversidade" → GrupoPessoas
@@ -351,7 +335,7 @@ Use Classifier (not yet implemented).
 
 ---
 
-### [X] T015 [P]: Integration test - Scenario 6 (Dynamic DB updates)
+### T015 [P]: Integration test - Scenario 6 (Dynamic DB updates)
 **File**: `tests/integration/test_scenarios.py::test_scenario_6_dynamic_updates`
 **Description**: From quickstart.md Scenario 6:
 - Start with empty database
@@ -363,7 +347,7 @@ Use LocalDatabase.get_all_entities() (not yet implemented).
 
 ---
 
-### [X] T016 [P]: Integration test - Scenario 7 (CSV export)
+### T016 [P]: Integration test - Scenario 7 (CSV export)
 **File**: `tests/integration/test_scenarios.py::test_scenario_7_csv_export`
 **Description**: From quickstart.md Scenario 7:
 - Export to CSV using LocalDatabase.export_to_csv()
@@ -375,7 +359,7 @@ Use LocalDatabase.get_all_entities() (not yet implemented).
 
 ---
 
-### [X] T017 [P]: Integration test - Performance validation
+### T017 [P]: Integration test - Performance validation
 **File**: `tests/integration/test_scenarios.py::test_performance_target`
 **Description**: From quickstart.md Performance Validation:
 - Process 100K test records
@@ -387,7 +371,7 @@ Use pytest-benchmark for timing.
 
 ---
 
-### [X] T018 [P]: Unit test - Similarity algorithms
+### T018 [P]: Unit test - Similarity algorithms
 **File**: `tests/unit/test_algorithms.py`
 **Description**: From research.md Section 2:
 - Test Levenshtein distance: known pairs → expected scores
@@ -402,7 +386,7 @@ Use pytest-benchmark for timing.
 
 ## Phase 3.3: Core Implementation (ONLY after tests T006-T018 are failing)
 
-### [X] T019 [P]: Implement Pydantic models
+### T019 [P]: Implement Pydantic models
 **File**: `src/models/entities.py`, `src/models/schemas.py`
 **Description**: From data-model.md:
 - `entities.py`: EntityType, ClassificationCategory enums, ClassificationResult, NormalizedName, CanonicalEntity, NameVariation models (Pydantic BaseModel)
@@ -413,7 +397,7 @@ Use pytest-benchmark for timing.
 
 ---
 
-### [X] T020 [P]: Implement similarity algorithms
+### T020 [P]: Implement similarity algorithms
 **File**: `src/algorithms/similarity.py`, `src/algorithms/phonetic.py`
 **Description**: From research.md Section 2:
 - `similarity.py`:
@@ -427,7 +411,7 @@ Use pytest-benchmark for timing.
 
 ---
 
-### [X] T021: Implement Classifier
+### T021: Implement Classifier
 **File**: `src/pipeline/classifier.py`
 **Description**: From research.md Section 4 and quickstart.md:
 - Implement ClassifierProtocol from pipeline_contracts.py
@@ -439,14 +423,13 @@ Use pytest-benchmark for timing.
   4. Pessoa: single name pattern (surname + initials or full name)
   5. GrupoPessoas: generic group terms, no proper names
 - Confidence scoring per research.md (exact match +0.3, multiple indicators +0.1, ambiguity -0.2)
-- **NER Fallback Integration**: If confidence < 0.70, call NER fallback (T024a) to improve classification
-- Raise ValueError if confidence still < 0.70 after NER attempt
-**Dependencies**: T012, T014 (integration tests failing), T019 (models ready), T024a (NER fallback)
-**Acceptance**: T012 Scenario 1 classification PASSES, T014 Scenarios 3-5 PASS, low-confidence cases use NER
+- Raise ValueError if confidence < 0.70
+**Dependencies**: T012, T014 (integration tests failing), T019 (models ready)
+**Acceptance**: T012 Scenario 1 classification PASSES, T014 Scenarios 3-5 PASS
 
 ---
 
-### [X] T022: Implement Atomizer
+### T022: Implement Atomizer
 **File**: `src/pipeline/atomizer.py`
 **Description**: From spec FR-008 to FR-010:
 - Implement AtomizerProtocol from pipeline_contracts.py
@@ -460,7 +443,7 @@ Use pytest-benchmark for timing.
 
 ---
 
-### [X] T023: Implement Normalizer
+### T023: Implement Normalizer
 **File**: `src/pipeline/normalizer.py`
 **Description**: From research.md Section 1 and FR-012:
 - Implement NormalizerProtocol from pipeline_contracts.py
@@ -475,7 +458,7 @@ Use pytest-benchmark for timing.
 
 ---
 
-### [X] T024: Implement Canonicalizer
+### T024: Implement Canonicalizer
 **File**: `src/pipeline/canonicalizer.py`
 **Description**: From spec FR-013 to FR-016 and research.md Section 2:
 - Implement CanonicalizerProtocol from pipeline_contracts.py
@@ -490,36 +473,7 @@ Use pytest-benchmark for timing.
 
 ---
 
-### T024a [P]: Implement NER Fallback
-**File**: `src/pipeline/ner_fallback.py`
-**Description**: From PRD NER requirements:
-- Implement NER fallback using transformers library
-- Load model: `pierreguillou/bert-base-cased-pt-lenerbr` (Portuguese BERT NER)
-- `classify_with_ner(text: str, original_confidence: float) -> NEROutput`
-- Trigger: Called only when original_confidence < 0.70
-- Extract entities with label PESSOA (person names)
-- Return improved classification with entities and confidence boost
-- Cache model in memory (load once at initialization)
-- Add timeout (max 5s per inference) for performance
-**Dependencies**: T002 (transformers installed), T011a (contract test), T019 (models)
-**Acceptance**: Can load BERT model, extract PESSOA entities, T011a contract test PASSES
-
----
-
-### T024b: Unit test - NER fallback
-**File**: `tests/unit/test_ner_fallback.py`
-**Description**: Test NER fallback functionality:
-- Test model loading and caching
-- Test entity extraction: known names → PESSOA labels
-- Test confidence improvement: low confidence (0.65) → boosted (0.80+)
-- Test performance: inference <5s per string
-- Test edge cases: empty string, Unicode, special characters
-**Dependencies**: T024a (NER implemented)
-**Acceptance**: All tests PASS, performance <5s
-
----
-
-### [X] T025 [P]: Implement MongoDB client
+### T025 [P]: Implement MongoDB client
 **File**: `src/storage/mongodb_client.py`
 **Description**: From spec FR-017, FR-018:
 - Implement MongoDBSourceProtocol from pipeline_contracts.py
@@ -531,7 +485,7 @@ Use pytest-benchmark for timing.
 
 ---
 
-### [X] T026: Implement LocalDatabase CRUD
+### T026: Implement LocalDatabase CRUD
 **File**: `src/storage/local_db.py` (extend from T005)
 **Description**: From spec FR-022 to FR-024:
 - Implement LocalDatabaseProtocol from pipeline_contracts.py
@@ -546,7 +500,7 @@ Use pytest-benchmark for timing.
 
 ---
 
-### [X] T027: Implement CSV export
+### T027: Implement CSV export
 **File**: `src/storage/local_db.py::export_to_csv`
 **Description**: From spec FR-025:
 - Implement `export_to_csv(output_path: str) -> None`
@@ -560,17 +514,17 @@ Use pytest-benchmark for timing.
 
 ---
 
-### [X] T028: Implement CLI orchestrator
+### T028: Implement CLI orchestrator
 **File**: `src/cli.py`
 **Description**: From spec and quickstart.md:
 - Main entry point: `run_pipeline(config_path, batch_size, workers, output_csv)`
 - Load config from YAML
-- Initialize MongoDB client, LocalDatabase, NER fallback model (lazy load)
-- Orchestrate pipeline: MongoDBRecord → Classify (with NER fallback if needed) → Atomize → Normalize → Canonicalize → Store
-- Return PipelineResult with metrics (total_records, processed, elapsed_time, ner_fallback_count)
+- Initialize MongoDB client, LocalDatabase
+- Orchestrate pipeline: MongoDBRecord → Classify → Atomize → Normalize → Canonicalize → Store
+- Return PipelineResult with metrics (total_records, processed, elapsed_time)
 - Use click for CLI arguments
-**Dependencies**: T021-T027, T024a (all pipeline stages + NER implemented)
-**Acceptance**: Can run `python src/cli.py --config config.yaml`, processes test records end-to-end, NER triggered for low-confidence
+**Dependencies**: T021-T027 (all pipeline stages implemented)
+**Acceptance**: Can run `python src/cli.py --config config.yaml`, processes test records end-to-end
 
 ---
 
@@ -605,24 +559,22 @@ Use pytest-benchmark for timing.
 **File**: `docs/rules.md`
 **Description**: From spec FR-026, FR-027:
 - Document classification patterns (NãoDeterminado, Empresa, ConjuntoPessoas, Pessoa, GrupoPessoas)
-- Document NER fallback: trigger condition (<0.70), model used (pierreguillou/bert-base-cased-pt-lenerbr), expected boost
 - Document atomization separators (`;`, `&`, `et al.`)
 - Document normalization rules (spaces, punctuation, uppercase)
 - Document canonicalization format ("Sobrenome, Iniciais")
 - Document similarity algorithm weights (Levenshtein 0.4, Jaro-Winkler 0.4, Phonetic 0.2)
 - Mark as editable for algorithm refinement
-**Dependencies**: T021-T024, T024a (pipeline stages + NER implemented)
-**Acceptance**: docs/rules.md exists, clearly documents all algorithm rules including NER fallback
+**Dependencies**: T021-T024 (pipeline stages implemented)
+**Acceptance**: docs/rules.md exists, clearly documents all algorithm rules
 
 ---
 
 ### T032: End-to-end integration test
 **File**: `tests/integration/test_e2e_pipeline.py`
 **Description**:
-- Insert 1000 test specimens to MongoDB (include low-confidence cases to trigger NER)
+- Insert 1000 test specimens to MongoDB
 - Run full pipeline: `run_pipeline(config_path, batch_size=100, workers=4)`
-- Assert: All stages complete (classification with NER fallback, atomization, normalization, canonicalization)
-- Assert: NER fallback triggered for low-confidence cases (check ner_fallback_count > 0)
+- Assert: All stages complete (classification, atomization, normalization, canonicalization)
 - Assert: Local DB has entities, CSV exported
 - Assert: No errors or exceptions
 **Dependencies**: T028-T030 (full pipeline ready)
@@ -698,16 +650,15 @@ Use pytest-benchmark for timing.
 ### T038 [P]: Create README
 **File**: `README.md`
 **Description**:
-- Project overview: NLP pipeline for plant collector canonicalization with NER fallback
-- Installation: Python 3.11+, `pip install -r requirements.txt` (includes BERT model download)
-- Configuration: How to edit config.yaml (NER fallback settings)
+- Project overview: NLP pipeline for plant collector canonicalization
+- Installation: Python 3.11+, `pip install -r requirements.txt`
+- Configuration: How to edit config.yaml
 - Usage: `python src/cli.py --config config.yaml --workers 8`
 - Testing: `pytest tests/`
-- Performance: Expected 213 rec/sec, 6-hour processing for 4.6M records (NER adds ~2s per low-confidence case)
+- Performance: Expected 213 rec/sec, 6-hour processing for 4.6M records
 - Output: CSV format (canonicalName, variations, counts), local DB location
-- NER Fallback: Explain when triggered, model used, expected accuracy improvement
 **Dependencies**: T028 (CLI ready)
-**Acceptance**: README complete, clear usage instructions including NER details
+**Acceptance**: README complete, clear usage instructions
 
 ---
 
@@ -745,17 +696,14 @@ Setup Phase:
 T001 → T002 → T003, T004, T005
         ↓
 Tests Phase (all parallel after T002):
-T006, T007, T008, T009, T010, T011, T011a (contract tests - T011a for NER)
+T006, T007, T008, T009, T010, T011 (contract tests)
 T012, T013, T014, T015, T016, T017 (integration tests)
 T018 (unit tests)
         ↓
 Core Implementation:
 T019 (models) ← [blocks] → T020 (algorithms)
         ↓                      ↓
-T024a (NER fallback) [P] ← T002, T011a, T019
-T024b (NER unit test) ← T024a
-        ↓
-T021 (Classifier) ← T012, T014, T024a (NER integration)
+T021 (Classifier) ← T012, T014
 T022 (Atomizer) ← T012
 T023 (Normalizer) ← T013
 T024 (Canonicalizer) ← T013, T020
@@ -764,16 +712,16 @@ T026 (LocalDB CRUD) ← T005, T019, T020
 T027 (CSV export) ← T026
         ↓
 Integration:
-T028 (CLI) ← T021-T027, T024a (NER included)
+T028 (CLI) ← T021-T027
 T029 (Parallel) ← T028
 T030 (Error handling) ← T028
         ↓
 Validation:
-T031 (Rules doc) ← T024a (NER docs)
-T032 (E2E test) ← T028-T030 (NER fallback tested)
+T031 (Rules doc)
+T032 (E2E test) ← T028-T030
 T033 (Quickstart validation) ← T032
 T034 (Constitution check) ← T003, T028
-T035 (Coverage) ← T006-T030, T024a, T024b
+T035 (Coverage) ← T006-T030
         ↓
 Polish:
 T036, T037, T038, T039 (all parallel after T035)
@@ -825,24 +773,22 @@ Polish tasks are mostly independent:
 
 ## Notes
 - **[P] tasks**: Different files, no dependencies, can run in parallel
-- **TDD strict**: T006-T018, T011a MUST be written and MUST FAIL before T019+ implementation
-- **NER Fallback**: Triggered only for confidence <0.70, uses BERT model pierreguillou/bert-base-cased-pt-lenerbr
+- **TDD strict**: T006-T018 MUST be written and MUST FAIL before T019+ implementation
 - **Commit after each task**: Atomic commits for rollback capability
-- **Performance target**: ≥213 records/sec (validates 6-hour processing for 4.6M records, NER adds ~2s overhead per low-confidence case)
-- **Confidence threshold**: All scores ≥0.70 (enforced in validation, NER helps achieve this)
+- **Performance target**: ≥213 records/sec (validates 6-hour processing for 4.6M records)
+- **Confidence threshold**: All scores ≥0.70 (enforced in validation)
 - **Avoid**: Vague tasks, same file conflicts, implementation before tests
 
 ---
 
 ## Estimated Timeline
 - **Phase 3.1 (Setup)**: T001-T005 → ~2 hours
-- **Phase 3.2 (Tests)**: T006-T018, T011a → ~9 hours (14 test files including NER contract test)
-- **Phase 3.3 (Core)**: T019-T030, T024a, T024b → ~19 hours (14 implementation tasks including NER fallback + unit test)
+- **Phase 3.2 (Tests)**: T006-T018 → ~8 hours (13 test files)
+- **Phase 3.3 (Core)**: T019-T030 → ~16 hours (12 implementation tasks)
 - **Phase 3.4 (Integration)**: T031-T035 → ~4 hours (validation)
 - **Phase 3.5 (Polish)**: T036-T040 → ~4 hours (final touches)
 
-**Total**: ~38 hours development time (with parallel execution, can compress to ~22-26 hours wall-clock time)
-**NER Impact**: +3 hours for implementation, +2s per low-confidence record at runtime
+**Total**: ~34 hours development time (with parallel execution, can compress to ~20-24 hours wall-clock time)
 
 ---
 

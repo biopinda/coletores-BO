@@ -1,202 +1,43 @@
-# Ajustes necessários no processamento e no algoritmo de interpretação, identificação e classificação de entidades
+# Ajustes na interpretação, identificação e classificação de entidades
 
-## ✅ Regras de Formatação Implementadas (2025-10-04)
-
-### Normalização (apenas para comparação)
-- A string normalizada (UPPERCASE) é usada **APENAS** para comparação e busca de similaridade
-- A normalização NÃO é armazenada no banco de dados ou CSV
-
-### Formato do canonicalName
-- **Pessoa**: `"Andrade, I.R."` (primeira letra maiúscula no sobrenome, iniciais em maiúscula)
-- **Empresa/Instituição**: `"EMBRAPA"` (tudo em maiúscula)
-- **GrupoPessoas**: `"EQUIPE DE PESQUISA"` (tudo em maiúscula)
-- **NãoDeterminado**: formato original preservado
-
-### Formato das Variações
-- As variações são armazenadas **exatamente como estão no MongoDB original**
-- Exemplos:
-  - MongoDB: `"Forzza, R.C."` → Variação: `"Forzza, R.C."`
-  - MongoDB: `"R.C. Forzza"` → Variação: `"R.C. Forzza"`
-  - MongoDB: `"EMBRAPA"` → Variação: `"EMBRAPA"`
-  - MongoDB: `"Embrapa"` → Variação: `"Embrapa"`
+* canonicalNames devem ser representados como `Guimarães, T. M.`, e não `GUIMARÃES, T. M.`. Esta representação deve valer tanto para o arquivo .CSV quando para o registro no banco de dados;
+* Nunca usar `"` no registro de entidades no arquivo `canonical_report.csv` ou no banco de dados;
+* Registros de `canonicalName` no banco de dados estão iniciando com `; `. Corrigir!
+* O campo do banco de dados e do arquivo .CSV é `canonicalName`
+* Ajuste as regras.
 
 ---
 
-## ✅ Ajustes Implementados (2025-10-04)
+## Ajustes Implementados
 
-### Normalização
-* ✅ ". L. Azevedo, L.O." - Remove pontuação inicial → "L. Azevedo, L.O."
-* ✅ "Botelho, R.D. ET. AL." - Remove "et al." e variações (et. al., Et. Al., et alli, etc.)
-* ✅ "G.M. Antar Et. Al." - Remove todas as variações de "et al"
+### ✅ 1. Capitalização dos Nomes Canônicos
 
-### Canonicalização
-* ✅ "Alisson Nogueira Braz" → "Braz, A.N." (nomes completos sem iniciais)
-* ✅ "D.R. Gonzaga" → "Gonzaga, D.R." (iniciais antes do sobrenome)
-* ✅ "Débora G. Takaki" → "Takaki, D.G." (nome completo + inicial + sobrenome)
-* ✅ "G.M. Antar" → "Antar, G.M." (múltiplas iniciais + sobrenome)
+* **Alteração**: Modificado `_format_canonicalName()` em `canonicalizer.py` para usar `.title()` em vez de manter maiúsculo
+* **Resultado**: Nomes como `Guimarães, T. M.` em vez de `GUIMARÃES, T. M.`
 
-### Atomização
-* ✅ "Fernandes, F. M, Nogueira, J. B" - Detecta e separa nomes com vírgula como separador
-* ✅ "Cc. Oliveira, L. S Inocencio, Mj. Silva N. Carvalho, R. C, Sodré" - Melhoria na detecção de conjuntos
+### ✅ 2. Remoção de Aspas no CSV
 
-## ✅ Ajustes Implementados (2025-10-05)
+* **Alteração**: Adicionado `quoting=3` (QUOTE_NONE) no `export_to_csv()`
+* **Resultado**: Valores sem aspas desnecessárias no arquivo CSV
 
-### Normalização
-* ✅ Strings com números inválidos são descartadas (ex: "Hh-10512, G.H.", "1006, M.E.")
-* ✅ Melhorada remoção de "et al" em qualquer posição da string (não apenas no final)
-* ✅ Adicionado suporte ao caractere "|" como separador
+### ✅ 3. Campo Renomeado
 
-### Classificação
-* ✅ Melhorada detecção de conjuntos de pessoas:
-  * Múltiplos nomes separados por vírgula (padrão "Surname, Initials" repetido)
-  * Nomes com números associados (ex: "I. E. Santo 410, M. F. CASTILHORI 444")
-  * Palavras-chave de grupo em listas (ALUNOS, EQUIPE, GRUPO)
-  * Suporte ao separador "|"
+* **Alteração**: Campo `canonicalName` consolidado em todo o código
+* **Arquivos afetados**:
+  * `src/storage/local_db.py` (schema, queries, índices)
+  * `src/models/entities.py`
+  * `src/models/schemas.py`
+  * `specs/main/contracts/pipeline_contracts.py`
+  * Documentação (README.md, data-model.md)
 
-### Canonicalização
-* ✅ Corrigida conversão de nomes completos para iniciais: "Grespan, TIAGO" → "Grespan, T."
+### 🔄 4. Problema "; " no Início (Pendente)
 
-### Atomização
-* ✅ Adicionado suporte ao separador "|" (pipe)
-* ✅ Remoção automática de números associados a nomes (ex: "I. E. Santo 410" → "I. E. Santo")
-* ✅ Melhorada remoção de "et al" em conjuntos
+* **Status**: Identificado mas não corrigido
+* **Possível causa**: Problema na serialização/desserialização JSON das variações
+* **Próximos passos**: Investigar como as variações são salvas/recuperadas do banco
 
-### Agrupamento
-* ✅ Implementada verificação de similaridade contra variações existentes
-* ✅ Agrupa corretamente variações como "Korte, A" e "Korte, A."
-* ✅ Agrupa variações fonéticas similares (ex: "Kumerrow", "Kummorov", "Kummrov", "Kummrow")
+### 📋 Regras Ajustadas
 
-## ✅ Ajustes de NER Fallback (2025-10-05)
-
-### Uso Mais Generoso do NER Fallback
-* ✅ Threshold de acionamento aumentado de 0.70 para **0.85**
-  * Agora o NER fallback é usado em muito mais casos
-  * Apenas classificações de muito alta confiança não passam pelo NER
-
-### Redução de Confiança nas Classificações
-* ✅ Empresa (sigla maiúscula): 0.95 → **0.85**
-* ✅ Conjunto de Pessoas: 0.92 → **0.82**
-* ✅ Pessoa (padrão "Sobrenome, Iniciais"): 0.90 → **0.80**
-* ✅ Pessoa (com iniciais, sem padrão estrito): 0.75 → **0.65**
-* ✅ Grupo de Pessoas: 0.80 → **0.70**
-* ✅ Fallback padrão: 0.70 → **0.60**
-
-### Descarte Automático via NER
-* ✅ Implementado descarte de strings inválidas:
-  * Texto muito curto (<3 caracteres) sem entidades reconhecidas
-  * Texto com baixa proporção de caracteres alfabéticos (<50%)
-  * Todas as entidades com confiança muito baixa (<0.50)
-  * Strings que retornam confiança 0.0 são marcadas como NAO_DETERMINADO
-
-### Melhorias no NER Fallback
-* ✅ Confiança mais conservadora (máximo 0.90 ao invés de 0.95)
-* ✅ Detecção de múltiplas pessoas (classifica como CONJUNTO_PESSOAS)
-* ✅ Lógica de confiança baseada em scores do NER:
-  * Score >0.85: confiança 0.85
-  * Score >0.70: confiança 0.75
-  * Score >0.50: confiança 0.70
-  * Sem entidades claras: confiança 0.65
-
-## ✅ Ajustes Implementados (2025-10-05 - Parte 2)
-
-### Variações Únicas
-* ✅ Implementada verificação de duplicatas no canonicalizer
-* ✅ Variações são registradas apenas uma vez (case-sensitive)
-* ✅ Contador de ocorrências atualizado para variações existentes
-
-### Descarte de Strings Inválidas
-* ✅ Descartadas strings que começam com números (ex: "13313, A.C.B.")
-* ✅ Descartadas strings que começam com separador "|" (ex: "|Amanda, A.")
-* ✅ Descartados nomes genéricos isolados (uma palavra, sem pontuação)
-  * Exemplos: "Soares", "Solange", "Nilda", "Márcio"
-
-### Agrupamento Fonético Melhorado
-* ✅ Peso fonético aumentado de 0.2 para 0.3
-* ✅ Peso Levenshtein ajustado de 0.4 para 0.3
-* ✅ Comparação sem pontuação/espaços para match exato
-* ✅ Agrupa melhor variações como:
-  * "Zaslawski, W." e "Zaslawsky, W." (fonética similar)
-  * "Nascimento, J. C. F" e "Nascimento, J.C.F." (pontuação diferente)
-  * "Zappi, L.", "Zappi, L.F.", "Zappia, L" (variações fonéticas)
-
-### Detecção de Conjuntos Melhorada
-* ✅ Detecta padrão "Name & Name" com ampersand
-* ✅ Detecta múltiplos nomes curtos (ex: "Y. Pires, C. GOMES, E. ADAIS")
-* ✅ Melhores padrões regex para conjuntos complexos
-
-## ✅ Ajustes Implementados (2025-10-05 - Parte 3)
-
-### Descarte Aprimorado de Números+Iniciais
-* ✅ Melhorado padrão regex para detectar "número, iniciais" completo
-* ✅ Descarta corretamente todos os casos:
-  * "1214, I.E.S.", "1216, M.E.", "12196, M.B."
-  * "1253, M.F.C.", "1220, B.F."
-* ✅ Padrão: `^\d+\s*[,;-]\s*[A-Z]\.(?:[A-Z]\.)*\s*$`
-
-### Remoção de Números em Conjuntos
-* ✅ Atomizer remove números associados a nomes em conjuntos
-* ✅ Exemplos de transformação:
-  * "Edmundo Pereira; Pabst 3885" → ["Edmundo Pereira", "Pabst"]
-  * "A. Lima | Cabrera | Fabris | Pabst 5565 | E. Pereira, 5674" → ["A. Lima", "Cabrera", "Fabris", "Pabst", "E. Pereira"]
-  * "M.F. Castilhori 365" → "M.F. Castilhori"
-  * "Y.S. Kuniyoshi 3510" → "Y.S. Kuniyoshi"
-* ✅ Remove números precedidos de espaço ou vírgula
-
-### Detecção de Sobrenomes Isolados
-* ✅ Aceita sobrenomes isolados com >3 caracteres e title case
-* ✅ Exemplos aceitos: "Cabrera", "Fabris", "Pabst", "Santos"
-* ✅ Exemplos descartados: "A", "Bo", "Sol", "SILVA" (all caps), "maria" (lowercase)
-* ✅ Confiança baixa (0.55) para acionar NER fallback
-
-## ✅ Ajustes Implementados (2025-10-05 - Parte 4)
-
-### Sistema de Progresso Resumível
-* ✅ Implementada classe `ProgressTracker` para rastrear processamento
-* ✅ Progresso salvo em `data/progress.json`
-* ✅ Rastreia IDs de registros processados
-* ✅ Salva progresso a cada 100 registros
-* ✅ Salva progresso final ao terminar
-
-### Parâmetro --continue
-* ✅ Novo parâmetro CLI: `--continue`
-* ✅ Continua de onde parou quando usado
-* ✅ Pula registros já processados
-* ✅ Funciona com `--max-records` para processamento em lotes
-* ✅ Exemplos de uso:
-  * Primeira execução: `python -m src.cli --max-records 1000`
-  * Continuar: `python -m src.cli --continue --max-records 1000`
-  * Processar tudo: `python -m src.cli --continue`
-
-### Relatórios de Progresso
-* ✅ Mostra registros pulados (já processados)
-* ✅ Mostra total processado acumulado
-* ✅ Exibe estatísticas de progresso no final
-
-## ✅ Ajustes Implementados (2025-10-05 - Parte 5)
-
-### Detecção de Grupos Melhorada
-* ✅ Adicionadas palavras-chave: "turma", "bioveg"
-* ✅ Confiança aumentada para 0.75
-* ✅ Reconhece: "Grupo 1 BIOVEG 2010.1", "Turma de Ecologia Vegetal 2009.1."
-
-### Remoção de Números de Coleta
-* ✅ Normalizer remove números ao final de nomes individuais
-* ✅ Exemplos corrigidos:
-  * "M. Emmerich 1130" → "M. Emmerich"
-  * "R. Rocha 1010," → "R. Rocha"
-  * "A.C. Brade 16108" → "A.C. Brade"
-* ✅ Padrão: `\s+\d+\s*[,;.]*\s*$`
-
-### Detecção de Conjuntos Aprimorada
-* ✅ Detecta múltiplos padrões "Initials Surname" separados por vírgula
-* ✅ Conta vírgulas (≥3 vírgulas = conjunto)
-* ✅ Padrão para "A. O. Scariot, A. C. SEVILHA": `[A-Z]\.\s*[A-Z]\.\s*[A-Z][A-Z\-]+`
-* ✅ Exemplos corrigidos:
-  * "A. O. Scariot, A. C. SEVILHA, G. A. MOREIRA, J. B. PEREIRA, K. A. MOREIRA, M. CARVALHO-SILVA"
-  * "A. S. Rodrigues, G. PEREIRA-SILVA, J. M. DE REZENDE& T. B. CAVALCANTI"
-  * "B. MACIEL& P. GOMES"
-  * "Bandeira, A. N. T. | COSTA, F. C. P| SILVA, T"
-
-## Ajustes Pendentes
-
-Nenhum ajuste pendente no momento.
+* Nomes canônicos agora seguem capitalização Title Case
+* CSV usa TAB como separador sem aspas
+* Campo padronizado como `canonicalName` (camelCase)

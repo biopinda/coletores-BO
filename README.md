@@ -1,23 +1,9 @@
 # Sistema de Identificação e Canonicalização de Coletores de Plantas
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
-[![AI Powered](https://img.shields.io/badge/AI-BERT%20NER-orange.svg)](docs/NER_Implementation.md)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-Sistema de processamento de linguagem natural (NLP) com **inteligência artificial** para identificar, classificar e canonicalizar nomes de coletores de plantas em registros de herbários digitais.
-
----
-
-## 🤖 Destaques de Inteligência Artificial
-
-Este sistema utiliza **modelos de IA de última geração** para processar nomes complexos de coletores:
-
-- **BERT NER (Named Entity Recognition)**: Modelo `pierreguillou/bert-base-cased-pt-lenerbr` treinado em português brasileiro
-- **Fallback Inteligente**: Ativado automaticamente para casos de baixa confiança (<70%)
-- **Aceleração por GPU**: 66x mais rápido com CUDA (0.03s vs 2s por texto)
-- **Processamento Híbrido**: Combina regras linguísticas + aprendizado profundo para máxima precisão
-
-→ **[📖 Documentação Técnica Completa de IA](docs/NER_Implementation.md)**
+Sistema de processamento de linguagem natural (NLP) para identificar, classificar e canonicalizar nomes de coletores de plantas em registros de herbários digitais.
 
 ---
 
@@ -50,7 +36,7 @@ Essas variações dificultam análises quantitativas, estudos de redes de colabo
 
 ### Contexto
 
-Com aproximadamente **4.6 milhões de registros** de plantas (kingdom = "Plantae") em bases de dados MongoDB de herbários brasileiros, a padronização manual é inviável. Este sistema automatiza o processo através de um pipeline de NLP robusto, eficiente e **potencializado por IA**.
+Com aproximadamente **4.6 milhões de registros** de plantas (kingdom = "Plantae") em bases de dados MongoDB de herbários brasileiros, a padronização manual é inviável. Este sistema automatiza o processo através de um pipeline de NLP robusto e eficiente.
 
 ---
 
@@ -82,54 +68,27 @@ Com aproximadamente **4.6 milhões de registros** de plantas (kingdom = "Plantae
 
 ## 💡 A Solução
 
-### Pipeline de Processamento em 4 Etapas com IA
+### Pipeline de Processamento em 4 Etapas
 
-O sistema implementa um pipeline sequencial de transformação de dados potencializado por **aprendizado profundo**:
+O sistema implementa um pipeline sequencial de transformação de dados:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│ ENTRADA: "Silva, J. & R.C. Forzza; Santos, M. et al."      │
-└───────────────────────┬─────────────────────────────────────┘
-                        ▼
-┌─────────────────────────────────────────────────────────────┐
-│ [1] CLASSIFICAÇÃO (com IA)                                  │
-│     • Análise por regras linguísticas                       │
-│     • Confiança inicial: 0.95 → "conjunto_pessoas"          │
-│     ┌─────────────────────────────────────┐                 │
-│     │ 🤖 AI FALLBACK (se confiança < 0.70)│                 │
-│     │ • BERT NER analisa entidades        │                 │
-│     │ • Boost de confiança: 0.65 → 0.82+  │                 │
-│     │ • GPU: 0.03s por inferência         │                 │
-│     │ • CPU: 2s por inferência            │                 │
-│     └─────────────────────────────────────┘                 │
-└───────────────────────┬─────────────────────────────────────┘
-                        ▼
-┌─────────────────────────────────────────────────────────────┐
-│ [2] ATOMIZAÇÃO                                               │
-│     Saída: ["Silva, J.", "R.C. Forzza", "Santos, M."]      │
-└───────────────────────┬─────────────────────────────────────┘
-                        ▼
-┌─────────────────────────────────────────────────────────────┐
-│ [3] NORMALIZAÇÃO                                             │
-│     • Remove acentos, converte uppercase                    │
-│     • Padroniza formato: "FORZZA, R.C."                     │
-└───────────────────────┬─────────────────────────────────────┘
-                        ▼
-┌─────────────────────────────────────────────────────────────┐
-│ [4] CANONICALIZAÇÃO                                          │
-│     • Similaridade: Levenshtein + Jaro-Winkler + Fonética  │
-│     • Agrupamento: "Forzza, R.C." ← variações similares     │
-│     • Armazena em DuckDB com confiança                      │
-└───────────────────────┬─────────────────────────────────────┘
-                        ▼
-┌─────────────────────────────────────────────────────────────┐
-│ SAÍDA: Entidades canônicas + variações + CSV                │
-└─────────────────────────────────────────────────────────────┘
+Entrada: "Silva, J. & R.C. Forzza; Santos, M. et al."
+    ↓
+[1] CLASSIFICAÇÃO → "conjunto_pessoas" (confiança: 0.95)
+    ↓
+[2] ATOMIZAÇÃO → ["Silva, J.", "R.C. Forzza", "Santos, M."]
+    ↓
+[3] NORMALIZAÇÃO → Para cada nome individual
+    ↓
+[4] CANONICALIZAÇÃO → Agrupamento por similaridade
+    ↓
+Saída: Entidades canônicas com variações agrupadas
 ```
 
-### 1. Classificação com IA
+### 1. Classificação
 
-Categoriza cada string em **5 tipos** usando reconhecimento de padrões **híbrido** (regras + IA):
+Categoriza cada string em **5 tipos** usando reconhecimento de padrões:
 
 | Categoria | Descrição | Exemplo |
 |-----------|-----------|---------|
@@ -139,24 +98,7 @@ Categoriza cada string em **5 tipos** usando reconhecimento de padrões **híbri
 | **Empresa/Instituição** | Acrônimos e códigos | "EMBRAPA", "USP", "INPA" |
 | **Não Determinado** | Sem identificação | "?", "sem coletor" |
 
-**Confiança mínima**: 0.70
-
-#### 🤖 Fallback de IA (IMPLEMENTADO)
-
-Para strings complexas ou com confiança < 0.70:
-- **Modelo**: `pierreguillou/bert-base-cased-pt-lenerbr` (Portuguese BERT)
-- **Ativação**: Automática quando confiança < 0.70
-- **Boost de Confiança**:
-  - Pessoa detectada (score > 0.85): +0.15
-  - Pessoa detectada (score > 0.70): +0.10
-  - Pessoa detectada (score < 0.70): +0.05
-  - Organização detectada: +0.05
-- **Performance GPU** (NVIDIA GTX 1060): 0.03s por texto
-- **Performance CPU**: 2s por texto
-- **Uso de Memória GPU**: 414 MB
-- **Lazy Loading**: Modelo carrega apenas quando necessário
-
-→ **[Detalhes técnicos do BERT NER](docs/NER_Implementation.md)**
+**Confiança mínima**: 0.70 (classificações abaixo são sinalizadas para revisão manual)
 
 ### 2. Atomização
 
@@ -229,10 +171,6 @@ Exemplos:
 ### Stack Tecnológico
 
 - **Linguagem**: Python 3.11+
-- **Inteligência Artificial**:
-  - **`transformers`** - Hugging Face BERT models
-  - **`torch`** - PyTorch para inferência de deep learning (suporta CUDA 12.4+)
-  - Modelo: `pierreguillou/bert-base-cased-pt-lenerbr` (414MB na GPU)
 - **Processamento NLP**:
   - `python-Levenshtein` - Cálculo de distância de edição
   - `jellyfish` - Jaro-Winkler e algoritmos fonéticos (Metaphone, Soundex)
@@ -283,7 +221,6 @@ CREATE TABLE canonical_entities (
 
 - **Throughput**: ≥213 registros/segundo
 - **Tempo total**: ≤6 horas para 4.6M registros
-- **Overhead de IA**: ~0.03s por caso com GPU (66x mais rápido que CPU)
 - **Memória**: Streaming eficiente (sem carregar todos os registros em RAM)
 
 #### Estratégia de Paralelização
@@ -293,7 +230,7 @@ MongoDB (4.6M registros)
     ↓
 Batch Reader (chunks de 10K)
     ↓
-Worker Pool (processamento sequencial - DuckDB não suporta paralelo)
+Worker Pool (8 processos paralelos)
     ↓ [Pipeline completo por batch]
     ↓
 Results Aggregator (DuckDB com WAL)
@@ -301,10 +238,9 @@ Results Aggregator (DuckDB com WAL)
 Banco de Dados Local
 ```
 
-- **Processamento Sequencial**: DuckDB não suporta escritas paralelas
+- **Multiprocessing**: 8 workers em CPU moderna
 - **Batch processing**: Chunks de 10.000 registros
 - **Cursor streaming**: MongoDB batch_size=1000 (eficiência de memória)
-- **Modelo BERT**: Carregado uma vez em memória e cacheado (GPU se disponível)
 
 ### Garantias de Qualidade
 
@@ -313,8 +249,7 @@ Banco de Dados Local
 Todas as operações respeitam **confiança mínima de 0.70**:
 
 - ✅ Confiança ≥ 0.70: Aceita automaticamente
-- 🤖 Confiança < 0.70: Tenta fallback de IA BERT
-- ⚠️ Ainda < 0.70 após IA: Sinaliza para revisão manual
+- ⚠️ Confiança < 0.70: Sinaliza para revisão manual
 
 #### Type Safety
 
@@ -325,7 +260,7 @@ Todas as operações respeitam **confiança mínima de 0.70**:
 #### Testes
 
 - **Cobertura mínima**: 80% (100% em lógica de negócio)
-- **Contract tests**: Schemas de entrada/saída (incluindo NER)
+- **Contract tests**: Schemas de entrada/saída
 - **Integration tests**: 7 cenários de aceitação
 - **Performance tests**: Benchmarks com pytest-benchmark
 
@@ -335,12 +270,11 @@ Todas as operações respeitam **confiança mínima de 0.70**:
 
 ### Pré-requisitos
 
-- Python 3.11 ou superior (Python 3.13 testado e funcionando)
+- Python 3.11 ou superior
 - MongoDB rodando (local ou remoto)
 - 4GB RAM mínimo (8GB recomendado)
-- **Opcional**: GPU NVIDIA com CUDA para aceleração de IA (66x mais rápido)
 
-### Instalação Padrão (CPU)
+### Passos
 
 1. **Clone o repositório**
 ```bash
@@ -361,46 +295,17 @@ source venv/bin/activate
 
 3. **Instale as dependências**
 ```bash
-pip install -r requirements-minimal.txt
-```
-
-### Instalação com GPU (Recomendado)
-
-Para aproveitar aceleração por GPU (66x mais rápido no NER):
-
-#### Windows (uma vez, requer privilégios de administrador):
-
-```powershell
-# Habilitar caminhos longos (resolve erro de path length do PyTorch)
-Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem' -Name LongPathsEnabled -Value 1
-```
-
-#### Instalar PyTorch com CUDA:
-
-```bash
-# Python 3.13 (nightly build)
-pip install --pre torch --index-url https://download.pytorch.org/whl/nightly/cu124
-
-# Python 3.11-3.12 (stable)
-pip install torch --index-url https://download.pytorch.org/whl/cu121
-```
-
-#### Instalar demais dependências:
-
-```bash
 pip install -r requirements.txt
 ```
 
-**Nota**: O primeiro uso fará download automático do modelo BERT (~420MB) do Hugging Face.
-
-### Configuração
+4. **Configure o sistema**
 
 Edite `config.yaml`:
 ```yaml
 mongodb:
   uri: "mongodb://localhost:27017"
-  database: "dwc2json"
-  collection: "ocorrencias"
+  database: "plant_samples"
+  collection: "specimens"
   filter: { kingdom: "Plantae" }
 
 local_db:
@@ -410,9 +315,6 @@ local_db:
 processing:
   batch_size: 10000
   confidence_threshold: 0.70
-
-output:
-  csv_path: "./output/canonical_report.csv"
 ```
 
 ---
@@ -428,23 +330,13 @@ python src/cli.py --config config.yaml
 ### Opções Avançadas
 
 ```bash
-# Processar apenas primeiros 1000 registros (teste)
-python src/cli.py --config config.yaml --max-records 1000
+python src/cli.py --config config.yaml 
+
+# Processar apenas primeiros 100K registros (teste)
+python src/cli.py --config config.yaml --max-records 100000
 
 # Especificar arquivo de saída CSV customizado
-python src/cli.py --config config.yaml
-```
-
-### Métricas de IA
-
-O sistema exibe automaticamente métricas de uso do NER fallback:
-
-```
-✅ Pipeline complete!
-   Processed: 1000 records
-   Time: 87.0s
-   Rate: 11.5 rec/sec
-   NER fallback used: 0 times
+python src/cli.py --config config.yaml --output ./meu_relatorio.csv
 ```
 
 ### Saídas Geradas
@@ -454,16 +346,18 @@ O sistema exibe automaticamente métricas de uso do NER fallback:
    - Persistente para análises futuras
 
 2. **Relatório CSV**: `./output/canonical_report.csv`
-   - 3 colunas: `canonicalName`, `variations`, `occurrenceCounts`
+  - 4 colunas: `canonicalName`, `entityType`, `variations`, `occurrenceCounts`
+   - Separador: TAB (tabulação)
    - Variações separadas por `;`
    - Contagens alinhadas com variações
 
-**Exemplo do CSV**:
+**Exemplo do CSV** (separado por TAB):
 
-```csv
-canonicalName,variations,occurrenceCounts
-"FORZZA, R.C.","FORZZA, R.C.;R.C. FORZZA;RAFAELA C. FORZZA","1523;847;234"
-"SILVA, J.","SILVA, J.;J. SILVA","2891;1205"
+```text
+canonicalName    entityType    variations                                   occurrenceCounts
+"Forzza, R.C."    Pessoa         Forzza, R.C.;R.C. Forzza;Rafaela C. Forzza    1523;847;234
+"Silva, J."       Pessoa         Silva, J.;J. Silva                          2891;1205
+"EMBRAPA"         Empresa        EMBRAPA                                      45
 ```
 
 3. **Documentação de regras**: `./docs/rules.md`
@@ -478,8 +372,7 @@ canonicalName,variations,occurrenceCounts
 coletores-BO/
 ├─ src/                        # Código-fonte principal
 │   ├─ pipeline/               # Estágios do pipeline
-│   │   ├─ classifier.py       # Classificação (com IA)
-│   │   ├─ ner_fallback.py     # 🤖 BERT NER fallback (NOVO)
+│   │   ├─ classifier.py       # Classificação
 │   │   ├─ atomizer.py         # Atomização
 │   │   ├─ normalizer.py       # Normalização
 │   │   └─ canonicalizer.py    # Canonicalização
@@ -488,7 +381,7 @@ coletores-BO/
 │   │   └─ phonetic.py         # Metaphone, Soundex
 │   ├─ models/                 # Modelos de dados
 │   │   ├─ entities.py         # Entidades Pydantic
-│   │   └─ contracts.py        # Contratos de dados
+│   │   └─ schemas.py          # Schemas I/O
 │   ├─ storage/                # Adaptadores de armazenamento
 │   │   ├─ mongodb_client.py   # Cliente MongoDB
 │   │   └─ local_db.py         # Cliente DuckDB
@@ -496,17 +389,25 @@ coletores-BO/
 │   └─ config.py               # Gerenciamento de configuração
 │
 ├─ tests/                      # Testes automatizados
-│   ├─ contract/               # Testes de contrato (inc. NER)
+│   ├─ contract/               # Testes de contrato
 │   ├─ integration/            # Testes de integração
 │   └─ unit/                   # Testes unitários
 │
 ├─ docs/                       # Documentação
-│   ├─ fix.md                  # Instruções de melhorias
-│   └─ NER_Implementation.md   # 🤖 Documentação técnica de IA (NOVO)
+│   └─ rules.md                # Regras editáveis do algoritmo
+│
+├─ specs/                      # Especificações do projeto
+│   └─ 001-especificacao-leia-o/
+│       ├─ spec.md             # Especificação funcional
+│       ├─ plan.md             # Plano de implementação
+│       ├─ research.md         # Pesquisa técnica
+│       ├─ data-model.md       # Modelo de dados
+│       ├─ quickstart.md       # Guia de validação
+│       ├─ tasks.md            # 40 tarefas de implementação
+│       └─ contracts/          # Contratos de interface
 │
 ├─ config.yaml                 # Configuração principal
-├─ requirements.txt            # Dependências completas (com GPU)
-├─ requirements-minimal.txt    # Dependências mínimas (CPU only)
+├─ requirements.txt            # Dependências Python
 └─ README.md                   # Este arquivo
 ```
 
@@ -526,8 +427,8 @@ pytest tests/contract/
 # Com cobertura
 pytest --cov=src --cov-report=term-missing
 
-# Testes específicos de IA
-pytest tests/contract/test_ner_schema.py -v
+# Testes de performance
+pytest tests/unit/test_algorithms.py --benchmark-only
 ```
 
 ### Verificação de Qualidade
@@ -545,44 +446,54 @@ black --check src/
 
 ### Adicionar Novos Padrões de Classificação
 
-Edite `src/pipeline/classifier.py`:
+Edite `docs/rules.md` e ajuste os padrões em `src/pipeline/classifier.py`:
 
 ```python
 # Exemplo: adicionar novo padrão institucional
-if re.match(r'^SEU_PADRAO$', text):
-    return ClassificationOutput(
-        original_text=text,
-        category=ClassificationCategory.EMPRESA,
-        confidence=0.95,
-        patterns_matched=["seu_padrao"],
-        should_atomize=False
-    )
+INSTITUTION_PATTERNS = [
+    r'^EMBRAPA$',
+    r'^USP$',
+    r'^INPA$',
+    r'^SEU_NOVO_PADRAO$',  # Adicione aqui
+]
+```
+
+### Ajustar Pesos de Similaridade
+
+Edite `config.yaml`:
+
+```yaml
+algorithms:
+  similarity_weights:
+    levenshtein: 0.5      # Aumentar peso de edição
+    jaro_winkler: 0.3     # Reduzir peso de prefixo
+    phonetic: 0.2         # Manter peso fonético
 ```
 
 ---
 
 ## 🗺️ Roadmap
 
-### Fase 1: Implementação Core ✅
+### Fase 1: Implementação Core (Atual)
 
 - [x] Estrutura do projeto
 - [x] Especificações e planejamento
 - [x] Contratos de interface
-- [x] **Integração de IA (BERT NER com GPU)**
-- [x] Implementação completa do pipeline
-- [x] Testes automatizados (49/49 contract tests)
+- [ ] Implementação do pipeline (Tarefas T002-T030)
+- [ ] Testes automatizados
 - [ ] Validação com 4.6M registros
 
 ### Fase 2: Refinamento (Futuro)
 
 - [ ] Interface web para revisão manual de baixa confiança
-- [ ] Dashboard de métricas e visualizações de IA
+- [ ] Dashboard de métricas e visualizações
 - [ ] API REST para integração com outros sistemas
-- [ ] Fine-tuning do modelo BERT com dados específicos de herbários
+- [ ] Suporte a múltiplos idiomas
+- [ ] Machine Learning para aprimorar classificação
 
 ### Fase 3: Escalabilidade (Futuro)
 
-- [ ] Processamento distribuído (considerando limitação do DuckDB)
+- [ ] Processamento distribuído (Dask/Spark)
 - [ ] Cache inteligente de similaridades
 - [ ] Exportação para múltiplos formatos (JSON, Parquet)
 - [ ] Versionamento de entidades canônicas
@@ -593,23 +504,17 @@ if re.match(r'^SEU_PADRAO$', text):
 
 Para informações técnicas completas, consulte:
 
-- **🤖 Documentação de IA**: [`docs/NER_Implementation.md`](docs/NER_Implementation.md) ← **NOVO**
-- **Instruções de Melhorias**: [`docs/fix.md`](docs/fix.md)
+- **Especificação Funcional**: `specs/001-especificacao-leia-o/spec.md`
+- **Plano de Implementação**: `specs/001-especificacao-leia-o/plan.md`
+- **Pesquisa Técnica**: `specs/001-especificacao-leia-o/research.md`
+- **Modelo de Dados**: `specs/001-especificacao-leia-o/data-model.md`
+- **Tarefas de Implementação**: `specs/001-especificacao-leia-o/tasks.md`
 
 ---
 
 ## 📄 Licença
 
-Este projeto está licenciado sob a [Creative Commons Attribution 4.0 International License (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/).
-
-Você é livre para:
-- **Compartilhar** — copiar e redistribuir o material em qualquer meio ou formato
-- **Adaptar** — remixar, transformar e construir sobre o material para qualquer propósito, mesmo comercialmente
-
-Sob os seguintes termos:
-- **Atribuição** — Você deve dar crédito apropriado, fornecer um link para a licença e indicar se mudanças foram feitas
-
-Veja o arquivo [LICENSE](LICENSE) para detalhes completos.
+Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
 ---
 
@@ -638,9 +543,7 @@ Contribuições são bem-vindas! Por favor:
 - Herbários brasileiros que disponibilizam dados abertos
 - Comunidade científica de botânica sistemática
 - Desenvolvedores das bibliotecas open-source utilizadas
-- **Hugging Face** pela plataforma de modelos de IA
-- **Pierre Guillou** pelo modelo BERT em português brasileiro
 
 ---
 
-Desenvolvido com 🌿 e 🤖 para a ciência botânica brasileira
+Desenvolvido com 🌿 para a ciência botânica brasileira
