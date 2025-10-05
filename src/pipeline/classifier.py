@@ -116,13 +116,26 @@ class Classifier:
 
         # Discard generic single names (first name or last name only)
         # Pattern: single word, no initials, title case or all caps
+        # BUT: Allow single surnames if they have reasonable length (>3 chars) and title case
         if ' ' not in text and ',' not in text and '.' not in text:
-            # Single word without punctuation
-            patterns_matched.append("generic_single_name")
+            # Check if it's a potential surname (Title case, length > 3)
+            # Examples to KEEP: "Cabrera", "Fabris", "Pabst", "Santos"
+            # Examples to DISCARD: "A", "Bo", "Sol"
+            if len(text) <= 3 or text.isupper() or text.islower():
+                patterns_matched.append("generic_single_name")
+                return ClassificationOutput(
+                    original_text=text,
+                    category=ClassificationCategory.NAO_DETERMINADO,
+                    confidence=0.0,  # Signal to discard
+                    patterns_matched=patterns_matched,
+                    should_atomize=False
+                )
+            # If it passes the filter, treat as low-confidence person name
+            patterns_matched.append("single_surname_only")
             return ClassificationOutput(
                 original_text=text,
-                category=ClassificationCategory.NAO_DETERMINADO,
-                confidence=0.0,  # Signal to discard
+                category=ClassificationCategory.PESSOA,
+                confidence=0.55,  # Very low confidence for NER fallback
                 patterns_matched=patterns_matched,
                 should_atomize=False
             )

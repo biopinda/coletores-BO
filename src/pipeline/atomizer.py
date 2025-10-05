@@ -37,8 +37,12 @@ class Atomizer:
             text = re.sub(r'\s*et\.?\s*alli\.?\s*$', '', text, flags=re.IGNORECASE)
             current_sep = SeparatorType.ET_AL
 
-        # Remove numbers associated with names (e.g., "I. E. Santo 410" -> "I. E. Santo")
-        text = re.sub(r'\s+\d+(?=[,\s]|$)', '', text)
+        # Remove numbers associated with names
+        # Examples: "I. E. Santo 410" -> "I. E. Santo", "Pabst 3885" -> "Pabst"
+        # Pattern: space + digits at end or before separator
+        text = re.sub(r'\s+\d+(?=[,;\s|]|$)', '', text)
+        # Also remove digits with comma (e.g., "E. Pereira, 5674" -> "E. Pereira")
+        text = re.sub(r',\s*\d+(?=[,;\s|]|$)', '', text)
 
         # Split by pipe (highest priority)
         if '|' in text:

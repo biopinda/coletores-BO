@@ -124,7 +124,54 @@
 * ✅ Detecta múltiplos nomes curtos (ex: "Y. Pires, C. GOMES, E. ADAIS")
 * ✅ Melhores padrões regex para conjuntos complexos
 
+## ✅ Ajustes Implementados (2025-10-05 - Parte 3)
+
+### Descarte Aprimorado de Números+Iniciais
+* ✅ Melhorado padrão regex para detectar "número, iniciais" completo
+* ✅ Descarta corretamente todos os casos:
+  * "1214, I.E.S.", "1216, M.E.", "12196, M.B."
+  * "1253, M.F.C.", "1220, B.F."
+* ✅ Padrão: `^\d+\s*[,;-]\s*[A-Z]\.(?:[A-Z]\.)*\s*$`
+
+### Remoção de Números em Conjuntos
+* ✅ Atomizer remove números associados a nomes em conjuntos
+* ✅ Exemplos de transformação:
+  * "Edmundo Pereira; Pabst 3885" → ["Edmundo Pereira", "Pabst"]
+  * "A. Lima | Cabrera | Fabris | Pabst 5565 | E. Pereira, 5674" → ["A. Lima", "Cabrera", "Fabris", "Pabst", "E. Pereira"]
+  * "M.F. Castilhori 365" → "M.F. Castilhori"
+  * "Y.S. Kuniyoshi 3510" → "Y.S. Kuniyoshi"
+* ✅ Remove números precedidos de espaço ou vírgula
+
+### Detecção de Sobrenomes Isolados
+* ✅ Aceita sobrenomes isolados com >3 caracteres e title case
+* ✅ Exemplos aceitos: "Cabrera", "Fabris", "Pabst", "Santos"
+* ✅ Exemplos descartados: "A", "Bo", "Sol", "SILVA" (all caps), "maria" (lowercase)
+* ✅ Confiança baixa (0.55) para acionar NER fallback
+
+## ✅ Ajustes Implementados (2025-10-05 - Parte 4)
+
+### Sistema de Progresso Resumível
+* ✅ Implementada classe `ProgressTracker` para rastrear processamento
+* ✅ Progresso salvo em `data/progress.json`
+* ✅ Rastreia IDs de registros processados
+* ✅ Salva progresso a cada 100 registros
+* ✅ Salva progresso final ao terminar
+
+### Parâmetro --continue
+* ✅ Novo parâmetro CLI: `--continue`
+* ✅ Continua de onde parou quando usado
+* ✅ Pula registros já processados
+* ✅ Funciona com `--max-records` para processamento em lotes
+* ✅ Exemplos de uso:
+  * Primeira execução: `python -m src.cli --max-records 1000`
+  * Continuar: `python -m src.cli --continue --max-records 1000`
+  * Processar tudo: `python -m src.cli --continue`
+
+### Relatórios de Progresso
+* ✅ Mostra registros pulados (já processados)
+* ✅ Mostra total processado acumulado
+* ✅ Exibe estatísticas de progresso no final
+
 ## Ajustes Pendentes
 
 Nenhum ajuste pendente no momento.
-

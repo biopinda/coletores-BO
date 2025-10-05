@@ -15,8 +15,13 @@ class Normalizer:
         rules_applied = []
 
         # 0. Discard strings with numbers that are not valid names
-        # Pattern: starts with digits, has pattern "digits, initials", or starts with pipe
-        if re.match(r'^\d+', text) or re.search(r'^\d+[,-]\s*[A-Z]\.', text) or text.startswith('|'):
+        # Patterns:
+        # - Starts with digits: "1214", "12196"
+        # - "number, initials": "1214, I.E.S.", "1216, M.E.", "12196, M.B."
+        # - Starts with pipe separator: "|Amanda"
+        if (re.match(r'^\d+', text) or
+            re.search(r'^\d+\s*[,;-]\s*[A-Z]\.(?:[A-Z]\.)*\s*$', text) or
+            text.startswith('|')):
             rules_applied.append("invalid_name_with_numbers_or_separator")
             return NormalizationOutput(
                 original=input_data.original_name,
