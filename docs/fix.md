@@ -172,6 +172,31 @@
 * ✅ Mostra total processado acumulado
 * ✅ Exibe estatísticas de progresso no final
 
+## ✅ Ajustes Implementados (2025-10-05 - Parte 5)
+
+### Detecção de Grupos Melhorada
+* ✅ Adicionadas palavras-chave: "turma", "bioveg"
+* ✅ Confiança aumentada para 0.75
+* ✅ Reconhece: "Grupo 1 BIOVEG 2010.1", "Turma de Ecologia Vegetal 2009.1."
+
+### Remoção de Números de Coleta
+* ✅ Normalizer remove números ao final de nomes individuais
+* ✅ Exemplos corrigidos:
+  * "M. Emmerich 1130" → "M. Emmerich"
+  * "R. Rocha 1010," → "R. Rocha"
+  * "A.C. Brade 16108" → "A.C. Brade"
+* ✅ Padrão: `\s+\d+\s*[,;.]*\s*$`
+
+### Detecção de Conjuntos Aprimorada
+* ✅ Detecta múltiplos padrões "Initials Surname" separados por vírgula
+* ✅ Conta vírgulas (≥3 vírgulas = conjunto)
+* ✅ Padrão para "A. O. Scariot, A. C. SEVILHA": `[A-Z]\.\s*[A-Z]\.\s*[A-Z][A-Z\-]+`
+* ✅ Exemplos corrigidos:
+  * "A. O. Scariot, A. C. SEVILHA, G. A. MOREIRA, J. B. PEREIRA, K. A. MOREIRA, M. CARVALHO-SILVA"
+  * "A. S. Rodrigues, G. PEREIRA-SILVA, J. M. DE REZENDE& T. B. CAVALCANTI"
+  * "B. MACIEL& P. GOMES"
+  * "Bandeira, A. N. T. | COSTA, F. C. P| SILVA, T"
+
 ## Ajustes Pendentes
 
 Nenhum ajuste pendente no momento.

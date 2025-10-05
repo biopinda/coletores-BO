@@ -64,10 +64,20 @@ class Classifier:
         has_initials = bool(re.search(r'\b[A-Z]\.\s*[A-Z]\.?', text))
 
         # Check for multiple comma-separated names pattern
-        # Pattern: multiple occurrences of "Surname, Initials"
+        # Pattern: multiple occurrences of "Surname, Initials" or "Initials Surname"
         comma_name_pattern = r'[A-Z][a-z]+,\s*[A-Z]\.'
         comma_matches = re.findall(comma_name_pattern, text)
         has_multiple_comma_names = len(comma_matches) >= 2
+
+        # Check for multiple initials+surname patterns separated by comma
+        # Examples: "A. O. Scariot, A. C. SEVILHA", "A. S. Rodrigues, G. PEREIRA-SILVA"
+        initials_surname_pattern = r'[A-Z]\.\s*[A-Z]\.\s*[A-Z][A-Z\-]+(?:,|$|\s*&)'
+        initials_surname_matches = re.findall(initials_surname_pattern, text)
+        has_multiple_initials_surnames = len(initials_surname_matches) >= 2
+
+        # Count commas in name - if many commas, likely a set
+        comma_count = text.count(',')
+        has_many_commas = comma_count >= 3
 
         # Check for names with associated numbers (e.g., "I. E. Santo 410, M. F. CASTILHORI 444")
         has_numbers_between_names = bool(re.search(r'[A-Z]\.\s+\d+[,\s]+[A-Z]\.', text))
@@ -81,7 +91,7 @@ class Classifier:
         # Check for multiple short initials/names separated by comma (e.g., "Y. Pires, C. GOMES, E. ADAIS")
         multiple_short_names = len(re.findall(r'[A-Z]\.\s*[A-Z][a-z]+', text)) >= 2
 
-        if (has_separator and has_initials) or has_multiple_comma_names or has_numbers_between_names or group_keywords_in_list or ampersand_with_names or multiple_short_names:
+        if (has_separator and has_initials) or has_multiple_comma_names or has_multiple_initials_surnames or has_many_commas or has_numbers_between_names or group_keywords_in_list or ampersand_with_names or multiple_short_names:
             patterns_matched.extend(["multiple_names", "separator_detected"])
             return ClassificationOutput(
                 original_text=text,
@@ -141,13 +151,13 @@ class Classifier:
             )
         
         # 5. Grupo de Pessoas (generic group terms)
-        grupo_keywords = ["pesquisas", "grupo", "equipe", "time", "laboratório", "lab"]
+        grupo_keywords = ["pesquisas", "grupo", "equipe", "time", "laboratório", "lab", "turma", "bioveg"]
         if any(kw in text.lower() for kw in grupo_keywords):
             patterns_matched.append("group_keyword")
             return ClassificationOutput(
                 original_text=text,
                 category=ClassificationCategory.GRUPO_PESSOAS,
-                confidence=0.70,
+                confidence=0.75,
                 patterns_matched=patterns_matched,
                 should_atomize=False
             )

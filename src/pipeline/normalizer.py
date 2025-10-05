@@ -46,6 +46,13 @@ class Normalizer:
         text = ' '.join(text.split())
         rules_applied.append("remove_extra_spaces")
 
+        # 3.5. Remove collection numbers from names
+        # Examples: "M. Emmerich 1130" -> "M. Emmerich", "R. Rocha 1010," -> "R. Rocha"
+        original_text_for_num = text
+        text = re.sub(r'\s+\d+\s*[,;.]*\s*$', '', text)
+        if text != original_text_for_num:
+            rules_applied.append("remove_collection_numbers")
+
         # 4. Standardize punctuation spacing
         text = re.sub(r'\s*([,;.&|])\s*', r'\1 ', text)
         rules_applied.append("standardize_punctuation")
