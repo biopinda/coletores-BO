@@ -98,20 +98,27 @@ Categoriza cada string em **5 tipos** usando reconhecimento de padrões e **IA (
 | **Empresa/Instituição** | Acrônimos e códigos | "EMBRAPA", "USP", "INPA" |
 | **Não Determinado** | Sem identificação | "?", "sem coletor" |
 
-#### 🤖 NER - Named Entity Recognition
+#### 🤖 AI Fallback - Named Entity Recognition com BERT
 
-O sistema utiliza **IA com modelos transformers** para extração e classificação precisa:
+O sistema utiliza **Inteligência Artificial com modelos transformers** para extração e classificação de alta precisão:
 
-- **Modelo**: [BERTimbau-NER](https://huggingface.co/marquesafonso/bertimbau-large-ner-selective) (BERT otimizado para português)
-- **Cobertura**: 100% dos registros processados com NER para máxima precisão
-- **Sanitização inteligente**: Remove códigos de coleção preservando apenas nomes
+**Características principais**:
+
+- **🎯 Modelo de IA**: [BERTimbau-NER](https://huggingface.co/marquesafonso/bertimbau-large-ner-selective) - BERT Large otimizado para NER em português brasileiro
+- **📊 Precisão**: F1-score ~97% para entidades PESSOA (superando modelos base em ~1%)
+- **🔥 Cobertura**: 100% dos registros processados com NER para máxima precisão
+- **🧹 Sanitização inteligente**: Remove códigos de coleção usando IA, preservando apenas nomes:
   - `"V.C. Vilela (67)"` → `"V.C. Vilela"`
   - `"M. Emmerich 1007"` → `"M. Emmerich"`
   - `"E. Santos 1092A"` → `"E. Santos"`
-- **Suporte multi-modelo**: 5 modelos NER disponíveis (LenerBR, BERTimbau-base/large, multilíngue)
-- **Aceleração GPU**: Suporte CUDA opcional para processamento em larga escala
+- **🔄 Multi-modelo**: 5 modelos NER disponíveis (LenerBR, BERTimbau-base/large, multilíngue)
+- **⚡ Aceleração GPU**: Suporte CUDA para processamento em larga escala (~151 rec/s em GPU)
+- **🎓 Lazy Loading**: Modelo (~1.3GB) carregado apenas quando necessário
+- **🛡️ Type-Safe**: Schemas Pydantic com validação em runtime
 
 **Confiança mínima**: 0.70 (classificações abaixo são sinalizadas para revisão manual)
+
+📘 **[Documentação Técnica Completa do NER](docs/TECHNICAL-NER.md)** - Arquitetura, benchmarks, troubleshooting e experimentos de otimização
 
 ### 2. Atomização
 

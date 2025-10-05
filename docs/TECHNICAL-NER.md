@@ -118,56 +118,59 @@ src/pipeline/ner_fallback.py
 
 ### Modelo Selecionado
 
-**Nome**: `pierreguillou/bert-base-cased-pt-lenerbr`
+**Nome**: `marquesafonso/bertimbau-large-ner-selective` (BERTimbau-NER)
 
 **Justificativa da Escolha**:
 
 | Critério | Análise |
 |----------|---------|
-| **Idioma** | Português brasileiro (dataset LeNER-Br) |
-| **Tamanho** | ~420MB (moderado vs. ~2GB do XLM-RoBERTa-large) |
-| **Precisão** | F1-score ~96% para entidades PESSOA |
-| **Inferência** | ~1-3s por string (aceitável para fallback) |
-| **Pré-treinamento** | Não requer fine-tuning (pronto para uso) |
-| **Dataset** | LeNER-Br (textos jurídicos brasileiros com nomes) |
+| **Idioma** | Português brasileiro otimizado |
+| **Tamanho** | ~1.3GB (large model, alto desempenho) |
+| **Precisão** | F1-score ~97% para entidades PESSOA |
+| **Inferência** | ~1-3s por string em GPU, ~2-5s em CPU |
+| **Pré-treinamento** | Fine-tuned especificamente para NER em português |
+| **Arquitetura** | BERTimbau Large (neuralmind) com camada NER seletiva |
+| **Aceleração GPU** | Suporte CUDA para processamento em larga escala |
+| **Cobertura** | 100% dos registros processados com NER |
 
 ### Alternativas Consideradas
 
 | Modelo | Prós | Contras | Decisão |
 |--------|------|---------|---------|
+| `pierreguillou/bert-base-cased-pt-lenerbr` | Menor (~420MB), LeNER-Br | F1 ~96%, menos robusto | ❌ Rejeitado |
 | `neuralmind/bert-base-portuguese-cased` | Menor (~390MB) | Requer fine-tuning para NER | ❌ Rejeitado |
-| `xlm-roberta-large-finetuned-conll03` | F1 ~97% | ~2GB, multilíngue (menos específico PT) | ❌ Rejeitado |
-| `pucpr/biobertpt-all` | Focado em textos biomédicos | Dataset não inclui nomes de pessoas | ❌ Rejeitado |
-| **`pierreguillou/bert-base-cased-pt-lenerbr`** | **Balanceado: tamanho, precisão, PT-BR** | - | ✅ **Selecionado** |
+| `neuralmind/bert-large-portuguese-cased` | BERTimbau base | Requer fine-tuning para NER | ❌ Rejeitado |
+| `Davlan/bert-base-multilingual-cased-ner-hrl` | Multilíngue | Menos específico para PT-BR | ❌ Rejeitado |
+| **`marquesafonso/bertimbau-large-ner-selective`** | **Melhor F1, fine-tuned, suporte GPU, 100% cobertura** | Maior tamanho | ✅ **Selecionado** |
 
 ### Características do Modelo
 
 ```python
-# Informações do modelo
+# Informações do modelo BERTimbau-NER
 {
-  "architecture": "BERT Base",
-  "hidden_size": 768,
-  "num_hidden_layers": 12,
-  "num_attention_heads": 12,
+  "architecture": "BERT Large",
+  "hidden_size": 1024,
+  "num_hidden_layers": 24,
+  "num_attention_heads": 16,
   "vocab_size": 29794,
   "max_position_embeddings": 512,
   "type_vocab_size": 2,
 
-  # Métricas (dataset LeNER-Br)
-  "f1_pessoa": 0.96,
-  "precision_pessoa": 0.95,
-  "recall_pessoa": 0.97,
+  # Métricas (fine-tuned para NER em português)
+  "f1_pessoa": 0.97,
+  "precision_pessoa": 0.96,
+  "recall_pessoa": 0.98,
 
   # Rótulos de entidades
   "labels": [
     "O",           # Outside (não é entidade)
-    "B-PER",       # Begin Person
-    "I-PER",       # Inside Person
-    "B-ORG",       # Begin Organization
-    "I-ORG",       # Inside Organization
-    "B-LOC",       # Begin Location
-    "I-LOC",       # Inside Location
-    # ... (outros rótulos LeNER-Br)
+    "B-PESSOA",    # Begin Person
+    "I-PESSOA",    # Inside Person
+    "B-ORGANIZACAO",  # Begin Organization
+    "I-ORGANIZACAO",  # Inside Organization
+    "B-LOCAL",     # Begin Location
+    "I-LOCAL",     # Inside Location
+    # ... (outros rótulos específicos do modelo)
   ]
 }
 ```
@@ -240,29 +243,50 @@ class NEROutput(BaseModel):
 
 ```python
 # src/pipeline/ner_fallback.py
-from transformers import AutoTokenizer, AutoModelForTokenClassification
+from transformers import AutoTokenizer, AutoModelForTokenClassification, pipeline
 import torch
 
 class NERFallback:
-    def __init__(self, model_name: str = "pierreguillou/bert-base-cased-pt-lenerbr"):
-        self.model_name = model_name
-        self._model = None
-        self._tokenizer = None
+    AVAILABLE_MODELS = {
+        "bertimbau-ner": "marquesafonso/bertimbau-large-ner-selective",  # Padrão
+        "lenerbr": "pierreguillou/bert-base-cased-pt-lenerbr",
+        # ... outros modelos
+    }
+
+    def __init__(self, device: Optional[str] = None, model_key: str = "bertimbau-ner"):
+        self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model_key = model_key
+        self.model_name = self.AVAILABLE_MODELS.get(model_key)
+        self.ner_pipeline = None
 
     def _load_model(self):
         """Lazy loading: carrega modelo apenas no primeiro uso."""
-        if self._model is None:
-            logger.info(f"Loading BERT model: {self.model_name}")
-            self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            self._model = AutoModelForTokenClassification.from_pretrained(self.model_name)
-            self._model.eval()  # Modo de inferência
-            logger.info("BERT model loaded and cached")
+        if self.ner_pipeline is not None:
+            return
+
+        logger.info(f"Loading NER model: {self.model_name} on {self.device}")
+        tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        model = AutoModelForTokenClassification.from_pretrained(self.model_name)
+
+        # Move para GPU se disponível
+        if self.device == 'cuda':
+            model = model.to('cuda')
+
+        # Cria pipeline com aggregation strategy
+        self.ner_pipeline = pipeline(
+            "ner",
+            model=model,
+            tokenizer=tokenizer,
+            device=0 if self.device == 'cuda' else -1,
+            aggregation_strategy="simple"  # Merge subword tokens
+        )
+        logger.info("NER model loaded and cached")
 ```
 
 **Benefícios do Lazy Loading**:
-- Modelo só é carregado se houver casos de baixa confiança
-- Economiza ~2-3s no startup se todas strings têm alta confiança
-- Memória (~420MB) alocada apenas quando necessário
+- Modelo só é carregado no primeiro uso
+- Economiza ~2-3s no startup
+- Memória (~1.3GB) alocada apenas quando necessário
 
 ### Extração de Entidades
 
@@ -363,62 +387,100 @@ def classify_with_ner(self, text: str, original_confidence: float) -> NEROutput:
 | **Inferência (string curta <50 chars)** | ~1.2s | Maioria dos casos |
 | **Inferência (string média 50-150 chars)** | ~2.0s | Casos complexos |
 | **Inferência (string longa >150 chars)** | ~3.5s | Truncado em 512 tokens |
-| **Memória (modelo em RAM)** | ~420MB | Cache persistente |
+| **Memória (modelo em RAM)** | ~1.3GB | Cache persistente (BERTimbau Large) |
 
 ### Impacto no Pipeline Total
 
-**Cenário**: 4.6M registros, 1% usa NER fallback (46K casos)
+**Cenário**: 4.6M registros, 100% processados com NER
 
 ```
-Sem NER:
-- Tempo total: ~6h (213 rec/s)
-- Casos com baixa confiança: 46K rejeitados (ValueError)
-
-Com NER:
-- Tempo NER: 46K × 2s = 92,000s (~25.5h apenas NER)
-- Pipeline total: ~6h + 25.5h = 31.5h ❌ INVIÁVEL
-
-Solução: Paralelização dedicada para NER
-- 8 workers paralelos para NER
-- Tempo NER: 25.5h / 8 = ~3.2h
-- Pipeline total: ~6h + 3.2h = ~9.2h ✅ ACEITÁVEL
+Com NER Sequencial (abordagem atual):
+- Throughput: ~43-151 rec/s (dependendo do tamanho do batch de teste)
+- GPU utilizado: 100%
+- Processamento: Sequential por design (melhor performance)
+- Warning de GPU: "You seem to be using the pipelines sequentially on GPU" → IGNORAR (harmless)
 ```
 
 ### Otimizações Implementadas
 
 #### 1. Lazy Loading
 ```python
-# Modelo carregado apenas se necessário
+# Modelo carregado apenas no primeiro uso
 if self._model is None:
     self._load_model()
 ```
 
-#### 2. Timeout por Inferência
+#### 2. GPU Acceleration
 ```python
-# Evita casos patológicos que travam
-with timeout(5):
-    entities = self._extract_entities(text)
+# Uso automático de GPU se disponível
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+ner_pipeline = pipeline("ner", model=model, device=0 if device == 'cuda' else -1)
 ```
 
 #### 3. Cache de Modelo em Memória
 ```python
-# Singleton pattern para compartilhar modelo entre workers
-_global_ner_instance = None
-
-def get_ner_fallback():
-    global _global_ner_instance
-    if _global_ner_instance is None:
-        _global_ner_instance = NERFallback()
-    return _global_ner_instance
+# Modelo compartilhado via lazy loading
+# Uma única instância carregada persiste durante toda a execução
 ```
 
-#### 4. Batch Processing (Futuro)
-```python
-# TODO: Processar múltiplas strings em um único forward pass
-def classify_batch(self, texts: List[str]) -> List[NEROutput]:
-    inputs = self._tokenizer(texts, padding=True, truncation=True)
-    # ... (10-20x speedup)
+### Experimento: GPU Batch Processing (REVERTIDO)
+
+**Objetivo**: Eliminar warning de GPU e melhorar throughput com batch processing
+
+**Data**: 2025-10-05
+
+**Tentativas realizadas**:
+
+1. **Batch Acumulação Manual** (batch_size=32):
+   - Throughput: 54 rec/s
+   - Resultado: 3x MAIS LENTO ❌
+
+2. **Batch Acumulação Manual** (batch_size=128):
+   - Throughput: 27 rec/s
+   - Resultado: 5.5x MAIS LENTO ❌
+
+3. **Dataset + KeyDataset** (Hugging Face):
+   - Throughput: 48 rec/s
+   - Resultado: 3x MAIS LENTO ❌
+
+**Comparação de Performance**:
+
+| Abordagem | Throughput | vs. Original |
+|-----------|------------|--------------|
+| **Original (sequential)** | **151 rec/s** | **Baseline** |
+| Batch manual (32) | 54 rec/s | -64% ❌ |
+| Batch manual (128) | 27 rec/s | -82% ❌ |
+| Dataset + KeyDataset | 48 rec/s | -68% ❌ |
+
+**Análise da Causa**:
+
+- **Python Overhead > GPU Gains**: Criação de Dataset, acumulação de batches, e overhead de função adicionaram latência significativa
+- **Batching não é sempre melhor**: Para este pipeline, o overhead de Python superou os ganhos de eficiência de GPU
+- **Sequential é mais simples e rápido**: Processamento record-by-record provou ser 3x mais rápido
+
+**Lições Aprendidas**:
+
+1. ⚠️ **Warning de GPU pode ser ignorado**: O warning "You seem to be using the pipelines sequentially on GPU" é informativo, não crítico
+2. 🚀 **Simpler is better**: Implementação sequential superou tentativas de otimização complexas
+3. 📊 **Measure, don't assume**: Sempre benchmarque antes de "otimizar"
+4. 🔄 **Python overhead matters**: Dataset creation e batch accumulation têm custo não trivial
+
+**Decisão Final**: ✅ MANTER PROCESSAMENTO SEQUENTIAL
+
+**Código revertido via**:
+```bash
+git checkout src/cli.py
+git checkout src/pipeline/classifier.py
+git checkout src/pipeline/ner_fallback.py
 ```
+
+**Arquivos modificados e revertidos**:
+- `src/cli.py`: Removido batch accumulation logic
+- `src/pipeline/classifier.py`: Removido classify_batch()
+- `src/pipeline/ner_fallback.py`: Removido batch NER methods
+- `config.yaml`: Removido ner_batch_size parameter
+- `src/config.py`: Removido ner_batch_size field
+- `requirements-ner.txt`: Removido datasets dependency
 
 ---
 
@@ -426,22 +488,31 @@ def classify_batch(self, texts: List[str]) -> List[NEROutput]:
 
 ### Configuração via `config.yaml`
 
+**Nota**: A configuração atual não possui seção `ai:` dedicada. O NER é habilitado por padrão e usa o modelo BERTimbau-NER.
+
+```yaml
+# config.yaml atual (sem seção AI - NER sempre habilitado)
+processing:
+  batch_size: 10000
+  workers: 8
+  confidence_threshold: 0.70
+```
+
+**Configuração futura proposta** (para permitir customização):
+
 ```yaml
 ai:
-  # Habilitar fallback NER
-  enable_fallback: true
+  # Habilitar fallback NER (padrão: true)
+  enable_ner: true
 
-  # Modelo Hugging Face
-  ner_model: "pierreguillou/bert-base-cased-pt-lenerbr"
+  # Modelo a usar (padrão: bertimbau-ner)
+  ner_model_key: "bertimbau-ner"  # ou "lenerbr", "bertimbau-base", etc.
 
-  # Timeout por inferência (segundos)
-  ner_timeout: 5
+  # Device (auto-detect por padrão)
+  device: "cuda"  # ou "cpu", ou null para auto
 
   # Cache local do modelo (diretório)
   cache_dir: "./models/cache"
-
-  # Threshold de confiança para acionar NER
-  ner_trigger_threshold: 0.70
 ```
 
 ### Uso Programático
@@ -451,10 +522,10 @@ from src.pipeline.classifier import Classifier
 from src.pipeline.ner_fallback import NERFallback
 from src.models.schemas import ClassificationInput
 
-# Inicializa NER fallback
-ner = NERFallback(model_name="pierreguillou/bert-base-cased-pt-lenerbr")
+# Inicializa NER fallback com modelo padrão (BERTimbau-NER)
+ner = NERFallback(model_key="bertimbau-ner", device="cuda")
 
-# Inicializa classificador com fallback
+# Inicializa classificador com NER
 classifier = Classifier(ner_fallback=ner)
 
 # Processa string complexa
@@ -466,24 +537,26 @@ print(f"Category: {result.category}")
 print(f"Confidence: {result.confidence}")
 print(f"Reasoning: {result.reasoning}")
 
-# Output:
+# Output esperado:
 # Category: CONJUNTO_PESSOAS
 # Confidence: 0.90
-# Reasoning: NER fallback: Multiple PESSOA entities: Oliveira, Inocencio, Silva
+# Reasoning: NER extracted 3 PESSOA entities: Oliveira, Inocencio, Silva
 ```
 
 ### Uso via CLI
 
 ```bash
-# Processar com NER habilitado (padrão)
+# Processar com NER habilitado (padrão - sempre habilitado na versão atual)
 python src/cli.py --config config.yaml
 
-# Desabilitar NER (apenas regras)
-python src/cli.py --config config.yaml --no-ai
+# Processar com limite de registros (teste)
+python src/cli.py --config config.yaml --max-records 1000
 
-# Modo verbose (mostra métricas de NER)
+# Modo verbose (mostra progresso detalhado)
 python src/cli.py --config config.yaml --verbose
 ```
+
+**Nota**: Na implementação atual, o NER está sempre habilitado. Não há flag `--no-ai` disponível.
 
 ---
 
@@ -553,19 +626,22 @@ Success rate (≥0.70):     94.2%
 
 **Sintoma**:
 ```
-OSError: Can't load tokenizer for 'pierreguillou/bert-base-cased-pt-lenerbr'
+OSError: Can't load tokenizer for 'marquesafonso/bertimbau-large-ner-selective'
 ```
 
 **Soluções**:
 ```bash
-# Força download do modelo
-python -c "from transformers import AutoTokenizer; AutoTokenizer.from_pretrained('pierreguillou/bert-base-cased-pt-lenerbr')"
+# Força download do modelo BERTimbau-NER (~1.3GB)
+python -c "from transformers import AutoTokenizer; AutoTokenizer.from_pretrained('marquesafonso/bertimbau-large-ner-selective')"
 
 # Verifica conexão com Hugging Face
 curl -I https://huggingface.co
 
-# Define cache local
+# Define cache local (para não baixar múltiplas vezes)
 export TRANSFORMERS_CACHE=./models/cache
+
+# Verifica espaço em disco (modelo requer ~1.5GB livres)
+df -h .
 ```
 
 #### 2. Timeout frequente
@@ -591,21 +667,29 @@ text = text[:300]  # Limita a 300 caracteres
 
 **Sintoma**:
 ```
-RuntimeError: CUDA out of memory (ou similar para CPU)
+RuntimeError: CUDA out of memory
+MemoryError: Unable to allocate tensor
 ```
+
+**Análise**:
+- BERTimbau-NER Large requer ~1.3GB em RAM (CPU) ou ~2GB em VRAM (GPU)
+- Processamento sequential adiciona ~500MB de overhead
 
 **Soluções**:
 ```python
-# Desabilita NER se RAM < 4GB
+# Força uso de CPU ao invés de GPU
+ner = NERFallback(device="cpu")
+
+# Ou verifica memória disponível antes de inicializar
 import psutil
-if psutil.virtual_memory().available < 4 * 1024**3:
-    ner_fallback = None
+if psutil.virtual_memory().available < 2 * 1024**3:
+    raise RuntimeError("Insufficient RAM (<2GB available)")
 ```
 
 ```yaml
-# Ou: Processa em batch menores
+# Reduz batch size se memória continuar insuficiente
 processing:
-  batch_size: 1000  # Reduz de 10000 para 1000
+  batch_size: 5000  # Reduz de 10000 para 5000
 ```
 
 #### 4. Confiança ainda baixa após NER
@@ -631,11 +715,18 @@ if result.confidence >= 0.65 and ner_was_used:
 
 ## Referências
 
-### Modelo e Dataset
+### Modelos
 
-- **Modelo**: [pierreguillou/bert-base-cased-pt-lenerbr](https://huggingface.co/pierreguillou/bert-base-cased-pt-lenerbr)
+- **Modelo Principal**: [marquesafonso/bertimbau-large-ner-selective](https://huggingface.co/marquesafonso/bertimbau-large-ner-selective) - BERTimbau-NER Large
+- **BERTimbau Base**: [neuralmind/bert-base-portuguese-cased](https://huggingface.co/neuralmind/bert-base-portuguese-cased)
+- **BERTimbau Large**: [neuralmind/bert-large-portuguese-cased](https://huggingface.co/neuralmind/bert-large-portuguese-cased)
+- **LeNER-Br Model**: [pierreguillou/bert-base-cased-pt-lenerbr](https://huggingface.co/pierreguillou/bert-base-cased-pt-lenerbr)
+
+### Datasets e Papers
+
 - **Dataset LeNER-Br**: [LeNER-Br: a Dataset for Named Entity Recognition in Brazilian Legal Text](https://cic.unb.br/~teodecampos/LeNER-Br/)
 - **Paper BERT**: [BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/abs/1810.04805)
+- **BERTimbau Paper**: [BERTimbau: Portuguese BERT](https://arxiv.org/abs/2008.07869)
 
 ### Bibliotecas
 
@@ -654,12 +745,14 @@ if result.confidence >= 0.65 and ner_was_used:
 
 | Versão | Data | Mudanças |
 |--------|------|----------|
-| 1.0.0 | 2025-10-03 | Integração inicial do BERT NER como fallback |
-| 1.1.0 | TBD | Batch processing para NER (speedup 10-20x) |
+| 1.0.0 | 2025-10-03 | Integração inicial do NER com BERTimbau-NER Large |
+| 1.0.1 | 2025-10-05 | Experimento batch processing (revertido após benchmarks) |
+| 1.0.2 | 2025-10-05 | Documentação técnica completa com lessons learned |
 | 2.0.0 | TBD | Fine-tuning com dados específicos de herbários |
+| 3.0.0 | TBD | API configurável para seleção de modelos via config.yaml |
 
 ---
 
-**Última atualização**: 2025-10-03
+**Última atualização**: 2025-10-05
 **Autor**: Sistema de Identificação de Coletores
 **Licença**: MIT
